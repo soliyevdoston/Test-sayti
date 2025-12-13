@@ -1,64 +1,62 @@
-// src/api.js
-const BASE_URL = "http://localhost:5002";
+import axios from "axios";
 
-// ================= LOGIN =================
-export async function loginUser(role, username, password) {
-  // role: 'admin', 'teacher', 'student'
-  try {
-    const res = await fetch(`${BASE_URL}/login/${role}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-      mode: "cors",
-    });
+// Backend manzili
+const API_URL = "http://localhost:5001/api";
 
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.message || "Login xato");
+const api = axios.create({
+  baseURL: API_URL,
+});
+
+// Yagona Login funksiyasi (Rolega qarab ishlaydi)
+export const loginUser = async (role, username, password, fullName = "") => {
+  // 1. ADMIN (Backendda admin yo'q, shunchaki qattiq kodlaymiz)
+  if (role === "admin") {
+    if (username === "admin" && password === "admin123") {
+      return { message: "Admin tizimga kirdi", role: "admin" };
+    } else {
+      throw new Error("Admin logini yoki paroli xato!");
     }
-
-    return res.json();
-  } catch (err) {
-    throw err;
   }
-}
 
-// ================= TESTLAR =================
-export async function fetchTests() {
-  try {
-    const res = await fetch(`${BASE_URL}/tests`, {
-      method: "GET",
-      mode: "cors",
+  // 2. TEACHER (O'qituvchi)
+  if (role === "teacher") {
+    const res = await api.post("/auth/teacher-login", { username, password });
+    // ID va Ismni saqlab qo'yamiz
+    localStorage.setItem("teacherId", res.data.teacherId);
+    localStorage.setItem("teacherName", res.data.fullName);
+    return { ...res.data, message: "Xush kelibsiz, Ustoz!" };
+  }
+
+  // 3. STUDENT (O'quvchi)
+  if (role === "student") {
+    // O'quvchi uchun username bu -> testLogin, password -> testPassword
+    const res = await api.post("/student/login", {
+      login: username,
+      password: password,
+      studentName: fullName, // <--- Qo'shimcha ism
     });
-    return res.json();
-  } catch (err) {
-    throw err;
-  }
-}
 
-// ================= NATIJALAR =================
-export async function sendResult(result) {
-  try {
-    const res = await fetch(`${BASE_URL}/results`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(result),
-      mode: "cors",
-    });
-    return res.json();
-  } catch (err) {
-    throw err;
-  }
-}
+    // Test ma'lumotlarini saqlaymiz
+    localStorage.setItem("studentTestId", res.data.testId);
+    localStorage.setItem("studentName", res.data.studentName);
 
-export async function getResults() {
-  try {
-    const res = await fetch(`${BASE_URL}/results`, {
-      method: "GET",
-      mode: "cors",
-    });
-    return res.json();
-  } catch (err) {
-    throw err;
+    return { ...res.data, message: "Testga muvaffaqiyatli kirdingiz!" };
   }
-}
+};
+
+// ... Qolgan API funksiyalar (Test yuklash, Natijalar va h.k.)
+// Bularni keyinroq kerak bo'lganda qo'shamiz yoki oldingi variantdan qolsin.
+export const teacherUploadTest = (formData) =>
+  api.post("/teacher/upload", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+export const getTeacherTests = () => api.get("/teacher/tests");
+export const startTestApi = (testId) => api.post(`/teacher/start/${testId}`);
+export const deleteTestApi = (testId) =>
+  api.delete(`/teacher/delete/${testId}`);
+export const submitTestApi = (data) => api.post("/student/submit", data);
+export const getResultsApi = (testId) => api.get(`/teacher/results/${testId}`);
+export const getAnalysisApi = (resultId) =>
+  api.get(`/teacher/analysis/${resultId}`);
+
+export default api;

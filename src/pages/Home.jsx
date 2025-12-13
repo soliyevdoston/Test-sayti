@@ -27,19 +27,19 @@ export default function Home() {
     {
       id: 1,
       title: "Admin",
-      path: "/admin-login",
+      path: "/admin/login",
       color: "bg-blue-600 hover:bg-blue-700 shadow-blue-400/50",
     },
     {
       id: 2,
       title: "O‘qituvchi",
-      path: "/teacher-login",
+      path: "/teacher/login",
       color: "bg-green-600 hover:bg-green-700 shadow-green-400/50",
     },
     {
       id: 3,
       title: "O‘quvchi",
-      path: "/student-login",
+      path: "/student/login",
       color: "bg-yellow-500 hover:bg-yellow-600 shadow-yellow-400/50",
     },
   ];
