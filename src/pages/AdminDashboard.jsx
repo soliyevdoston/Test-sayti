@@ -20,17 +20,17 @@ export default function AdminDashboard() {
   const fetchTeachers = async () => {
     try {
       const res = await getTeachers();
-      // Bizga kelgan narsa ro'yxat (Array) ekanligini tekshiramiz
+      // Serverdan kelgan ma'lumot Array ekanligini tekshiramiz
       if (Array.isArray(res.data)) {
         setTeachers(res.data);
       } else {
-        console.error("Serverdan noto'g'ri ma'lumot keldi:", res.data);
-        setTeachers([]); // Agar xato kelsa, bo'sh ro'yxat qo'yamiz (dastur sinmaydi)
+        console.error("Serverdan noto'g'ri format:", res.data);
+        setTeachers([]); // Xato bo'lsa bo'sh ro'yxat
       }
     } catch (e) {
       console.error(e);
       toast.error("O'qituvchilar ro'yxati olinmadi");
-      setTeachers([]); // Xatolik bo'lsa ham bo'sh ro'yxat
+      setTeachers([]);
     }
   };
 
@@ -49,7 +49,7 @@ export default function AdminDashboard() {
       await createTeacher(formData);
       toast.success("O'qituvchi muvaffaqiyatli qo'shildi!");
       setFormData({ fullName: "", username: "", password: "" });
-      fetchTeachers();
+      fetchTeachers(); // Ro'yxatni yangilash
     } catch (error) {
       toast.error(error.response?.data?.msg || "Xatolik yuz berdi");
     } finally {
@@ -59,11 +59,16 @@ export default function AdminDashboard() {
 
   // --- O'qituvchi o'chirish ---
   const handleDelete = async (id) => {
-    if (!window.confirm("O'qituvchini o'chirishni xohlaysizmi?")) return;
+    if (
+      !window.confirm(
+        "O'qituvchini va uning barcha testlarini o'chirishni xohlaysizmi?"
+      )
+    )
+      return;
     try {
       await deleteTeacher(id);
       toast.success("O'qituvchi o'chirildi");
-      fetchTeachers();
+      fetchTeachers(); // Ro'yxatni yangilash
     } catch (e) {
       toast.error("O'qituvchi o'chirilmadi");
     }
@@ -171,16 +176,16 @@ export default function AdminDashboard() {
           <h2 className="text-2xl font-bold text-gray-800 mb-6">
             O'qituvchilar Ro'yxati
           </h2>
-          {teachers.length === 0 ? (
-            <p className="text-gray-500">Hozircha o'qituvchi yo'q.</p>
-          ) : (
+
+          {/* Tekshiruv: Array bo'lsa va bo'sh bo'lmasa */}
+          {Array.isArray(teachers) && teachers.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full table-auto border-collapse">
                 <thead>
                   <tr className="bg-gray-100">
                     <th className="border px-4 py-2 text-left">F.I.SH</th>
                     <th className="border px-4 py-2 text-left">Login</th>
-                    <th className="border px-4 py-2">Actions</th>
+                    <th className="border px-4 py-2 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -191,7 +196,7 @@ export default function AdminDashboard() {
                       <td className="border px-4 py-2 text-center">
                         <button
                           onClick={() => handleDelete(tch._id)}
-                          className="text-red-600 hover:text-red-800 flex items-center justify-center gap-2 px-3 py-1 border rounded-lg"
+                          className="text-red-600 hover:text-red-800 flex items-center justify-center gap-2 px-3 py-1 border rounded-lg hover:bg-red-50 transition"
                         >
                           <Trash2 size={16} /> O'chirish
                         </button>
@@ -200,6 +205,13 @@ export default function AdminDashboard() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          ) : (
+            <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+              <p className="text-gray-500 text-lg">Hozircha o'qituvchi yo'q.</p>
+              <p className="text-gray-400 text-sm mt-2">
+                Yuqoridagi forma orqali yangi o'qituvchi qo'shing.
+              </p>
             </div>
           )}
         </div>

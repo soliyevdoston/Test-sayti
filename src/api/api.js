@@ -1,15 +1,14 @@
 import axios from "axios";
 
-// =================================================================
-// ⚠️ MUHIM: URL bir qatorda bo'lishi va oxiri /api bilan tugashi shart!
-// =================================================================
-
+// ⚠️ Ngrok link oxirida /api bo'lishi shart!
 const API_URL = "https://kayleigh-phototropic-cristine.ngrok-free.dev/api";
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     "Content-Type": "application/json",
+    // 👇👇👇 MANA SHU QATORNI QO'SHISH SHART 👇👇👇
+    "ngrok-skip-browser-warning": "true",
   },
 });
 
@@ -80,10 +79,12 @@ export const deleteTeacher = (teacherId) =>
 
 /* ===================== TEACHER API ===================== */
 
+// Fayl yuklash uchun alohida header kerak, lekin ngrok headeri ham qolishi kerak
 export const teacherUploadTest = (formData) =>
   api.post("/teacher/upload", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
+      "ngrok-skip-browser-warning": "true",
     },
   });
 

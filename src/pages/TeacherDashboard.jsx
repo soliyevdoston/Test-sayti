@@ -67,14 +67,23 @@ export default function TeacherDashboard() {
     }
   }, []);
 
+  // ✅ O'ZGARISH 1: Serverdan kelgan ma'lumot Array ekanligini tekshiramiz
   const loadTests = async (id) => {
     try {
       const { data } = await getTeacherTests(
         id || localStorage.getItem("teacherId")
       );
-      setTests(data);
+
+      if (Array.isArray(data)) {
+        setTests(data);
+      } else {
+        console.error("Testlar ro'yxati noto'g'ri formatda keldi:", data);
+        setTests([]); // Xato bo'lsa bo'sh ro'yxat (Dastur sinmaydi)
+      }
     } catch (error) {
+      console.error(error);
       toast.error("Testlarni yuklashda xatolik");
+      setTests([]);
     }
   };
 
@@ -145,7 +154,7 @@ export default function TeacherDashboard() {
     navigate("/teacher/login");
   };
 
-  // Natijalar ro'yxatini olish
+  // ✅ O'ZGARISH 2: Natijalar ham Array ekanligini tekshiramiz
   const analyzeTest = async (testId) => {
     if (analyzedTestId === testId) {
       setAnalyzedTestId(null);
@@ -153,15 +162,23 @@ export default function TeacherDashboard() {
     }
     try {
       const { data } = await getResultsApi(testId);
-      if (data.length === 0) toast.warning("Natijalar yo'q");
-      setResultsData(data);
+
+      if (Array.isArray(data)) {
+        if (data.length === 0) toast.warning("Hozircha natijalar yo'q");
+        setResultsData(data);
+      } else {
+        setResultsData([]);
+        console.error("Natijalar noto'g'ri formatda:", data);
+      }
+
       setAnalyzedTestId(testId);
     } catch (error) {
       toast.error("Natijalarni olishda xatolik");
+      setResultsData([]);
     }
   };
 
-  // --- YANGI: Aniq bir o'quvchining javoblarini tahlil qilish ---
+  // Aniq bir o'quvchining javoblarini tahlil qilish
   const handleStudentAnalysis = async (resultId) => {
     setIsModalOpen(true);
     setLoadingAnalysis(true);
@@ -306,39 +323,44 @@ export default function TeacherDashboard() {
                 Mavjud Testlar
               </h4>
               <div className="space-y-3">
-                {tests.map((t) => (
-                  <div
-                    key={t._id}
-                    className="flex flex-col md:flex-row justify-between items-center bg-gray-100 dark:bg-gray-700 p-4 rounded-lg border-l-4 border-blue-500"
-                  >
-                    <div>
-                      <h5 className="font-bold dark:text-white">{t.title}</h5>
-                      <p className="text-xs text-gray-500 dark:text-gray-300">
-                        Login: {t.testLogin} | Parol: {t.testPassword}
-                      </p>
-                    </div>
-                    <div className="flex gap-2 mt-2 md:mt-0">
-                      {t.isStarted ? (
-                        <span className="text-green-600 bg-green-100 px-2 py-1 rounded text-sm flex items-center gap-1">
-                          <FaCheckCircle /> Faol
-                        </span>
-                      ) : (
+                {/* Check if tests is array and not empty */}
+                {Array.isArray(tests) && tests.length > 0 ? (
+                  tests.map((t) => (
+                    <div
+                      key={t._id}
+                      className="flex flex-col md:flex-row justify-between items-center bg-gray-100 dark:bg-gray-700 p-4 rounded-lg border-l-4 border-blue-500"
+                    >
+                      <div>
+                        <h5 className="font-bold dark:text-white">{t.title}</h5>
+                        <p className="text-xs text-gray-500 dark:text-gray-300">
+                          Login: {t.testLogin} | Parol: {t.testPassword}
+                        </p>
+                      </div>
+                      <div className="flex gap-2 mt-2 md:mt-0">
+                        {t.isStarted ? (
+                          <span className="text-green-600 bg-green-100 px-2 py-1 rounded text-sm flex items-center gap-1">
+                            <FaCheckCircle /> Faol
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => startTest(t._id)}
+                            className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 flex items-center gap-1"
+                          >
+                            <FaPlay /> Boshlash
+                          </button>
+                        )}
                         <button
-                          onClick={() => startTest(t._id)}
-                          className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 flex items-center gap-1"
+                          onClick={() => removeTest(t._id)}
+                          className="bg-red-100 text-red-600 p-2 rounded hover:bg-red-200"
                         >
-                          <FaPlay /> Boshlash
+                          <FaTrash />
                         </button>
-                      )}
-                      <button
-                        onClick={() => removeTest(t._id)}
-                        className="bg-red-100 text-red-600 p-2 rounded hover:bg-red-200"
-                      >
-                        <FaTrash />
-                      </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-gray-500">Hozircha testlar yo'q.</p>
+                )}
               </div>
             </div>
           )}
@@ -352,82 +374,84 @@ export default function TeacherDashboard() {
                 Natijalar
               </h3>
               <div className="space-y-4">
-                {tests.map((test) => (
-                  <div
-                    key={test._id}
-                    className="border dark:border-gray-600 rounded-xl overflow-hidden"
-                  >
-                    <div className="bg-gray-100 dark:bg-gray-700 p-4 flex justify-between items-center">
-                      <h4 className="font-bold dark:text-white">
-                        {test.title}
-                      </h4>
-                      <button
-                        className={`px-3 py-1 rounded text-sm font-semibold transition ${
-                          analyzedTestId === test._id
-                            ? "bg-gray-300"
-                            : "bg-blue-100 text-blue-700"
-                        }`}
-                        onClick={() => analyzeTest(test._id)}
-                      >
-                        {analyzedTestId === test._id ? "Yopish" : "Ko'rish"}
-                      </button>
-                    </div>
-
-                    {analyzedTestId === test._id && (
-                      <div className="p-4 bg-white dark:bg-gray-800 overflow-x-auto">
-                        <table className="w-full text-left text-sm text-gray-700 dark:text-gray-200">
-                          <thead className="bg-gray-50 dark:bg-gray-600 uppercase text-xs">
-                            <tr>
-                              <th className="p-2">#</th>
-                              <th className="p-2">O'quvchi</th>
-                              <th className="p-2">Ball</th>
-                              <th className="p-2 text-center text-green-600">
-                                To'g'ri
-                              </th>
-                              <th className="p-2 text-center text-red-500">
-                                Xato
-                              </th>
-                              <th className="p-2 text-center">Tahlil</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {resultsData.map((res, idx) => (
-                              <tr
-                                key={res._id}
-                                className="border-b hover:bg-gray-50 dark:hover:bg-gray-700"
-                              >
-                                <td className="p-2">{idx + 1}</td>
-                                <td className="p-2 font-medium">
-                                  {res.studentName}
-                                </td>
-                                <td className="p-2 font-bold text-blue-600">
-                                  {res.totalScore}
-                                </td>
-                                <td className="p-2 text-center font-bold text-green-600">
-                                  {res.correctAnswersCount}
-                                </td>
-                                <td className="p-2 text-center font-bold text-red-500">
-                                  {res.wrongAnswersCount}
-                                </td>
-                                <td className="p-2 text-center">
-                                  {/* TAHLIL TUGMASI */}
-                                  <button
-                                    onClick={() =>
-                                      handleStudentAnalysis(res._id)
-                                    }
-                                    className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-3 py-1 rounded flex items-center justify-center gap-1 mx-auto"
-                                  >
-                                    <FaEye />
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                {Array.isArray(tests) &&
+                  tests.map((test) => (
+                    <div
+                      key={test._id}
+                      className="border dark:border-gray-600 rounded-xl overflow-hidden"
+                    >
+                      <div className="bg-gray-100 dark:bg-gray-700 p-4 flex justify-between items-center">
+                        <h4 className="font-bold dark:text-white">
+                          {test.title}
+                        </h4>
+                        <button
+                          className={`px-3 py-1 rounded text-sm font-semibold transition ${
+                            analyzedTestId === test._id
+                              ? "bg-gray-300"
+                              : "bg-blue-100 text-blue-700"
+                          }`}
+                          onClick={() => analyzeTest(test._id)}
+                        >
+                          {analyzedTestId === test._id ? "Yopish" : "Ko'rish"}
+                        </button>
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {analyzedTestId === test._id && (
+                        <div className="p-4 bg-white dark:bg-gray-800 overflow-x-auto">
+                          <table className="w-full text-left text-sm text-gray-700 dark:text-gray-200">
+                            <thead className="bg-gray-50 dark:bg-gray-600 uppercase text-xs">
+                              <tr>
+                                <th className="p-2">#</th>
+                                <th className="p-2">O'quvchi</th>
+                                <th className="p-2">Ball</th>
+                                <th className="p-2 text-center text-green-600">
+                                  To'g'ri
+                                </th>
+                                <th className="p-2 text-center text-red-500">
+                                  Xato
+                                </th>
+                                <th className="p-2 text-center">Tahlil</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {Array.isArray(resultsData) &&
+                                resultsData.map((res, idx) => (
+                                  <tr
+                                    key={res._id}
+                                    className="border-b hover:bg-gray-50 dark:hover:bg-gray-700"
+                                  >
+                                    <td className="p-2">{idx + 1}</td>
+                                    <td className="p-2 font-medium">
+                                      {res.studentName}
+                                    </td>
+                                    <td className="p-2 font-bold text-blue-600">
+                                      {res.totalScore}
+                                    </td>
+                                    <td className="p-2 text-center font-bold text-green-600">
+                                      {res.correctAnswersCount}
+                                    </td>
+                                    <td className="p-2 text-center font-bold text-red-500">
+                                      {res.wrongAnswersCount}
+                                    </td>
+                                    <td className="p-2 text-center">
+                                      {/* TAHLIL TUGMASI */}
+                                      <button
+                                        onClick={() =>
+                                          handleStudentAnalysis(res._id)
+                                        }
+                                        className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-3 py-1 rounded flex items-center justify-center gap-1 mx-auto"
+                                      >
+                                        <FaEye />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  ))}
               </div>
             </div>
           )}
@@ -482,7 +506,7 @@ export default function TeacherDashboard() {
                     </div>
                   </div>
 
-                  {selectedStudentAnalysis?.studentAnswers.map((ans, idx) => (
+                  {selectedStudentAnalysis?.studentAnswers?.map((ans, idx) => (
                     <div
                       key={idx}
                       className={`p-4 rounded-lg border-l-4 shadow-sm bg-white dark:bg-gray-800 ${
