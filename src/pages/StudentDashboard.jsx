@@ -136,6 +136,7 @@ export default function StudentDashboard() {
   };
 
   // ✅ TESTNI TOPSHIRISH
+  // ✅ TESTNI TOPSHIRISH
   const handleSubmit = async (isAuto = false) => {
     if (!isAuto && !window.confirm("Testni yakunlashga ishonchingiz komilmi?"))
       return;
@@ -147,16 +148,24 @@ export default function StudentDashboard() {
         answers: answers,
       };
 
-      const { data } = await submitTestApi(payload);
+      // Serverga yuborish
+      const response = await submitTestApi(payload);
+      const data = response.data; // Javobni olamiz
 
-      setResult(data);
-      setStatus("finished");
-      localStorage.setItem(`test_completed_${studentData.testId}`, "true");
+      console.log("Serverdan kelgan natija:", data); // Konsolga chiqarib ko'ramiz
 
-      if (isAuto) toast.warning("Vaqt tugadi! Test yakunlandi.");
-      else toast.success("Test yakunlandi!");
+      if (data) {
+        setResult(data); // Natijani statega yozamiz
+        setStatus("finished"); // Ekranni o'zgartiramiz
+        localStorage.setItem(`test_completed_${studentData.testId}`, "true");
+
+        if (isAuto) toast.warning("Vaqt tugadi!");
+        else toast.success("Test muvaffaqiyatli topshirildi!");
+      } else {
+        toast.error("Natija serverdan kelmadi!");
+      }
     } catch (error) {
-      console.error(error);
+      console.error("Xatolik:", error);
       toast.error("Xatolik yuz berdi. Internetni tekshiring.");
     }
   };
