@@ -10,7 +10,6 @@ import {
   XCircle,
   LogOut,
   Hourglass,
-  AlertTriangle,
 } from "lucide-react";
 import { submitTestApi } from "../api/api";
 
@@ -35,6 +34,14 @@ export default function StudentDashboard() {
 
   // ================= INIT =================
   useEffect(() => {
+    // 1. Agar natija allaqachon bor bo'lsa (Refresh qilinganda)
+    const savedResult = localStorage.getItem("test_result_data");
+    if (savedResult) {
+      setResult(JSON.parse(savedResult));
+      setStatus("finished");
+      return; // Agar natija bo'lsa, boshqa narsalarni yuklash shart emas
+    }
+
     let activeSession = location.state?.testData;
 
     if (!activeSession) {
@@ -70,6 +77,7 @@ export default function StudentDashboard() {
 
     if (timeLeft === 0) setTimeLeft(activeSession.duration * 60);
 
+    // Agar oldin tugatgan bo'lsa, "finished" ga o'tkazmaymiz, chunki natija yo'q bo'lsa qayta topshirsin
     setStatus(activeSession.isStarted ? "started" : "waiting");
 
     socket.emit("join-test-room", activeSession.testLogin);
@@ -82,12 +90,15 @@ export default function StudentDashboard() {
 
     // 2. O'QITUVCHI TESTNI MAJBURIY TO'XTATDI
     const handleForceStop = () => {
+      // Agar allaqachon tugatgan bo'lsa, qayta yubormasin
+      if (status === "finished") return;
+
       toast.warning("O'qituvchi testni yakunladi!");
       handleSubmit(true); // Avtomatik topshirish
     };
 
     socket.on("start-test", handleStartTest);
-    socket.on("force-stop-test", handleForceStop); // Tinglovchi qo'shildi
+    socket.on("force-stop-test", handleForceStop);
 
     const handleBeforeUnload = (e) => {
       if (status === "started") {
@@ -104,7 +115,7 @@ export default function StudentDashboard() {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
     // eslint-disable-next-line
-  }, [status]); // Dependency arrayga e'tibor bering
+  }, [status]);
 
   // ================= TIMER =================
   useEffect(() => {
@@ -148,10 +159,9 @@ export default function StudentDashboard() {
   };
 
   // ================= SUBMIT (YAKUNLASH) =================
-  // Bu funksiya state'dagi eng yangi "answers" ni olishi uchun
-  // uni useEffect ichida chaqirish yoki answers'ni dependencyga qo'shish muhim.
-  // Lekin oddiy yechim sifatida biz 'answers' stateni to'g'ridan-to'g'ri ishlatamiz.
   const handleSubmit = async (isAuto = false) => {
+    if (status === "finished") return; // Qayta yuborishni oldini olish
+
     if (!isAuto && !window.confirm("Haqiqatan ham testni yakunlaysizmi?"))
       return;
 
@@ -159,7 +169,7 @@ export default function StudentDashboard() {
       const payload = {
         testId: studentData.testId,
         studentName: studentData.name,
-        answers: answers, // State dagi javoblar
+        answers: answers,
       };
 
       const { data } = await submitTestApi(payload);
@@ -167,9 +177,9 @@ export default function StudentDashboard() {
       setResult(data);
       setStatus("finished");
 
-      // Tozalash
-      localStorage.removeItem("active_test_session");
-      localStorage.removeItem(`answers_${studentData.testId}`);
+      // ⚠️ MUHIM: Bu yerda ma'lumotlarni o'chirmaymiz!
+      // Natijani saqlab qo'yamiz (Refresh qilsa ham turishi uchun)
+      localStorage.setItem("test_result_data", JSON.stringify(data));
 
       if (isAuto) toast.warning("Vaqt tugadi yoki test to'xtatildi!");
       else toast.success("Test muvaffaqiyatli topshirildi!");
@@ -179,9 +189,12 @@ export default function StudentDashboard() {
     }
   };
 
+  // ================= EXIT (CHIQISH) =================
   const handleExit = () => {
+    // ⚠️ Faqat shu tugma bosilganda hammasini tozalaymiz
     socket.disconnect();
     localStorage.removeItem("active_test_session");
+    localStorage.removeItem("test_result_data"); // Natijani tozalash
     if (studentData?.testId) {
       localStorage.removeItem(`answers_${studentData.testId}`);
     }
@@ -194,7 +207,7 @@ export default function StudentDashboard() {
     return `${m}:${sec < 10 ? "0" : ""}${sec}`;
   };
 
-  // ================= 1. KUTISH REJIMI (YANGI DIZAYN) =================
+  // ================= 1. KUTISH REJIMI =================
   if (status === "waiting") {
     return (
       <div className="min-h-screen flex flex-col justify-center items-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-4">
@@ -224,10 +237,10 @@ export default function StudentDashboard() {
     );
   }
 
-  // ================= 2. NATIJA EKRANI =================
+  // ================= 2. NATIJA EKRANI (MUHIM) =================
   if (status === "finished" && result) {
     return (
-      <div className="min-h-screen flex justify-center items-center bg-gray-100 p-4">
+      <div className="min-h-screen flex justify-center items-center bg-gray-100 p-4 animate-fade-in">
         <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative">
           <div className="bg-blue-600 p-8 text-center text-white">
             <h2 className="text-2xl font-bold">Natijangiz</h2>
@@ -248,6 +261,8 @@ export default function StudentDashboard() {
                 <XCircle /> {result.wrongCount} Xato
               </div>
             </div>
+
+            {/* ⚠️ BU TUGMA BOSILMAGUNCHA SAHIFA YOPILMAYDI */}
             <button
               onClick={handleExit}
               className="w-full bg-gray-900 hover:bg-black text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg"
