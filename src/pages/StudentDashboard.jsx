@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { submitTestApi } from "../api/api";
 
-// ⚠️ Ngrok havolangizni tekshiring (Oxirida /api bo'lmasin)
+// ⚠️ DIQQAT: Har safar ngrok o'zgarganda bu linkni yangilang!
 const SOCKET_URL = "https://kayleigh-phototropic-cristine.ngrok-free.dev";
 
 const socket = io(SOCKET_URL, {
@@ -33,41 +33,63 @@ export default function StudentDashboard() {
   const questionRefs = useRef({});
 
   useEffect(() => {
-    const stateData = location.state?.testData;
-    const isCompleted = localStorage.getItem(
-      `test_completed_${stateData?.testId}`
-    );
+    // 1. Ma'lumotlarni olish (Login dan kelgan yoki Xotirada saqlangan)
+    let activeSession = location.state?.testData;
 
-    // 🔒 HIMOYA: Agar ma'lumot yo'q bo'lsa yoki test oldin topshirilgan bo'lsa
-    if (!stateData || isCompleted) {
-      if (isCompleted) toast.warning("Siz bu testni topshirib bo'lgansiz.");
-      // Bosh sahifaga uloqtirish va tarixni tozalash
+    // Agar Login orqali kelmagan bo'lsa, LocalStorage ni tekshiramiz (Refresh qilinganda)
+    if (!activeSession) {
+      const savedSession = localStorage.getItem("active_test_session");
+      if (savedSession) {
+        activeSession = JSON.parse(savedSession);
+      }
+    }
+
+    // ❌ O'ZGARISH: "Oldin topshirganmi?" degan tekshiruv olib tashlandi.
+    // Endi har kim qaytadan kiraveradi.
+
+    // Agar umuman sessiya ma'lumoti yo'q bo'lsa -> Login sahifasiga qaytarish
+    if (!activeSession) {
       navigate("/", { replace: true });
       return;
     }
 
+    // 3. Ma'lumotlarni State ga yuklash
     setStudentData({
-      name: stateData.studentName,
-      testId: stateData.testId,
-      testLogin: stateData.testLogin,
+      name: activeSession.studentName,
+      testId: activeSession.testId,
+      testLogin: activeSession.testLogin,
     });
 
     setTestData({
-      title: stateData.title,
-      description: stateData.description,
-      questions: stateData.questions,
-      duration: stateData.duration,
+      title: activeSession.title,
+      description: activeSession.description,
+      questions: activeSession.questions,
+      duration: activeSession.duration,
     });
 
-    setTimeLeft(stateData.duration * 60);
+    // 4. Sessiyani xotiraga saqlab qo'yamiz (Refresh qilsa o'chmasligi uchun)
+    localStorage.setItem("active_test_session", JSON.stringify(activeSession));
 
-    if (stateData.isStarted) {
-      setStatus("started");
+    // 5. Oldin belgilagan javoblarni tiklash (Agar bo'lsa)
+    const savedAnswers = localStorage.getItem(
+      `answers_${activeSession.testId}`
+    );
+    if (savedAnswers) {
+      setAnswers(JSON.parse(savedAnswers));
+    }
+
+    // 6. Vaqtni sozlash
+    if (timeLeft === 0) {
+      setTimeLeft(activeSession.duration * 60);
+    }
+
+    if (activeSession.isStarted) {
+      if (status !== "finished") setStatus("started");
     } else {
       setStatus("waiting");
     }
 
-    socket.emit("join-test-room", stateData.testLogin);
+    socket.emit("join-test-room", activeSession.testLogin);
 
     const handleStartTest = () => {
       toast.info("Test boshlandi!");
@@ -76,7 +98,6 @@ export default function StudentDashboard() {
 
     socket.on("start-test", handleStartTest);
 
-    // Refreshdan himoya
     const handleBeforeUnload = (e) => {
       if (status === "started") {
         e.preventDefault();
@@ -91,7 +112,7 @@ export default function StudentDashboard() {
     };
   }, [status, navigate, location.state]);
 
-  // "Orqaga" tugmasini bloklash (Faqat natija oynasida)
+  // "Orqaga" tugmasini bloklash (faqat test tugagandan keyin orqaga qaytmasligi uchun)
   useEffect(() => {
     if (status === "finished") {
       window.history.pushState(null, document.title, window.location.href);
@@ -105,6 +126,7 @@ export default function StudentDashboard() {
     }
   }, [status]);
 
+  // Timer
   useEffect(() => {
     let timer;
     if (status === "started" && timeLeft > 0) {
@@ -122,10 +144,23 @@ export default function StudentDashboard() {
     return () => clearInterval(timer);
   }, [status, timeLeft]);
 
+  // Javob belgilash
   const handleSelect = (questionId, optionText) => {
     setAnswers((prev) => {
       const filtered = prev.filter((a) => a.questionId !== questionId);
-      return [...filtered, { questionId, selectedText: optionText }];
+      const newAnswers = [
+        ...filtered,
+        { questionId, selectedText: optionText },
+      ];
+
+      if (studentData?.testId) {
+        localStorage.setItem(
+          `answers_${studentData.testId}`,
+          JSON.stringify(newAnswers)
+        );
+      }
+
+      return newAnswers;
     });
   };
 
@@ -153,8 +188,13 @@ export default function StudentDashboard() {
 
       setResult(data);
       setStatus("finished");
-      // Brauzer xotirasiga yozib qo'yamiz
-      localStorage.setItem(`test_completed_${studentData.testId}`, "true");
+
+      // ❌ O'ZGARISH: "localStorage.setItem(...)" qismi o'chirib tashlandi.
+      // Endi qurilma bloklanmaydi.
+
+      // Lekin joriy o'quvchining vaqtinchalik ma'lumotlarini tozalaymiz:
+      localStorage.removeItem("active_test_session");
+      localStorage.removeItem(`answers_${studentData.testId}`);
 
       if (isAuto) toast.warning("Vaqt tugadi! Test yakunlandi.");
       else toast.success("Test yakunlandi!");
@@ -164,10 +204,14 @@ export default function StudentDashboard() {
     }
   };
 
-  // ✅ TESTDAN CHIQISH (Asosiy sahifaga qaytish)
+  // ✅ TESTDAN CHIQISH
   const handleExit = () => {
     socket.disconnect();
-    // replace: true -> Brauzer tarixidan testni o'chirib, Bosh sahifaga o'tish
+    // Chiqishda hamma narsani tozalaymiz, shunda keyingi odam bemalol kiradi
+    localStorage.removeItem("active_test_session");
+    if (studentData?.testId) {
+      localStorage.removeItem(`answers_${studentData.testId}`);
+    }
     navigate("/", { replace: true });
   };
 
@@ -179,16 +223,14 @@ export default function StudentDashboard() {
 
   // ================= UI QISMLARI =================
 
-  // 1. ✨ KUTISH ZALI (DIZAYN)
+  // 1. KUTISH ZALI
   if (status === "waiting") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex flex-col justify-center items-center p-4 relative overflow-hidden">
-        {/* Orqa fon bezaklari */}
         <div className="absolute top-0 left-0 w-64 h-64 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse"></div>
         <div className="absolute bottom-0 right-0 w-64 h-64 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse delay-1000"></div>
 
         <div className="bg-white/80 backdrop-blur-xl p-8 md:p-12 rounded-3xl shadow-2xl max-w-md w-full border border-white/50 relative z-10">
-          {/* Animatsiyali Ikonka */}
           <div className="relative w-24 h-24 mx-auto mb-8 flex items-center justify-center">
             <div className="absolute inset-0 bg-blue-100 rounded-full animate-ping opacity-75"></div>
             <div className="relative bg-white p-5 rounded-full shadow-lg border border-blue-50">
@@ -204,7 +246,6 @@ export default function StudentDashboard() {
             boshlanadi.
           </p>
 
-          {/* Ma'lumot kartochkasi */}
           <div className="bg-gradient-to-b from-gray-50 to-gray-100 rounded-2xl p-6 space-y-4 border border-gray-200 shadow-inner">
             <div className="flex items-center gap-4 border-b border-gray-200 pb-3 last:border-0 last:pb-0">
               <div className="bg-white p-2.5 rounded-xl shadow-sm text-indigo-500">
@@ -219,7 +260,6 @@ export default function StudentDashboard() {
                 </p>
               </div>
             </div>
-
             <div className="flex items-center gap-4 border-b border-gray-200 pb-3 last:border-0 last:pb-0">
               <div className="bg-white p-2.5 rounded-xl shadow-sm text-purple-500">
                 <FileText size={20} />
@@ -233,7 +273,6 @@ export default function StudentDashboard() {
                 </p>
               </div>
             </div>
-
             <div className="flex items-center gap-4">
               <div className="bg-white p-2.5 rounded-xl shadow-sm text-orange-500">
                 <Clock size={20} />
