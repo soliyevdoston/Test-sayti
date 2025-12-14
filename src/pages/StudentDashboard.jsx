@@ -10,10 +10,11 @@ import {
   XCircle,
   LogOut,
   Hourglass,
+  AlertTriangle,
 } from "lucide-react";
 import { submitTestApi } from "../api/api";
 
-// ⚠️ NGROK URL
+// ⚠️ NGROK URL (Har safar yangilanganda tekshiring)
 const SOCKET_URL = "https://kayleigh-phototropic-cristine.ngrok-free.dev";
 
 const socket = io(SOCKET_URL, {
@@ -57,7 +58,7 @@ export default function StudentDashboard() {
       description: activeSession.description,
       duration: activeSession.duration,
       questions: activeSession.questions,
-      readingText: activeSession.readingText || null, // ✅ READING TEXT
+      readingText: activeSession.readingText || null,
     });
 
     localStorage.setItem("active_test_session", JSON.stringify(activeSession));
@@ -73,12 +74,20 @@ export default function StudentDashboard() {
 
     socket.emit("join-test-room", activeSession.testLogin);
 
+    // 1. TEST BOSHLANDI
     const handleStartTest = () => {
-      toast.info("Test boshlandi!");
+      toast.info("Test boshlandi! Omad.");
       setStatus("started");
     };
 
+    // 2. O'QITUVCHI TESTNI MAJBURIY TO'XTATDI
+    const handleForceStop = () => {
+      toast.warning("O'qituvchi testni yakunladi!");
+      handleSubmit(true); // Avtomatik topshirish
+    };
+
     socket.on("start-test", handleStartTest);
+    socket.on("force-stop-test", handleForceStop); // Tinglovchi qo'shildi
 
     const handleBeforeUnload = (e) => {
       if (status === "started") {
@@ -91,9 +100,11 @@ export default function StudentDashboard() {
 
     return () => {
       socket.off("start-test", handleStartTest);
+      socket.off("force-stop-test", handleForceStop);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [location.state, navigate, status, timeLeft]);
+    // eslint-disable-next-line
+  }, [status]); // Dependency arrayga e'tibor bering
 
   // ================= TIMER =================
   useEffect(() => {
@@ -113,7 +124,7 @@ export default function StudentDashboard() {
     return () => clearInterval(timer);
   }, [status, timeLeft]);
 
-  // ================= ANSWER =================
+  // ================= JAVOB BELGILASH =================
   const handleSelect = (questionId, optionText) => {
     setAnswers((prev) => {
       const filtered = prev.filter((a) => a.questionId !== questionId);
@@ -125,7 +136,6 @@ export default function StudentDashboard() {
           JSON.stringify(updated)
         );
       }
-
       return updated;
     });
   };
@@ -137,15 +147,19 @@ export default function StudentDashboard() {
     });
   };
 
-  // ================= SUBMIT =================
+  // ================= SUBMIT (YAKUNLASH) =================
+  // Bu funksiya state'dagi eng yangi "answers" ni olishi uchun
+  // uni useEffect ichida chaqirish yoki answers'ni dependencyga qo'shish muhim.
+  // Lekin oddiy yechim sifatida biz 'answers' stateni to'g'ridan-to'g'ri ishlatamiz.
   const handleSubmit = async (isAuto = false) => {
-    if (!isAuto && !window.confirm("Testni yakunlaysizmi?")) return;
+    if (!isAuto && !window.confirm("Haqiqatan ham testni yakunlaysizmi?"))
+      return;
 
     try {
       const payload = {
         testId: studentData.testId,
         studentName: studentData.name,
-        answers,
+        answers: answers, // State dagi javoblar
       };
 
       const { data } = await submitTestApi(payload);
@@ -153,21 +167,24 @@ export default function StudentDashboard() {
       setResult(data);
       setStatus("finished");
 
+      // Tozalash
       localStorage.removeItem("active_test_session");
       localStorage.removeItem(`answers_${studentData.testId}`);
 
-      isAuto
-        ? toast.warning("Vaqt tugadi!")
-        : toast.success("Test yakunlandi!");
+      if (isAuto) toast.warning("Vaqt tugadi yoki test to'xtatildi!");
+      else toast.success("Test muvaffaqiyatli topshirildi!");
     } catch (err) {
-      toast.error("Xatolik yuz berdi");
+      console.error(err);
+      toast.error("Natijani saqlashda xatolik! Internetni tekshiring.");
     }
   };
 
   const handleExit = () => {
     socket.disconnect();
     localStorage.removeItem("active_test_session");
-    localStorage.removeItem(`answers_${studentData?.testId}`);
+    if (studentData?.testId) {
+      localStorage.removeItem(`answers_${studentData.testId}`);
+    }
     navigate("/", { replace: true });
   };
 
@@ -177,109 +194,180 @@ export default function StudentDashboard() {
     return `${m}:${sec < 10 ? "0" : ""}${sec}`;
   };
 
-  // ================= WAITING =================
+  // ================= 1. KUTISH REJIMI (YANGI DIZAYN) =================
   if (status === "waiting") {
     return (
-      <div className="min-h-screen flex justify-center items-center bg-gray-100">
-        <div className="bg-white p-10 rounded-3xl shadow-xl text-center">
-          <Hourglass
-            className="mx-auto text-blue-600 animate-pulse"
-            size={48}
-          />
-          <h2 className="mt-4 font-bold text-xl">Kutilmoqda...</h2>
-          <p className="text-gray-500 mt-2">O‘qituvchi testni boshlaydi</p>
+      <div className="min-h-screen flex flex-col justify-center items-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-4">
+        <div className="bg-white/10 backdrop-blur-lg p-10 rounded-3xl shadow-2xl text-center max-w-md w-full border border-white/20">
+          <div className="relative w-24 h-24 mx-auto mb-6">
+            <div className="absolute inset-0 bg-white/30 rounded-full animate-ping"></div>
+            <div className="relative bg-white text-indigo-600 p-5 rounded-full shadow-lg flex items-center justify-center h-full w-full">
+              <Hourglass size={40} className="animate-spin-slow" />
+            </div>
+          </div>
+          <h2 className="text-3xl font-extrabold text-white mb-2 tracking-wide">
+            Tayyormisiz?
+          </h2>
+          <p className="text-indigo-100 mb-6">
+            {studentData?.name}, o‘qituvchi <b>Start</b> tugmasini bosishi bilan
+            test avtomatik boshlanadi.
+          </p>
+          <div className="bg-white/20 rounded-xl p-4 text-white text-sm font-mono">
+            Fan: {testData?.title} <br />
+            Vaqt: {testData?.duration} daqiqa
+          </div>
         </div>
+        <p className="mt-8 text-white/50 text-xs animate-pulse">
+          Aloqa o'rnatildi...
+        </p>
       </div>
     );
   }
 
-  // ================= RESULT =================
+  // ================= 2. NATIJA EKRANI =================
   if (status === "finished" && result) {
     return (
-      <div className="min-h-screen flex justify-center items-center bg-gray-100">
-        <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center">
-          <h2 className="text-2xl font-bold mb-4">Test yakunlandi</h2>
-          <p className="text-5xl font-extrabold text-blue-600 mb-4">
-            {result.score} / {result.maxScore}
-          </p>
-          <div className="flex justify-between mb-6">
-            <div className="text-green-600 font-bold">
-              <CheckCircle className="mx-auto" /> {result.correctCount}
+      <div className="min-h-screen flex justify-center items-center bg-gray-100 p-4">
+        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative">
+          <div className="bg-blue-600 p-8 text-center text-white">
+            <h2 className="text-2xl font-bold">Natijangiz</h2>
+            <div className="text-6xl font-extrabold mt-2">
+              {Math.round((result.score / result.maxScore) * 100)}%
             </div>
-            <div className="text-red-500 font-bold">
-              <XCircle className="mx-auto" /> {result.wrongCount}
-            </div>
+            <p className="opacity-80 mt-1">
+              Jami: {result.score} / {result.maxScore} ball
+            </p>
           </div>
-          <button
-            onClick={handleExit}
-            className="w-full bg-black text-white py-3 rounded-xl"
-          >
-            Chiqish
-          </button>
+          <div className="p-8">
+            <div className="flex items-center justify-between mb-6 bg-gray-50 p-4 rounded-xl">
+              <div className="flex items-center gap-2 text-green-600 font-bold">
+                <CheckCircle /> {result.correctCount} To'g'ri
+              </div>
+              <div className="h-8 w-[1px] bg-gray-300"></div>
+              <div className="flex items-center gap-2 text-red-500 font-bold">
+                <XCircle /> {result.wrongCount} Xato
+              </div>
+            </div>
+            <button
+              onClick={handleExit}
+              className="w-full bg-gray-900 hover:bg-black text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg"
+            >
+              <LogOut size={20} /> Chiqish va Bosh sahifa
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  // ================= TEST =================
+  // ================= 3. TEST JARAYONI =================
   if (status === "started" && testData) {
     return (
-      <div className="bg-gray-50 min-h-screen pb-24">
-        <header className="bg-white sticky top-0 z-10 p-4 flex justify-between border-b">
-          <div>
-            <h1 className="font-bold">{testData.title}</h1>
-            <p className="text-xs text-gray-500">{studentData.name}</p>
+      <div className="bg-gray-50 min-h-screen pb-32 select-none">
+        {/* Header */}
+        <header className="bg-white sticky top-0 z-20 px-4 py-3 flex justify-between items-center shadow-sm border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <div className="bg-indigo-100 p-2 rounded-full text-indigo-600">
+              <User size={20} />
+            </div>
+            <div>
+              <h1 className="font-bold text-gray-800 text-sm md:text-base line-clamp-1 max-w-[150px] md:max-w-xs">
+                {testData.title}
+              </h1>
+              <p className="text-xs text-gray-500 font-medium">
+                {studentData.name}
+              </p>
+            </div>
           </div>
-          <div className="font-mono font-bold bg-blue-100 text-blue-700 px-3 py-1 rounded">
+          <div
+            className={`flex items-center gap-2 font-mono font-bold text-lg px-4 py-1.5 rounded-full shadow-inner ${
+              timeLeft < 60
+                ? "bg-red-100 text-red-600 animate-pulse border border-red-200"
+                : "bg-blue-50 text-blue-600 border border-blue-100"
+            }`}
+          >
+            <Clock size={18} />
             {formatTime(timeLeft)}
           </div>
         </header>
 
         <div className="max-w-3xl mx-auto p-4 space-y-6">
-          {/* ===== READING TEXT ===== */}
+          {/* Reading Text (Agar bo'lsa) */}
           {testData.readingText && (
-            <div className="bg-white p-6 rounded-xl border shadow-sm">
-              <h2 className="font-bold mb-4 flex items-center gap-2">
-                <FileText className="text-blue-600" /> Reading
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <h2 className="font-bold text-gray-800 mb-3 flex items-center gap-2 border-b pb-2">
+                <FileText className="text-blue-500" /> Matnni o'qing
               </h2>
-              <div className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+              <div className="text-sm md:text-base text-gray-700 whitespace-pre-line leading-7 font-serif">
                 {testData.readingText}
               </div>
             </div>
           )}
 
-          {/* ===== QUESTIONS ===== */}
+          {/* Savollar */}
           {testData.questions.map((q, index) => (
             <div
               key={q.id}
               ref={(el) => (questionRefs.current[q.id] = el)}
-              className="bg-white p-6 rounded-xl border shadow-sm"
+              className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-gray-100 transition hover:shadow-md"
             >
-              <div className="flex justify-between mb-4">
-                <h3 className="font-semibold">
-                  {index + 1}. {q.text}
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-base md:text-lg font-semibold text-gray-800 flex gap-3">
+                  <span className="bg-gray-100 text-gray-600 min-w-[30px] h-[30px] flex justify-center items-center rounded-full text-sm font-bold">
+                    {index + 1}
+                  </span>
+                  {q.text}
                 </h3>
-                <span className="text-xs text-gray-400">{q.points} ball</span>
+                <span className="text-xs font-bold bg-indigo-50 text-indigo-600 px-2 py-1 rounded border border-indigo-100 whitespace-nowrap ml-2">
+                  {q.points} ball
+                </span>
               </div>
 
-              <div className="space-y-2">
+              {/* Variantlar (Radio Buttons) */}
+              <div className="space-y-3 pl-2 md:pl-10">
                 {q.options.map((opt, i) => {
-                  const selected =
+                  const isSelected =
                     answers.find((a) => a.questionId === q.id)?.selectedText ===
                     opt.text;
 
                   return (
-                    <div
+                    <label
                       key={i}
-                      onClick={() => handleSelect(q.id, opt.text)}
-                      className={`p-3 rounded-lg cursor-pointer border ${
-                        selected
-                          ? "bg-blue-50 border-blue-500"
-                          : "bg-gray-50 hover:bg-gray-100"
+                      className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all group ${
+                        isSelected
+                          ? "border-blue-500 bg-blue-50 shadow-sm"
+                          : "border-gray-100 hover:border-blue-200 hover:bg-gray-50"
                       }`}
                     >
-                      {opt.text}
-                    </div>
+                      <div className="relative flex items-center">
+                        <input
+                          type="radio"
+                          name={`question-${q.id}`}
+                          value={opt.text}
+                          checked={isSelected}
+                          onChange={() => handleSelect(q.id, opt.text)}
+                          className="peer sr-only" // Inputni yashiramiz
+                        />
+                        <div
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                            isSelected
+                              ? "border-blue-500 bg-blue-500"
+                              : "border-gray-300 group-hover:border-blue-400"
+                          }`}
+                        >
+                          <div className="w-2 h-2 bg-white rounded-full"></div>
+                        </div>
+                      </div>
+                      <span
+                        className={`text-sm md:text-base ${
+                          isSelected
+                            ? "text-blue-900 font-medium"
+                            : "text-gray-700"
+                        }`}
+                      >
+                        {opt.text}
+                      </span>
+                    </label>
                   );
                 })}
               </div>
@@ -287,13 +375,37 @@ export default function StudentDashboard() {
           ))}
         </div>
 
-        <div className="fixed bottom-0 left-0 w-full bg-white p-3 border-t">
-          <button
-            onClick={() => handleSubmit(false)}
-            className="w-full bg-black text-white py-3 rounded-xl"
-          >
-            Testni yakunlash
-          </button>
+        {/* Footer Navigatsiya va Tugatish */}
+        <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-30 pb-4 pt-2 px-2">
+          <div className="max-w-3xl mx-auto flex flex-col gap-3">
+            {/* Savol raqamlari (Scroll bo'ladi) */}
+            <div className="flex gap-2 overflow-x-auto pb-2 px-2 scrollbar-hide">
+              {testData.questions.map((q, index) => {
+                const isAnswered = answers.some((a) => a.questionId === q.id);
+                return (
+                  <button
+                    key={q.id}
+                    onClick={() => scrollToQuestion(q.id)}
+                    className={`min-w-[40px] h-10 rounded-lg text-sm font-bold border transition-all ${
+                      isAnswered
+                        ? "bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200"
+                        : "bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100"
+                    }`}
+                  >
+                    {index + 1}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Asosiy tugma */}
+            <button
+              onClick={() => handleSubmit(false)}
+              className="w-full bg-gray-900 hover:bg-black text-white py-3.5 rounded-xl font-bold text-lg shadow-lg active:scale-[0.99] transition-transform flex justify-center items-center gap-2"
+            >
+              <CheckCircle size={20} /> Testni Yakunlash
+            </button>
+          </div>
         </div>
       </div>
     );

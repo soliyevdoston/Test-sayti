@@ -1,13 +1,14 @@
 import axios from "axios";
 
-// ⚠️ Ngrok link oxirida /api bo'lishi shart!
+// ⚠️ DIQQAT: Ngrok har safar o'chib yonganda bu havola o'zgaradi.
+// Uni terminaldan olib, shu yerga yangilang!
 const API_URL = "https://kayleigh-phototropic-cristine.ngrok-free.dev/api";
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     "Content-Type": "application/json",
-    // 👇👇👇 MANA SHU QATORNI QO'SHISH SHART 👇👇👇
+    // ⚠️ Bu qator Ngrok ogohlantirish oynasini o'tkazib yuborish uchun shart:
     "ngrok-skip-browser-warning": "true",
   },
 });
@@ -16,7 +17,7 @@ const api = axios.create({
 
 export const loginUser = async (role, username, password, fullName = "") => {
   try {
-    // ===== ADMIN =====
+    // ===== ADMIN (Statik Login) =====
     if (role === "admin") {
       if (username === "admin" && password === "admin123") {
         return {
@@ -27,7 +28,7 @@ export const loginUser = async (role, username, password, fullName = "") => {
       throw new Error("Admin logini yoki paroli xato!");
     }
 
-    // ===== TEACHER =====
+    // ===== TEACHER (O'qituvchi) =====
     if (role === "teacher") {
       const res = await api.post("/auth/teacher-login", {
         username,
@@ -44,7 +45,7 @@ export const loginUser = async (role, username, password, fullName = "") => {
       };
     }
 
-    // ===== STUDENT =====
+    // ===== STUDENT (O'quvchi) =====
     if (role === "student") {
       const res = await api.post("/student/login", {
         login: username,
@@ -79,11 +80,12 @@ export const deleteTeacher = (teacherId) =>
 
 /* ===================== TEACHER API ===================== */
 
-// Fayl yuklash uchun alohida header kerak, lekin ngrok headeri ham qolishi kerak
+// Fayl yuklash (Multipart Form Data)
 export const teacherUploadTest = (formData) =>
   api.post("/teacher/upload", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
+      // Fayl yuklashda ham header qolishi kerak
       "ngrok-skip-browser-warning": "true",
     },
   });

@@ -8,9 +8,11 @@ import {
   FaCheckCircle,
   FaEye,
   FaTimes,
+  FaStop, // 🛑 Yangi ikonka
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
+import { io } from "socket.io-client"; // 📡 Socket ulanish
 
 // API lar
 import {
@@ -21,6 +23,13 @@ import {
   getResultsApi,
   getAnalysisApi,
 } from "../api/api";
+
+// ⚠️ NGROK URL (Har safar yangilanganda tekshiring)
+const SOCKET_URL = "https://kayleigh-phototropic-cristine.ngrok-free.dev";
+
+const socket = io(SOCKET_URL, {
+  transports: ["websocket", "polling"],
+});
 
 export default function TeacherDashboard() {
   const navigate = useNavigate();
@@ -40,10 +49,10 @@ export default function TeacherDashboard() {
   });
 
   // Tahlil uchun state-lar
-  const [analyzedTestId, setAnalyzedTestId] = useState(null); // Qaysi test natijalari ochiq
-  const [resultsData, setResultsData] = useState([]); // Test natijalari ro'yxati
+  const [analyzedTestId, setAnalyzedTestId] = useState(null);
+  const [resultsData, setResultsData] = useState([]);
 
-  // MODAL UCHUN YANGI STATE-LAR
+  // MODAL UCHUN STATE-LAR
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStudentAnalysis, setSelectedStudentAnalysis] = useState(null);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
@@ -65,20 +74,17 @@ export default function TeacherDashboard() {
       setTeacherName(name);
       loadTests(id);
     }
-  }, []);
+  }, [navigate]);
 
-  // ✅ O'ZGARISH 1: Serverdan kelgan ma'lumot Array ekanligini tekshiramiz
   const loadTests = async (id) => {
     try {
       const { data } = await getTeacherTests(
         id || localStorage.getItem("teacherId")
       );
-
       if (Array.isArray(data)) {
         setTests(data);
       } else {
-        console.error("Testlar ro'yxati noto'g'ri formatda keldi:", data);
-        setTests([]); // Xato bo'lsa bo'sh ro'yxat (Dastur sinmaydi)
+        setTests([]);
       }
     } catch (error) {
       console.error(error);
@@ -139,6 +145,7 @@ export default function TeacherDashboard() {
     }
   };
 
+  // ✅ TESTNI BOSHLASH
   const startTest = async (testId) => {
     try {
       await startTestApi(testId);
@@ -149,12 +156,26 @@ export default function TeacherDashboard() {
     }
   };
 
+  // 🛑 TESTNI MAJBURIY TO'XTATISH (YANGI FUNKSIYA)
+  const handleForceStop = (testLogin) => {
+    if (
+      window.confirm(
+        "DIQQAT: Barcha o'quvchilar uchun testni majburiy to'xtatmoqchimisiz?"
+      )
+    ) {
+      // Serverga 'STOP' buyrug'ini yuboramiz
+      socket.emit("force-stop-test", testLogin);
+      toast.warning(
+        "Test majburiy to'xtatildi! O'quvchilar natijasi yig'ilmoqda."
+      );
+    }
+  };
+
   const logout = () => {
     localStorage.clear();
     navigate("/teacher/login");
   };
 
-  // ✅ O'ZGARISH 2: Natijalar ham Array ekanligini tekshiramiz
   const analyzeTest = async (testId) => {
     if (analyzedTestId === testId) {
       setAnalyzedTestId(null);
@@ -162,15 +183,12 @@ export default function TeacherDashboard() {
     }
     try {
       const { data } = await getResultsApi(testId);
-
       if (Array.isArray(data)) {
         if (data.length === 0) toast.warning("Hozircha natijalar yo'q");
         setResultsData(data);
       } else {
         setResultsData([]);
-        console.error("Natijalar noto'g'ri formatda:", data);
       }
-
       setAnalyzedTestId(testId);
     } catch (error) {
       toast.error("Natijalarni olishda xatolik");
@@ -178,7 +196,6 @@ export default function TeacherDashboard() {
     }
   };
 
-  // Aniq bir o'quvchining javoblarini tahlil qilish
   const handleStudentAnalysis = async (resultId) => {
     setIsModalOpen(true);
     setLoadingAnalysis(true);
@@ -323,35 +340,50 @@ export default function TeacherDashboard() {
                 Mavjud Testlar
               </h4>
               <div className="space-y-3">
-                {/* Check if tests is array and not empty */}
                 {Array.isArray(tests) && tests.length > 0 ? (
                   tests.map((t) => (
                     <div
                       key={t._id}
-                      className="flex flex-col md:flex-row justify-between items-center bg-gray-100 dark:bg-gray-700 p-4 rounded-lg border-l-4 border-blue-500"
+                      className="flex flex-col md:flex-row justify-between items-center bg-gray-100 dark:bg-gray-700 p-4 rounded-lg border-l-4 border-blue-500 shadow-sm"
                     >
-                      <div>
-                        <h5 className="font-bold dark:text-white">{t.title}</h5>
+                      <div className="mb-2 md:mb-0">
+                        <h5 className="font-bold dark:text-white text-lg">
+                          {t.title}
+                        </h5>
                         <p className="text-xs text-gray-500 dark:text-gray-300">
-                          Login: {t.testLogin} | Parol: {t.testPassword}
+                          Login:{" "}
+                          <span className="font-mono">{t.testLogin}</span> |
+                          Parol:{" "}
+                          <span className="font-mono">{t.testPassword}</span>
                         </p>
                       </div>
-                      <div className="flex gap-2 mt-2 md:mt-0">
+                      <div className="flex gap-2 items-center">
+                        {/* 🟢 FAOL TEST VA 🛑 STOP TUGMASI */}
                         {t.isStarted ? (
-                          <span className="text-green-600 bg-green-100 px-2 py-1 rounded text-sm flex items-center gap-1">
-                            <FaCheckCircle /> Faol
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-green-600 bg-green-100 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1 border border-green-200">
+                              <FaCheckCircle /> Faol
+                            </span>
+                            <button
+                              onClick={() => handleForceStop(t.testLogin)}
+                              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1 shadow transition transform active:scale-95"
+                              title="Barcha o'quvchilar uchun to'xtatish"
+                            >
+                              <FaStop /> STOP
+                            </button>
+                          </div>
                         ) : (
                           <button
                             onClick={() => startTest(t._id)}
-                            className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 flex items-center gap-1"
+                            className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 flex items-center gap-2 font-semibold shadow transition"
                           >
-                            <FaPlay /> Boshlash
+                            <FaPlay size={14} /> Boshlash
                           </button>
                         )}
                         <button
                           onClick={() => removeTest(t._id)}
-                          className="bg-red-100 text-red-600 p-2 rounded hover:bg-red-200"
+                          className="bg-red-100 text-red-600 p-2.5 rounded-lg hover:bg-red-200 hover:text-red-700 transition"
+                          title="Testni o'chirish"
                         >
                           <FaTrash />
                         </button>
@@ -359,7 +391,9 @@ export default function TeacherDashboard() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-gray-500">Hozircha testlar yo'q.</p>
+                  <p className="text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
+                    Hozircha testlar yo'q.
+                  </p>
                 )}
               </div>
             </div>
@@ -388,7 +422,7 @@ export default function TeacherDashboard() {
                           className={`px-3 py-1 rounded text-sm font-semibold transition ${
                             analyzedTestId === test._id
                               ? "bg-gray-300"
-                              : "bg-blue-100 text-blue-700"
+                              : "bg-blue-100 text-blue-700 hover:bg-blue-200"
                           }`}
                           onClick={() => analyzeTest(test._id)}
                         >
@@ -434,12 +468,11 @@ export default function TeacherDashboard() {
                                       {res.wrongAnswersCount}
                                     </td>
                                     <td className="p-2 text-center">
-                                      {/* TAHLIL TUGMASI */}
                                       <button
                                         onClick={() =>
                                           handleStudentAnalysis(res._id)
                                         }
-                                        className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-3 py-1 rounded flex items-center justify-center gap-1 mx-auto"
+                                        className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-3 py-1 rounded flex items-center justify-center gap-1 mx-auto transition"
                                       >
                                         <FaEye />
                                       </button>
