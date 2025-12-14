@@ -20,9 +20,17 @@ export default function AdminDashboard() {
   const fetchTeachers = async () => {
     try {
       const res = await getTeachers();
-      setTeachers(res.data);
+      // Bizga kelgan narsa ro'yxat (Array) ekanligini tekshiramiz
+      if (Array.isArray(res.data)) {
+        setTeachers(res.data);
+      } else {
+        console.error("Serverdan noto'g'ri ma'lumot keldi:", res.data);
+        setTeachers([]); // Agar xato kelsa, bo'sh ro'yxat qo'yamiz (dastur sinmaydi)
+      }
     } catch (e) {
+      console.error(e);
       toast.error("O'qituvchilar ro'yxati olinmadi");
+      setTeachers([]); // Xatolik bo'lsa ham bo'sh ro'yxat
     }
   };
 
