@@ -5,8 +5,15 @@ import { toast } from "react-toastify";
 import { Clock, CheckCircle, AlertCircle, User, FileText } from "lucide-react";
 import { submitTestApi } from "../api/api";
 
-// Socket.io backendga ulanish
-const socket = io("http://localhost:5001");
+// ==========================================================
+// ⚠️ MUHIM: Bu yerga Ngrok havolangizni qo'ying!
+// Oxirida /api YOKI / belgisi bo'lmasligi kerak.
+// ==========================================================
+const SOCKET_URL = "https://kayleigh-phototropic-cristine.ngrok-free.dev";
+
+const socket = io(SOCKET_URL, {
+  transports: ["websocket", "polling"], // Barqaror ulanish uchun
+});
 
 export default function StudentDashboard() {
   const location = useLocation();
@@ -61,15 +68,28 @@ export default function StudentDashboard() {
     socket.emit("join-test-room", stateData.testLogin);
 
     // 4. O'qituvchi START bosganda eshitish
-    socket.on("start-test", () => {
+    const handleStartTest = () => {
       toast.info("Test boshlandi! Omad.");
       setStatus("started");
-    });
-
-    return () => {
-      socket.off("start-test");
     };
-  }, []);
+
+    socket.on("start-test", handleStartTest);
+
+    // 5. Sahifani yangilashdan (Refresh) himoya
+    const handleBeforeUnload = (e) => {
+      if (status === "started") {
+        e.preventDefault();
+        e.returnValue = ""; // Brauzer ogohlantirish oynasini chiqaradi
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    // Tozalash
+    return () => {
+      socket.off("start-test", handleStartTest);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [status, navigate, location.state]);
 
   // Timer logikasi
   useEffect(() => {
@@ -124,6 +144,7 @@ export default function StudentDashboard() {
       if (isAuto) toast.warning("Vaqt tugadi! Test avtomatik yakunlandi.");
       else toast.success("Test yakunlandi!");
     } catch (error) {
+      console.error(error);
       toast.error("Xatolik yuz berdi. Internetni tekshiring.");
     }
   };
@@ -219,7 +240,12 @@ export default function StudentDashboard() {
   // 3. ASOSIY TEST JARAYONI
   if (status === "started" && testData) {
     return (
-      <div className="bg-gray-50 min-h-screen pb-24 font-sans select-none">
+      <div
+        className="bg-gray-50 min-h-screen pb-24 font-sans select-none" // ⚠️ Belgilashni o'chiradi
+        onContextMenu={(e) => e.preventDefault()} // ⚠️ O'ng tugmani o'chiradi
+        onCopy={(e) => e.preventDefault()} // ⚠️ Copy ni o'chiradi
+        onCut={(e) => e.preventDefault()} // ⚠️ Cut ni o'chiradi
+      >
         {/* Header */}
         <header className="bg-white shadow-sm sticky top-0 z-20 px-4 py-3 flex justify-between items-center border-b border-gray-200">
           <div>

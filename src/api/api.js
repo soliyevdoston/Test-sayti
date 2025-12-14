@@ -1,62 +1,107 @@
 import axios from "axios";
 
-// Backend manzili
-const API_URL = "http://localhost:5001/api";
+// =================================================================
+// ⚠️ MUHIM: URL bir qatorda bo'lishi va oxiri /api bilan tugashi shart!
+// =================================================================
+
+const API_URL = "https://kayleigh-phototropic-cristine.ngrok-free.dev/api";
 
 const api = axios.create({
   baseURL: API_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
-// Yagona Login funksiyasi (Rolega qarab ishlaydi)
+/* ===================== LOGIN ===================== */
+
 export const loginUser = async (role, username, password, fullName = "") => {
-  // 1. ADMIN (Backendda admin yo'q, shunchaki qattiq kodlaymiz)
-  if (role === "admin") {
-    if (username === "admin" && password === "admin123") {
-      return { message: "Admin tizimga kirdi", role: "admin" };
-    } else {
+  try {
+    // ===== ADMIN =====
+    if (role === "admin") {
+      if (username === "admin" && password === "admin123") {
+        return {
+          role: "admin",
+          message: "Admin tizimga kirdi",
+        };
+      }
       throw new Error("Admin logini yoki paroli xato!");
     }
-  }
 
-  // 2. TEACHER (O'qituvchi)
-  if (role === "teacher") {
-    const res = await api.post("/auth/teacher-login", { username, password });
-    // ID va Ismni saqlab qo'yamiz
-    localStorage.setItem("teacherId", res.data.teacherId);
-    localStorage.setItem("teacherName", res.data.fullName);
-    return { ...res.data, message: "Xush kelibsiz, Ustoz!" };
-  }
+    // ===== TEACHER =====
+    if (role === "teacher") {
+      const res = await api.post("/auth/teacher-login", {
+        username,
+        password,
+      });
 
-  // 3. STUDENT (O'quvchi)
-  if (role === "student") {
-    // O'quvchi uchun username bu -> testLogin, password -> testPassword
-    const res = await api.post("/student/login", {
-      login: username,
-      password: password,
-      studentName: fullName, // <--- Qo'shimcha ism
-    });
+      localStorage.setItem("teacherId", res.data.teacherId);
+      localStorage.setItem("teacherName", res.data.fullName);
 
-    // Test ma'lumotlarini saqlaymiz
-    localStorage.setItem("studentTestId", res.data.testId);
-    localStorage.setItem("studentName", res.data.studentName);
+      return {
+        ...res.data,
+        role: "teacher",
+        message: "Xush kelibsiz, ustoz!",
+      };
+    }
 
-    return { ...res.data, message: "Testga muvaffaqiyatli kirdingiz!" };
+    // ===== STUDENT =====
+    if (role === "student") {
+      const res = await api.post("/student/login", {
+        login: username,
+        password,
+        studentName: fullName,
+      });
+
+      localStorage.setItem("studentTestId", res.data.testId);
+      localStorage.setItem("studentName", res.data.studentName);
+
+      return {
+        ...res.data,
+        role: "student",
+        message: "Testga muvaffaqiyatli kirdingiz!",
+      };
+    }
+
+    throw new Error("Role noto‘g‘ri tanlandi!");
+  } catch (err) {
+    throw new Error(
+      err?.response?.data?.msg || err?.response?.data?.error || err.message
+    );
   }
 };
 
-// ... Qolgan API funksiyalar (Test yuklash, Natijalar va h.k.)
-// Bularni keyinroq kerak bo'lganda qo'shamiz yoki oldingi variantdan qolsin.
+/* ===================== ADMIN API ===================== */
+
+export const createTeacher = (data) => api.post("/admin/create-teacher", data);
+export const getTeachers = () => api.get("/admin/teachers");
+export const deleteTeacher = (teacherId) =>
+  api.delete(`/admin/delete-teacher/${teacherId}`);
+
+/* ===================== TEACHER API ===================== */
+
 export const teacherUploadTest = (formData) =>
   api.post("/teacher/upload", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
   });
-export const getTeacherTests = () => api.get("/teacher/tests");
+
+export const getTeacherTests = (teacherId) =>
+  api.get(`/teacher/tests/${teacherId}`);
+
 export const startTestApi = (testId) => api.post(`/teacher/start/${testId}`);
+
 export const deleteTestApi = (testId) =>
   api.delete(`/teacher/delete/${testId}`);
-export const submitTestApi = (data) => api.post("/student/submit", data);
+
 export const getResultsApi = (testId) => api.get(`/teacher/results/${testId}`);
+
 export const getAnalysisApi = (resultId) =>
   api.get(`/teacher/analysis/${resultId}`);
+
+/* ===================== STUDENT API ===================== */
+
+export const submitTestApi = (data) => api.post("/student/submit", data);
 
 export default api;

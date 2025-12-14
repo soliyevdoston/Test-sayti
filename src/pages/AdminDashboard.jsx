@@ -1,12 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
-import { UserPlus, LogOut, Shield } from "lucide-react";
-import api from "../api/api"; // API import qilamiz
+import { UserPlus, LogOut, Shield, Trash2 } from "lucide-react";
+import { createTeacher, getTeachers, deleteTeacher } from "../api/api";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [teachers, setTeachers] = useState([]);
 
   // Forma ma'lumotlari
   const [formData, setFormData] = useState({
@@ -15,24 +16,32 @@ export default function AdminDashboard() {
     password: "",
   });
 
+  // --- O'qituvchilar ro'yxatini olish ---
+  const fetchTeachers = async () => {
+    try {
+      const res = await getTeachers();
+      setTeachers(res.data);
+    } catch (e) {
+      toast.error("O'qituvchilar ro'yxati olinmadi");
+    }
+  };
+
+  useEffect(() => {
+    fetchTeachers();
+  }, []);
+
+  // --- O'qituvchi qo'shish ---
   const handleCreate = async (e) => {
     e.preventDefault();
-
-    // Validatsiya
     if (!formData.fullName || !formData.username || !formData.password) {
       return toast.warning("Barcha qatorlarni to'ldiring!");
     }
-
     try {
       setLoading(true);
-
-      // Backendga so'rov yuborish
-      // Eslatma: api.js da createTeacher funksiyasi bo'lishi kerak,
-      // yoki to'g'ridan-to'g'ri axios ishlatamiz:
-      await api.post("/admin/create-teacher", formData);
-
+      await createTeacher(formData);
       toast.success("O'qituvchi muvaffaqiyatli qo'shildi!");
-      setFormData({ fullName: "", username: "", password: "" }); // Formani tozalash
+      setFormData({ fullName: "", username: "", password: "" });
+      fetchTeachers();
     } catch (error) {
       toast.error(error.response?.data?.msg || "Xatolik yuz berdi");
     } finally {
@@ -40,6 +49,19 @@ export default function AdminDashboard() {
     }
   };
 
+  // --- O'qituvchi o'chirish ---
+  const handleDelete = async (id) => {
+    if (!window.confirm("O'qituvchini o'chirishni xohlaysizmi?")) return;
+    try {
+      await deleteTeacher(id);
+      toast.success("O'qituvchi o'chirildi");
+      fetchTeachers();
+    } catch (e) {
+      toast.error("O'qituvchi o'chirilmadi");
+    }
+  };
+
+  // --- Chiqish ---
   const logout = () => {
     navigate("/admin/login");
     toast.info("Chiqildi");
@@ -61,7 +83,8 @@ export default function AdminDashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto p-6 mt-10">
+      <main className="max-w-5xl mx-auto p-6 mt-10 space-y-10">
+        {/* 1. O'qituvchi qo'shish */}
         <div className="bg-white rounded-2xl shadow-xl p-8 animate-fade-in">
           <div className="flex items-center gap-3 mb-6 border-b pb-4">
             <div className="bg-blue-100 p-3 rounded-full text-blue-600">
@@ -78,7 +101,6 @@ export default function AdminDashboard() {
           </div>
 
           <form onSubmit={handleCreate} className="space-y-6">
-            {/* Ism Familiya */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
                 F.I.SH (To'liq ism)
@@ -95,7 +117,6 @@ export default function AdminDashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Login */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Login (Username)
@@ -111,7 +132,6 @@ export default function AdminDashboard() {
                 />
               </div>
 
-              {/* Parol */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Parol
@@ -136,6 +156,44 @@ export default function AdminDashboard() {
               {loading ? "Saqlanmoqda..." : "O'qituvchini Saqlash"}
             </button>
           </form>
+        </div>
+
+        {/* 2. O'qituvchilar ro'yxati */}
+        <div className="bg-white rounded-2xl shadow-xl p-8 animate-fade-in">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6">
+            O'qituvchilar Ro'yxati
+          </h2>
+          {teachers.length === 0 ? (
+            <p className="text-gray-500">Hozircha o'qituvchi yo'q.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full table-auto border-collapse">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="border px-4 py-2 text-left">F.I.SH</th>
+                    <th className="border px-4 py-2 text-left">Login</th>
+                    <th className="border px-4 py-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teachers.map((tch) => (
+                    <tr key={tch._id} className="hover:bg-gray-50">
+                      <td className="border px-4 py-2">{tch.fullName}</td>
+                      <td className="border px-4 py-2">{tch.username}</td>
+                      <td className="border px-4 py-2 text-center">
+                        <button
+                          onClick={() => handleDelete(tch._id)}
+                          className="text-red-600 hover:text-red-800 flex items-center justify-center gap-2 px-3 py-1 border rounded-lg"
+                        >
+                          <Trash2 size={16} /> O'chirish
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </main>
     </div>
