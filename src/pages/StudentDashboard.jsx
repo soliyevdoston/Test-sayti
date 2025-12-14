@@ -39,7 +39,7 @@ export default function StudentDashboard() {
     if (savedResult) {
       setResult(JSON.parse(savedResult));
       setStatus("finished");
-      return; // Agar natija bo'lsa, boshqa narsalarni yuklash shart emas
+      return;
     }
 
     let activeSession = location.state?.testData;
@@ -77,24 +77,20 @@ export default function StudentDashboard() {
 
     if (timeLeft === 0) setTimeLeft(activeSession.duration * 60);
 
-    // Agar oldin tugatgan bo'lsa, "finished" ga o'tkazmaymiz, chunki natija yo'q bo'lsa qayta topshirsin
     setStatus(activeSession.isStarted ? "started" : "waiting");
 
     socket.emit("join-test-room", activeSession.testLogin);
 
-    // 1. TEST BOSHLANDI
+    // Socket Eventlari
     const handleStartTest = () => {
       toast.info("Test boshlandi! Omad.");
       setStatus("started");
     };
 
-    // 2. O'QITUVCHI TESTNI MAJBURIY TO'XTATDI
     const handleForceStop = () => {
-      // Agar allaqachon tugatgan bo'lsa, qayta yubormasin
       if (status === "finished") return;
-
       toast.warning("O'qituvchi testni yakunladi!");
-      handleSubmit(true); // Avtomatik topshirish
+      handleSubmit(true);
     };
 
     socket.on("start-test", handleStartTest);
@@ -160,7 +156,7 @@ export default function StudentDashboard() {
 
   // ================= SUBMIT (YAKUNLASH) =================
   const handleSubmit = async (isAuto = false) => {
-    if (status === "finished") return; // Qayta yuborishni oldini olish
+    if (status === "finished") return;
 
     if (!isAuto && !window.confirm("Haqiqatan ham testni yakunlaysizmi?"))
       return;
@@ -177,8 +173,9 @@ export default function StudentDashboard() {
       setResult(data);
       setStatus("finished");
 
-      // ⚠️ MUHIM: Bu yerda ma'lumotlarni o'chirmaymiz!
-      // Natijani saqlab qo'yamiz (Refresh qilsa ham turishi uchun)
+      // ⚠️ MUHIM: Natija ko'rinishi uchun sahifani eng tepaga chiqaramiz
+      window.scrollTo({ top: 0, behavior: "smooth" });
+
       localStorage.setItem("test_result_data", JSON.stringify(data));
 
       if (isAuto) toast.warning("Vaqt tugadi yoki test to'xtatildi!");
@@ -191,10 +188,9 @@ export default function StudentDashboard() {
 
   // ================= EXIT (CHIQISH) =================
   const handleExit = () => {
-    // ⚠️ Faqat shu tugma bosilganda hammasini tozalaymiz
     socket.disconnect();
     localStorage.removeItem("active_test_session");
-    localStorage.removeItem("test_result_data"); // Natijani tozalash
+    localStorage.removeItem("test_result_data");
     if (studentData?.testId) {
       localStorage.removeItem(`answers_${studentData.testId}`);
     }
@@ -237,7 +233,7 @@ export default function StudentDashboard() {
     );
   }
 
-  // ================= 2. NATIJA EKRANI (MUHIM) =================
+  // ================= 2. NATIJA EKRANI =================
   if (status === "finished" && result) {
     return (
       <div className="min-h-screen flex justify-center items-center bg-gray-100 p-4 animate-fade-in">
@@ -261,8 +257,6 @@ export default function StudentDashboard() {
                 <XCircle /> {result.wrongCount} Xato
               </div>
             </div>
-
-            {/* ⚠️ BU TUGMA BOSILMAGUNCHA SAHIFA YOPILMAYDI */}
             <button
               onClick={handleExit}
               className="w-full bg-gray-900 hover:bg-black text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg"
