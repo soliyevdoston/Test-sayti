@@ -32,7 +32,11 @@ export default function Home() {
       action: () => window.scrollTo({ top: 0, behavior: "smooth" }),
     },
     { id: 2, title: "Roles", action: scrollToRoles },
-    { id: 3, title: "Contact", action: () => navigate("/contact") }, // Contact sahifasi bo'lsa
+    {
+      id: 3,
+      title: "Contact",
+      action: () => window.scrollTo({ bottom: 0, behavior: "smooth" }),
+    }, // Contact sahifasi bo'lsa
   ];
 
   const roles = [
