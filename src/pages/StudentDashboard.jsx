@@ -9,12 +9,11 @@ import {
   CheckCircle,
   XCircle,
   LogOut,
-  Loader2,
   Hourglass,
 } from "lucide-react";
 import { submitTestApi } from "../api/api";
 
-// ⚠️ Ngrok havolangizni tekshiring
+// ⚠️ Ngrok havolangizni tekshiring (Oxirida /api bo'lmasin)
 const SOCKET_URL = "https://kayleigh-phototropic-cristine.ngrok-free.dev";
 
 const socket = io(SOCKET_URL, {
@@ -35,14 +34,15 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     const stateData = location.state?.testData;
-
     const isCompleted = localStorage.getItem(
       `test_completed_${stateData?.testId}`
     );
 
+    // 🔒 HIMOYA: Agar ma'lumot yo'q bo'lsa yoki test oldin topshirilgan bo'lsa
     if (!stateData || isCompleted) {
-      if (isCompleted) toast.warning("Siz bu testni allaqachon topshirgansiz!");
-      navigate("/student/login");
+      if (isCompleted) toast.warning("Siz bu testni topshirib bo'lgansiz.");
+      // Bosh sahifaga uloqtirish va tarixni tozalash
+      navigate("/", { replace: true });
       return;
     }
 
@@ -76,6 +76,7 @@ export default function StudentDashboard() {
 
     socket.on("start-test", handleStartTest);
 
+    // Refreshdan himoya
     const handleBeforeUnload = (e) => {
       if (status === "started") {
         e.preventDefault();
@@ -90,7 +91,7 @@ export default function StudentDashboard() {
     };
   }, [status, navigate, location.state]);
 
-  // "Orqaga" tugmasini bloklash
+  // "Orqaga" tugmasini bloklash (Faqat natija oynasida)
   useEffect(() => {
     if (status === "finished") {
       window.history.pushState(null, document.title, window.location.href);
@@ -136,7 +137,6 @@ export default function StudentDashboard() {
   };
 
   // ✅ TESTNI TOPSHIRISH
-  // ✅ TESTNI TOPSHIRISH
   const handleSubmit = async (isAuto = false) => {
     if (!isAuto && !window.confirm("Testni yakunlashga ishonchingiz komilmi?"))
       return;
@@ -148,32 +148,27 @@ export default function StudentDashboard() {
         answers: answers,
       };
 
-      // Serverga yuborish
       const response = await submitTestApi(payload);
-      const data = response.data; // Javobni olamiz
+      const data = response.data;
 
-      console.log("Serverdan kelgan natija:", data); // Konsolga chiqarib ko'ramiz
+      setResult(data);
+      setStatus("finished");
+      // Brauzer xotirasiga yozib qo'yamiz
+      localStorage.setItem(`test_completed_${studentData.testId}`, "true");
 
-      if (data) {
-        setResult(data); // Natijani statega yozamiz
-        setStatus("finished"); // Ekranni o'zgartiramiz
-        localStorage.setItem(`test_completed_${studentData.testId}`, "true");
-
-        if (isAuto) toast.warning("Vaqt tugadi!");
-        else toast.success("Test muvaffaqiyatli topshirildi!");
-      } else {
-        toast.error("Natija serverdan kelmadi!");
-      }
+      if (isAuto) toast.warning("Vaqt tugadi! Test yakunlandi.");
+      else toast.success("Test yakunlandi!");
     } catch (error) {
-      console.error("Xatolik:", error);
+      console.error(error);
       toast.error("Xatolik yuz berdi. Internetni tekshiring.");
     }
   };
 
-  // ✅ TESTDAN CHIQISH
+  // ✅ TESTDAN CHIQISH (Asosiy sahifaga qaytish)
   const handleExit = () => {
     socket.disconnect();
-    navigate("/student/login", { replace: true });
+    // replace: true -> Brauzer tarixidan testni o'chirib, Bosh sahifaga o'tish
+    navigate("/", { replace: true });
   };
 
   const formatTime = (seconds) => {
@@ -184,7 +179,7 @@ export default function StudentDashboard() {
 
   // ================= UI QISMLARI =================
 
-  // 1. ✨ KUTISH ZALI (YANGILANGAN DIZAYN) ✨
+  // 1. ✨ KUTISH ZALI (DIZAYN)
   if (status === "waiting") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex flex-col justify-center items-center p-4 relative overflow-hidden">
@@ -211,7 +206,6 @@ export default function StudentDashboard() {
 
           {/* Ma'lumot kartochkasi */}
           <div className="bg-gradient-to-b from-gray-50 to-gray-100 rounded-2xl p-6 space-y-4 border border-gray-200 shadow-inner">
-            {/* O'quvchi */}
             <div className="flex items-center gap-4 border-b border-gray-200 pb-3 last:border-0 last:pb-0">
               <div className="bg-white p-2.5 rounded-xl shadow-sm text-indigo-500">
                 <User size={20} />
@@ -226,7 +220,6 @@ export default function StudentDashboard() {
               </div>
             </div>
 
-            {/* Fan nomi */}
             <div className="flex items-center gap-4 border-b border-gray-200 pb-3 last:border-0 last:pb-0">
               <div className="bg-white p-2.5 rounded-xl shadow-sm text-purple-500">
                 <FileText size={20} />
@@ -241,7 +234,6 @@ export default function StudentDashboard() {
               </div>
             </div>
 
-            {/* Vaqt */}
             <div className="flex items-center gap-4">
               <div className="bg-white p-2.5 rounded-xl shadow-sm text-orange-500">
                 <Clock size={20} />
@@ -257,7 +249,6 @@ export default function StudentDashboard() {
             </div>
           </div>
 
-          {/* Status Footer */}
           <div className="mt-8 flex items-center justify-center gap-2 text-xs font-semibold text-blue-600 bg-blue-50 py-2.5 px-4 rounded-full w-fit mx-auto border border-blue-100">
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
@@ -270,7 +261,7 @@ export default function StudentDashboard() {
     );
   }
 
-  // 2. NATIJA OYNASI (O'zgarmadi)
+  // 2. NATIJA OYNASI
   if (status === "finished" && result) {
     return (
       <div className="min-h-screen flex justify-center items-center bg-gray-100 p-4 animate-fade-in">
@@ -324,7 +315,7 @@ export default function StudentDashboard() {
     );
   }
 
-  // 3. ASOSIY TEST JARAYONI (O'zgarmadi)
+  // 3. ASOSIY TEST JARAYONI
   if (status === "started" && testData) {
     return (
       <div
