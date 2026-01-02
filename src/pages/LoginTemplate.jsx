@@ -1,28 +1,25 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify"; // O'zgartirildi
+import { toast } from "react-toastify";
 import { loginUser } from "../api/api";
 
 export default function LoginTemplate({ role, loginPath }) {
   const navigate = useNavigate();
 
-  // Login ma'lumotlari
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState(""); // <--- O'quvchi uchun yangi state
+  const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    // Agar o'quvchi bo'lsa va ism yozmagan bo'lsa
     if (role === "Student" && !fullName.trim()) {
       return toast.warning("Iltimos, ism va familiyangizni kiriting!");
     }
 
     setLoading(true);
     try {
-      // API ga so'rov (fullName faqat Student uchun kerak)
       const data = await loginUser(
         role.toLowerCase(),
         username,
@@ -32,85 +29,118 @@ export default function LoginTemplate({ role, loginPath }) {
 
       toast.success(data.message);
 
-      // Agar o'quvchi bo'lsa, test ma'lumotlarini state orqali yuboramiz
       if (role === "Student") {
         navigate(loginPath, { state: { testData: data } });
       } else {
         navigate(loginPath);
       }
     } catch (err) {
-      console.error(err);
-      toast.error(err.response?.data?.msg || err.message || "Login xato!");
+      toast.error(err.response?.data?.msg || "Login xato!");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex justify-center items-center h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
+    <div className="relative min-h-screen flex items-center justify-center bg-black text-white overflow-hidden px-6">
+      {/* Glow background */}
+      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-purple-600/30 rounded-full blur-3xl" />
+      <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-blue-600/30 rounded-full blur-3xl" />
+
+      {/* Login Card */}
       <form
         onSubmit={handleLogin}
-        className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-md transition-transform transform hover:scale-105"
+        className="
+          relative z-10 w-full max-w-md
+          backdrop-blur-xl bg-white/5
+          border border-white/10
+          rounded-2xl p-10
+          shadow-2xl
+        "
       >
-        <h2 className="text-3xl font-bold mb-6 text-gray-800 dark:text-white text-center">
+        {/* Title */}
+        <h2 className="text-3xl font-extrabold text-center mb-2">
           {role === "Student" ? "Testga Kirish" : `${role} Login`}
         </h2>
 
-        {/* Faqat O'quvchi uchun Ism Familiya inputi */}
+        <p className="text-center text-gray-400 text-sm mb-8">
+          Online Test Platform
+        </p>
+
+        {/* Student Full Name */}
         {role === "Student" && (
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Ism Familiya
+          <div className="mb-5">
+            <label className="block text-sm text-gray-300 mb-1">
+              Ism va Familiya
             </label>
             <input
               type="text"
-              placeholder="Masalan: Ali Valiyev"
+              placeholder="Ali Valiyev"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              required
-              className="w-full p-3 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="
+                w-full p-3 rounded-lg
+                bg-black/40 border border-white/10
+                focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400
+                outline-none transition
+              "
             />
           </div>
         )}
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        {/* Username */}
+        <div className="mb-5">
+          <label className="block text-sm text-gray-300 mb-1">
             {role === "Student" ? "Test Logini" : "Username"}
           </label>
           <input
             type="text"
             placeholder={
-              role === "Student" ? "O'qituvchi bergan login" : "Username"
+              role === "Student" ? "O‘qituvchi bergan login" : "Username"
             }
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            required
-            className="w-full p-3 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+            className="
+              w-full p-3 rounded-lg
+              bg-black/40 border border-white/10
+              focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400
+              outline-none transition
+            "
           />
         </div>
 
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        {/* Password */}
+        <div className="mb-8">
+          <label className="block text-sm text-gray-300 mb-1">
             {role === "Student" ? "Test Paroli" : "Parol"}
           </label>
           <input
             type="password"
-            placeholder="********"
+            placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            required
-            className="w-full p-3 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+            className="
+              w-full p-3 rounded-lg
+              bg-black/40 border border-white/10
+              focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400
+              outline-none transition
+            "
           />
         </div>
 
+        {/* Button */}
         <button
           type="submit"
           disabled={loading}
-          className={`w-full text-white font-semibold py-3 rounded-lg transition ${
-            loading
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-indigo-600 hover:bg-indigo-700"
-          }`}
+          className={`
+            w-full py-3 rounded-xl font-semibold
+            transition transform
+            ${
+              loading
+                ? "bg-gray-500 cursor-not-allowed"
+                : "bg-gradient-to-r from-cyan-500 to-blue-600 hover:scale-105"
+            }
+          `}
         >
           {loading ? "Kirilmoqda..." : "Kirish"}
         </button>

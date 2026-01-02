@@ -12,8 +12,23 @@ import {
   Hourglass,
 } from "lucide-react";
 import { submitTestApi } from "../api/api";
+const Footer = () => {
+  return (
+    <footer className="mt-24 border-t border-white/10 bg-black/30 backdrop-blur-xl">
+      <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col md:flex-row justify-between items-center gap-4 text-gray-400">
+        <p className="text-sm">
+          © {new Date().getFullYear()} Knowledge Gateway
+        </p>
+        <p className="text-sm">
+          Sudents Panel · Built by{" "}
+          <span className="text-white font-medium">Soliyev.uz</span>
+        </p>
+      </div>
+    </footer>
+  );
+};
 
-// ⚠️ NGROK URL (Har safar yangilanganda tekshiring)
+// ⚠️ NGROK URL
 const SOCKET_URL = "https://kayleigh-phototropic-cristine.ngrok-free.dev";
 
 const socket = io(SOCKET_URL, {
@@ -23,7 +38,6 @@ const socket = io(SOCKET_URL, {
 export default function StudentDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
-
   const [studentData, setStudentData] = useState(null);
   const [testData, setTestData] = useState(null);
   const [status, setStatus] = useState("loading"); // waiting | started | finished
@@ -34,7 +48,6 @@ export default function StudentDashboard() {
 
   // ================= INIT =================
   useEffect(() => {
-    // 1. Agar natija allaqachon bor bo'lsa (Refresh qilinganda)
     const savedResult = localStorage.getItem("test_result_data");
     if (savedResult) {
       setResult(JSON.parse(savedResult));
@@ -43,7 +56,6 @@ export default function StudentDashboard() {
     }
 
     let activeSession = location.state?.testData;
-
     if (!activeSession) {
       const saved = localStorage.getItem("active_test_session");
       if (saved) activeSession = JSON.parse(saved);
@@ -81,7 +93,6 @@ export default function StudentDashboard() {
 
     socket.emit("join-test-room", activeSession.testLogin);
 
-    // Socket Eventlari
     const handleStartTest = () => {
       toast.info("Test boshlandi! Omad.");
       setStatus("started");
@@ -102,7 +113,6 @@ export default function StudentDashboard() {
         e.returnValue = "";
       }
     };
-
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
@@ -116,7 +126,6 @@ export default function StudentDashboard() {
   // ================= TIMER =================
   useEffect(() => {
     if (status !== "started" || timeLeft <= 0) return;
-
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -127,22 +136,18 @@ export default function StudentDashboard() {
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(timer);
   }, [status, timeLeft]);
 
-  // ================= JAVOB BELGILASH =================
   const handleSelect = (questionId, optionText) => {
     setAnswers((prev) => {
       const filtered = prev.filter((a) => a.questionId !== questionId);
       const updated = [...filtered, { questionId, selectedText: optionText }];
-
-      if (studentData?.testId) {
+      if (studentData?.testId)
         localStorage.setItem(
           `answers_${studentData.testId}`,
           JSON.stringify(updated)
         );
-      }
       return updated;
     });
   };
@@ -154,30 +159,21 @@ export default function StudentDashboard() {
     });
   };
 
-  // ================= SUBMIT (YAKUNLASH) =================
   const handleSubmit = async (isAuto = false) => {
     if (status === "finished") return;
-
     if (!isAuto && !window.confirm("Haqiqatan ham testni yakunlaysizmi?"))
       return;
-
     try {
       const payload = {
         testId: studentData.testId,
         studentName: studentData.name,
-        answers: answers,
+        answers,
       };
-
       const { data } = await submitTestApi(payload);
-
       setResult(data);
       setStatus("finished");
-
-      // ⚠️ MUHIM: Natija ko'rinishi uchun sahifani eng tepaga chiqaramiz
       window.scrollTo({ top: 0, behavior: "smooth" });
-
       localStorage.setItem("test_result_data", JSON.stringify(data));
-
       if (isAuto) toast.warning("Vaqt tugadi yoki test to'xtatildi!");
       else toast.success("Test muvaffaqiyatli topshirildi!");
     } catch (err) {
@@ -186,14 +182,12 @@ export default function StudentDashboard() {
     }
   };
 
-  // ================= EXIT (CHIQISH) =================
   const handleExit = () => {
     socket.disconnect();
     localStorage.removeItem("active_test_session");
     localStorage.removeItem("test_result_data");
-    if (studentData?.testId) {
+    if (studentData?.testId)
       localStorage.removeItem(`answers_${studentData.testId}`);
-    }
     navigate("/", { replace: true });
   };
 
@@ -203,25 +197,23 @@ export default function StudentDashboard() {
     return `${m}:${sec < 10 ? "0" : ""}${sec}`;
   };
 
-  // ================= 1. KUTISH REJIMI =================
+  // ================= WAITING =================
   if (status === "waiting") {
     return (
-      <div className="min-h-screen flex flex-col justify-center items-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-4">
-        <div className="bg-white/10 backdrop-blur-lg p-10 rounded-3xl shadow-2xl text-center max-w-md w-full border border-white/20">
+      <div className="min-h-screen flex flex-col justify-center items-center bg-black text-white px-4">
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl p-10 text-center max-w-md w-full">
           <div className="relative w-24 h-24 mx-auto mb-6">
             <div className="absolute inset-0 bg-white/30 rounded-full animate-ping"></div>
             <div className="relative bg-white text-indigo-600 p-5 rounded-full shadow-lg flex items-center justify-center h-full w-full">
               <Hourglass size={40} className="animate-spin-slow" />
             </div>
           </div>
-          <h2 className="text-3xl font-extrabold text-white mb-2 tracking-wide">
-            Tayyormisiz?
-          </h2>
-          <p className="text-indigo-100 mb-6">
-            {studentData?.name}, o‘qituvchi <b>Start</b> tugmasini bosishi bilan
-            test avtomatik boshlanadi.
+          <h2 className="text-3xl font-extrabold mb-2">Tayyormisiz?</h2>
+          <p className="text-gray-300 mb-6">
+            {studentData?.name}, o‘qituvchi Start tugmasini bosishi bilan test
+            avtomatik boshlanadi.
           </p>
-          <div className="bg-white/20 rounded-xl p-4 text-white text-sm font-mono">
+          <div className="bg-white/10 border border-white/20 rounded-xl p-4 text-white text-sm font-mono">
             Fan: {testData?.title} <br />
             Vaqt: {testData?.duration} daqiqa
           </div>
@@ -233,13 +225,15 @@ export default function StudentDashboard() {
     );
   }
 
-  // ================= 2. NATIJA EKRANI =================
+  // ================= RESULT =================
   if (status === "finished" && result) {
     return (
-      <div className="min-h-screen flex justify-center items-center bg-gray-100 p-4 animate-fade-in">
-        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative">
-          <div className="bg-blue-600 p-8 text-center text-white">
-            <h2 className="text-2xl font-bold">Natijangiz</h2>
+      <div className="min-h-screen flex flex-col justify-center items-center bg-black px-6 relative">
+        {/* Card */}
+        <div className="relative z-10 w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+          {/* Result Header */}
+          <div className="bg-gradient-to-r from-cyan-500 to-blue-600 p-8 text-center text-white">
+            <h2 className="text-3xl font-extrabold">Natijangiz</h2>
             <div className="text-6xl font-extrabold mt-2">
               {Math.round((result.score / result.maxScore) * 100)}%
             </div>
@@ -247,148 +241,146 @@ export default function StudentDashboard() {
               Jami: {result.score} / {result.maxScore} ball
             </p>
           </div>
-          <div className="p-8">
-            <div className="flex items-center justify-between mb-6 bg-gray-50 p-4 rounded-xl">
-              <div className="flex items-center gap-2 text-green-600 font-bold">
-                <CheckCircle /> {result.correctCount} To'g'ri
-              </div>
-              <div className="h-8 w-[1px] bg-gray-300"></div>
-              <div className="flex items-center gap-2 text-red-500 font-bold">
-                <XCircle /> {result.wrongCount} Xato
-              </div>
+
+          {/* Stats Badges */}
+          <div className="p-6 flex justify-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2 bg-green-500/20 text-green-400 px-4 py-2 rounded-2xl font-bold shadow-inner">
+              <CheckCircle /> {result.correctCount} To‘g‘ri
             </div>
+            <div className="flex items-center gap-2 bg-red-500/20 text-red-400 px-4 py-2 rounded-2xl font-bold shadow-inner">
+              <XCircle /> {result.wrongCount} Xato
+            </div>
+            <div className="flex items-center gap-2 bg-blue-500/20 text-white px-4 py-2 rounded-2xl font-bold shadow-inner">
+              <FileText /> Ball: {result.score} / {result.maxScore}
+            </div>
+          </div>
+
+          {/* Bottom Panel */}
+          {/* Bottom Panel */}
+          <div className="flex justify-center p-6 bg-black/20 backdrop-blur-xl border-t border-white/10">
             <button
               onClick={handleExit}
-              className="w-full bg-gray-900 hover:bg-black text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg"
+              className="w-full max-w-sm py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-cyan-500 to-blue-600 shadow-lg hover:scale-105 active:scale-95 transition flex items-center justify-center gap-2"
             >
               <LogOut size={20} /> Chiqish va Bosh sahifa
             </button>
           </div>
         </div>
+
+        {/* Glow Background */}
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-purple-600/30 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-blue-600/30 rounded-full blur-3xl" />
       </div>
     );
   }
 
-  // ================= 3. TEST JARAYONI =================
+  // ================= TEST STARTED =================
   if (status === "started" && testData) {
     return (
-      <div className="bg-gray-50 min-h-screen pb-32 select-none">
+      <div className="bg-black text-white min-h-screen pb-32 px-4">
         {/* Header */}
-        <header className="bg-white sticky top-0 z-20 px-4 py-3 flex justify-between items-center shadow-sm border-b border-gray-200">
+        <header className="bg-white/5 backdrop-blur-xl border border-white/10 sticky top-0 z-20 px-4 py-3 flex justify-between items-center rounded-b-2xl shadow-2xl mb-4">
           <div className="flex items-center gap-3">
-            <div className="bg-indigo-100 p-2 rounded-full text-indigo-600">
+            <div className="bg-white/10 p-2 rounded-full text-white">
               <User size={20} />
             </div>
             <div>
-              <h1 className="font-bold text-gray-800 text-sm md:text-base line-clamp-1 max-w-[150px] md:max-w-xs">
-                {testData.title}
-              </h1>
-              <p className="text-xs text-gray-500 font-medium">
-                {studentData.name}
-              </p>
+              <h1 className="font-bold text-white">{testData.title}</h1>
+              <p className="text-gray-300">{studentData.name}</p>
             </div>
           </div>
           <div
-            className={`flex items-center gap-2 font-mono font-bold text-lg px-4 py-1.5 rounded-full shadow-inner ${
+            className={`flex items-center gap-2 font-mono font-bold px-4 py-1.5 rounded-full shadow-inner ${
               timeLeft < 60
-                ? "bg-red-100 text-red-600 animate-pulse border border-red-200"
-                : "bg-blue-50 text-blue-600 border border-blue-100"
+                ? "bg-red-500 text-white animate-pulse"
+                : "bg-white/10 text-white"
             }`}
           >
-            <Clock size={18} />
-            {formatTime(timeLeft)}
+            <Clock size={18} /> {formatTime(timeLeft)}
           </div>
         </header>
 
-        <div className="max-w-3xl mx-auto p-4 space-y-6">
-          {/* Reading Text (Agar bo'lsa) */}
+        <div className="max-w-3xl mx-auto space-y-6">
           {testData.readingText && (
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-              <h2 className="font-bold text-gray-800 mb-3 flex items-center gap-2 border-b pb-2">
-                <FileText className="text-blue-500" /> Matnni o'qing
+            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl">
+              <h2 className="font-bold mb-3 flex items-center gap-2 border-b border-white/10 pb-2">
+                <FileText className="text-cyan-400" /> Matnni o'qing
               </h2>
-              <div className="text-sm md:text-base text-gray-700 whitespace-pre-line leading-7 font-serif">
+              <p className="text-white/80 leading-7 font-serif">
                 {testData.readingText}
-              </div>
+              </p>
             </div>
           )}
 
-          {/* Savollar */}
-          {testData.questions.map((q, index) => (
-            <div
-              key={q.id}
-              ref={(el) => (questionRefs.current[q.id] = el)}
-              className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-gray-100 transition hover:shadow-md"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-base md:text-lg font-semibold text-gray-800 flex gap-3">
-                  <span className="bg-gray-100 text-gray-600 min-w-[30px] h-[30px] flex justify-center items-center rounded-full text-sm font-bold">
-                    {index + 1}
+          {testData.questions.map((q, index) => {
+            const selected = answers.find(
+              (a) => a.questionId === q.id
+            )?.selectedText;
+            return (
+              <div
+                key={q.id}
+                ref={(el) => (questionRefs.current[q.id] = el)}
+                className="bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-2xl shadow-2xl"
+              >
+                <div className="flex justify-between mb-4 items-start">
+                  <h3 className="flex gap-3 text-white font-semibold">
+                    <span className="bg-white/10 text-white min-w-[30px] h-[30px] flex justify-center items-center rounded-full font-bold">
+                      {index + 1}
+                    </span>
+                    {q.text}
+                  </h3>
+                  <span className="text-xs font-bold bg-white/10 text-white px-2 py-1 rounded border border-white/10">
+                    {q.points} ball
                   </span>
-                  {q.text}
-                </h3>
-                <span className="text-xs font-bold bg-indigo-50 text-indigo-600 px-2 py-1 rounded border border-indigo-100 whitespace-nowrap ml-2">
-                  {q.points} ball
-                </span>
-              </div>
+                </div>
 
-              {/* Variantlar (Radio Buttons) */}
-              <div className="space-y-3 pl-2 md:pl-10">
-                {q.options.map((opt, i) => {
-                  const isSelected =
-                    answers.find((a) => a.questionId === q.id)?.selectedText ===
-                    opt.text;
-
-                  return (
+                <div className="space-y-3 pl-2 md:pl-10">
+                  {q.options.map((opt, i) => (
                     <label
                       key={i}
-                      className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all group ${
-                        isSelected
-                          ? "border-blue-500 bg-blue-50 shadow-sm"
-                          : "border-gray-100 hover:border-blue-200 hover:bg-gray-50"
+                      className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                        selected === opt.text
+                          ? "border-cyan-500 bg-cyan-500/20"
+                          : "border-white/10 hover:border-cyan-400 hover:bg-white/10"
                       }`}
                     >
-                      <div className="relative flex items-center">
-                        <input
-                          type="radio"
-                          name={`question-${q.id}`}
-                          value={opt.text}
-                          checked={isSelected}
-                          onChange={() => handleSelect(q.id, opt.text)}
-                          className="peer sr-only" // Inputni yashiramiz
-                        />
-                        <div
-                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                            isSelected
-                              ? "border-blue-500 bg-blue-500"
-                              : "border-gray-300 group-hover:border-blue-400"
-                          }`}
-                        >
-                          <div className="w-2 h-2 bg-white rounded-full"></div>
-                        </div>
+                      <input
+                        type="radio"
+                        className="sr-only"
+                        name={`q-${q.id}`}
+                        checked={selected === opt.text}
+                        onChange={() => handleSelect(q.id, opt.text)}
+                      />
+                      <div
+                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          selected === opt.text
+                            ? "border-cyan-500 bg-cyan-500"
+                            : "border-white/20"
+                        }`}
+                      >
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
                       </div>
                       <span
-                        className={`text-sm md:text-base ${
-                          isSelected
-                            ? "text-blue-900 font-medium"
-                            : "text-gray-700"
+                        className={`${
+                          selected === opt.text
+                            ? "text-white font-medium"
+                            : "text-white/80"
                         }`}
                       >
                         {opt.text}
                       </span>
                     </label>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        {/* Footer Navigatsiya va Tugatish */}
-        <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-30 pb-4 pt-2 px-2">
+        {/* Footer */}
+        <div className="fixed bottom-0 left-0 w-full z-30 pb-4 pt-2 px-2 bg-black/20 backdrop-blur-xl border-t border-white/10">
           <div className="max-w-3xl mx-auto flex flex-col gap-3">
-            {/* Savol raqamlari (Scroll bo'ladi) */}
-            <div className="flex gap-2 overflow-x-auto pb-2 px-2 scrollbar-hide">
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
               {testData.questions.map((q, index) => {
                 const isAnswered = answers.some((a) => a.questionId === q.id);
                 return (
@@ -397,8 +389,8 @@ export default function StudentDashboard() {
                     onClick={() => scrollToQuestion(q.id)}
                     className={`min-w-[40px] h-10 rounded-lg text-sm font-bold border transition-all ${
                       isAnswered
-                        ? "bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200"
-                        : "bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100"
+                        ? "bg-cyan-500 text-white border-cyan-500 shadow-md"
+                        : "bg-white/10 text-white/60 border-white/20 hover:bg-white/20"
                     }`}
                   >
                     {index + 1}
@@ -406,16 +398,15 @@ export default function StudentDashboard() {
                 );
               })}
             </div>
-
-            {/* Asosiy tugma */}
             <button
               onClick={() => handleSubmit(false)}
-              className="w-full bg-gray-900 hover:bg-black text-white py-3.5 rounded-xl font-bold text-lg shadow-lg active:scale-[0.99] transition-transform flex justify-center items-center gap-2"
+              className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 py-3.5 rounded-xl font-bold text-white flex items-center justify-center gap-2 shadow-lg active:scale-95 transition"
             >
               <CheckCircle size={20} /> Testni Yakunlash
             </button>
           </div>
         </div>
+        <Footer></Footer>
       </div>
     );
   }
