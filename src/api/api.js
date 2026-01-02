@@ -2,14 +2,14 @@ import axios from "axios";
 
 // ⚠️ DIQQAT: Ngrok har safar o'chib yonganda bu havola o'zgaradi.
 // Uni terminaldan olib, shu yerga yangilang!
-const API_URL = "https://kayleigh-phototropic-cristine.ngrok-free.dev/api";
+const API_URL = "https://online-test-backend-2.onrender.com/api";
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     "Content-Type": "application/json",
-    // ⚠️ Bu qator Ngrok ogohlantirish oynasini o'tkazib yuborish uchun shart:
-    "ngrok-skip-browser-warning": "true",
+    // ⚠️ Ngrok uchun bo‘lgan qator endi kerak emas
+    // "ngrok-skip-browser-warning": "true",
   },
 });
 
