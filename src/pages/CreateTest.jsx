@@ -12,7 +12,8 @@ import {
   FileText,
   ListPlus,
   Clipboard,
-  X
+  X,
+  HelpCircle
 } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
 import { createManualTestApi } from "../api/api";
@@ -48,35 +49,72 @@ export default function CreateTest() {
     if (!bulkText.trim()) return toast.warning("Matnni kiriting");
     
     try {
-      // Split by # but keep the #
-      const blocks = bulkText.split(/(?=#)/g).filter(b => b.trim());
+      let text = bulkText;
+      const results = {}; // Map to store answer key: { 1: 'D', 2: 'A' ... }
       
-      const parsedQuestions = blocks.map(block => {
-        const lines = block.split('\n').map(l => l.trim()).filter(l => l);
-        if (lines.length === 0) return null;
+      // 1. Detect Answer Key at the bottom
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+      
+      // Look for table-like answers at the end
+      const answerKeyMarkers = ["savol №", "to'g'ri javob", "to‘gri javob", "javoblar"];
+      let answerKeyStartLine = -1;
+      
+      for (let i = lines.length - 1; i >= 0; i--) {
+        if (answerKeyMarkers.some(m => lines[i].toLowerCase().includes(m)) && lines[i].length < 60) {
+          answerKeyStartLine = i;
+          break;
+        }
+      }
+
+      if (answerKeyStartLine !== -1) {
+        for (let i = answerKeyStartLine + 1; i < lines.length; i++) {
+          const match = lines[i].match(/^(\d+)[\.\s\t]+([A-Da-d])/);
+          if (match) {
+            results[parseInt(match[1])] = match[2].toUpperCase();
+          }
+        }
+        // Remove the answer key from question parsing
+        text = lines.slice(0, answerKeyStartLine).join('\n');
+      }
+
+      // 2. Split by Question markers: # OR "1." at beginning of line
+      const blocks = text.split(/(?:\n|^)(?=#|\d+[\.\)])/g).filter(b => b.trim());
+      
+      const parsedQuestions = blocks.map((block, bIdx) => {
+        const linesArr = block.split('\n').map(l => l.trim()).filter(l => l);
+        if (linesArr.length === 0) return null;
         
-        let questionText = lines[0].replace(/^#/, '').trim();
+        let questionNum = bIdx + 1;
+        const firstLineMatch = linesArr[0].match(/^(\d+)[\.\)]/);
+        if (firstLineMatch) {
+          questionNum = parseInt(firstLineMatch[1]);
+        }
+
+        let firstOptionLineIdx = linesArr.findIndex(l => l.match(/^[\+]?([A-Da-d])[\)\.]/));
+        if (firstOptionLineIdx === -1) return null;
+
+        const questionText = linesArr.slice(0, firstOptionLineIdx).join(' ').replace(/^#|^\d+[\.\)]/, '').trim();
         const options = [];
         
-        // Find options (A, B, C, D)
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i];
-          const isCorrect = line.startsWith('+');
-          let cleanLine = line.replace(/^\+/, '').trim();
+        for (let i = firstOptionLineIdx; i < linesArr.length; i++) {
+          const line = linesArr[i];
+          const optionMatch = line.match(/^[\+]?([A-Da-d])[\)\.]/);
           
-          // Match A) B) C) etc. or A. B. C. etc.
-          const optionLabelMatch = cleanLine.match(/^([A-Da-d])[\)\.\s]/);
-          if (optionLabelMatch) {
+          if (optionMatch) {
+            const letter = optionMatch[1].toUpperCase();
+            const isCorrectMarked = line.startsWith('+');
+            const isCorrectByKey = results[questionNum] === letter;
+            
+            const optionText = line.replace(/^[\+]?([A-Da-d])[\)\.]\s*/, '').trim();
+            
             options.push({
-              text: cleanLine.replace(/^([A-Da-d])[\)\.\s]\s*/, '').trim(),
-              isCorrect: isCorrect
+              text: optionText,
+              isCorrect: isCorrectMarked || isCorrectByKey
             });
           }
         }
         
         if (options.length === 0) return null;
-        
-        // If no correct answer marked, set first as correct as fallback
         if (!options.some(o => o.isCorrect)) {
           options[0].isCorrect = true;
         }
@@ -85,15 +123,14 @@ export default function CreateTest() {
           id: Date.now() + Math.random(),
           text: questionText,
           points: 1,
-          options: options.slice(0, 4) // Limit to 4 options
+          options: options.slice(0, 4)
         };
       }).filter(q => q !== null);
       
       if (parsedQuestions.length === 0) {
-        return toast.error("Format noto'g'ri. Namuna: #Savol... A) Variant");
+        return toast.error("Format noto'g'ri. Namuna: 1. Savol... A) Variant");
       }
       
-      // Replace initial empty question if it exists
       const newQuestions = testData.questions.length === 1 && testData.questions[0].text === "" 
         ? parsedQuestions 
         : [...testData.questions, ...parsedQuestions];
@@ -107,6 +144,7 @@ export default function CreateTest() {
       setShowBulkModal(false);
       toast.success(`${parsedQuestions.length} ta savol qo'shildi!`);
     } catch (err) {
+      console.error(err);
       toast.error("Xatolik yuz berdi");
     }
   };
