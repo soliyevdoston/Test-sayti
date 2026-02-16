@@ -32,7 +32,7 @@ export default function TeacherResources() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-primary pb-8 mb-12">
           <div>
             <h2 className="text-4xl font-black tracking-tight text-primary mb-2 uppercase italic">
-              O'qituvchi <span className="text-indigo-600 dark:text-indigo-400">Resurslari</span>
+              Test<span className="text-indigo-600 dark:text-indigo-400">Onlinee</span> Resurslari
             </h2>
             <p className="text-secondary font-medium uppercase tracking-widest text-xs opacity-70">
               Metodik qo'llanmalar, video darslar va foydali materiallar

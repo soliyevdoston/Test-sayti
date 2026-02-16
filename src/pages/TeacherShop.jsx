@@ -8,13 +8,11 @@ import {
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import { toast } from "react-toastify";
-import { createSubscription } from "../api/api";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 
 export default function TeacherShop() {
   const navigate = useNavigate();
   const [teacherName, setTeacherName] = useState("");
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const name = localStorage.getItem("teacherName");
@@ -23,29 +21,14 @@ export default function TeacherShop() {
     else setTeacherName(name);
   }, [navigate]);
 
-  const handlePurchase = async (item) => {
-    try {
-      setLoading(true);
-      const teacherId = localStorage.getItem("teacherId");
-      
-      await createSubscription({
-        teacherId,
-        packType: item.title,
-        amount: item.price
-      });
-
-      toast.success(`${item.title} uchun so'rov yuborildi!`);
-    } catch (error) {
-      toast.error("Xaridda xatolik: " + error.message);
-    } finally {
-      setLoading(false);
-    }
+  const handlePurchase = (item) => {
+    toast.info(`${item.title} hozirda barcha o'qituvchilar uchun BEPUL qilib belgilangan!`);
   };
 
   const items = [
-    { title: "Premium Pack", price: "uzs 50,000", icon: <FaGem />, desc: "Cheksiz test yuklash va tahlil", color: "from-indigo-500 to-blue-600" },
-    { title: "Speed Boost", price: "uzs 20,000", icon: <FaBolt />, desc: "Tezkor grading va OCR", color: "from-blue-600 to-indigo-700" },
-    { title: "Extra Storage", price: "uzs 15,000", icon: <FaStore />, desc: "+500 test uchun qo'shimcha joy", color: "from-indigo-400 to-blue-500" },
+    { title: "Premium Pack", price: "BEPUL", icon: <FaGem />, desc: "Cheksiz test yuklash va tahlil", color: "from-indigo-500 to-blue-600" },
+    { title: "Speed Boost", price: "BEPUL", icon: <FaBolt />, desc: "Tezkor grading va OCR", color: "from-blue-600 to-indigo-700" },
+    { title: "Extra Storage", price: "BEPUL", icon: <FaStore />, desc: "+500 test uchun qo'shimcha joy", color: "from-indigo-400 to-blue-500" },
   ];
 
   return (
@@ -54,11 +37,15 @@ export default function TeacherShop() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-primary pb-8 mb-12">
           <div>
             <h2 className="text-4xl font-black tracking-tight text-primary mb-2 uppercase italic">
-              Oson<span className="text-indigo-600 dark:text-indigo-400">TestOl</span> Shop
+              Test<span className="text-indigo-600 dark:text-indigo-400">Onlinee</span> Shop
             </h2>
             <p className="text-secondary font-medium uppercase tracking-widest text-xs opacity-70">
-              Platforma imkoniyatlarini kengaytiring va premium xizmatlarni xarid qiling
+              Platforma imkoniyatlarini kengaytiring — Hozirda barcha xizmatlar BEPUL
             </p>
+          </div>
+          <div className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 text-indigo-500 rounded-xl border border-indigo-500/20">
+            <Sparkles size={16} />
+            <span className="text-[10px] font-black uppercase tracking-widest">Aksiya Davom Etmoqda</span>
           </div>
         </div>
       </section>
@@ -74,11 +61,10 @@ export default function TeacherShop() {
                <p className="text-xs text-muted font-bold uppercase tracking-widest mb-6">{item.desc}</p>
                <div className="text-3xl font-black text-indigo-500 mb-8">{item.price}</div>
                <button 
-                 disabled={loading}
                  onClick={() => handlePurchase(item)}
-                 className="w-full py-4 rounded-2xl bg-secondary border border-primary text-[10px] font-black uppercase tracking-[0.2em] text-primary hover:bg-indigo-500 hover:text-white hover:border-indigo-500 transition-all shadow-sm flex items-center justify-center gap-2"
+                 className="w-full py-4 rounded-2xl bg-indigo-600 text-white border border-indigo-600 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
                >
-                 {loading ? <Loader2 size={14} className="animate-spin" /> : "Sotib Olish"}
+                 Faollashtirilgan
                </button>
             </div>
           ))}

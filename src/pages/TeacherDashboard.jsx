@@ -170,7 +170,7 @@ export default function TeacherDashboard() {
         </section>
 
         {/* Quick Access Grid */}
-        <section className="grid md:grid-cols-4 gap-6">
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-6">
            <QuickNavCard 
              title="Natijalar" 
              desc="Test natijalarini ko'rish" 
@@ -180,10 +180,10 @@ export default function TeacherDashboard() {
              navigate={navigate}
            />
            <QuickNavCard 
-             title="Fanlar" 
+             title="Fanlar (Tez orada)" 
              desc="Fanlarni boshqarish" 
              icon={<FaBook />} 
-             path="/teacher/subjects" 
+             path="/teacher/dashboard" 
              color="from-blue-500 to-indigo-600" 
              navigate={navigate}
            />

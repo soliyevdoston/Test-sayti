@@ -4,7 +4,9 @@ import {
   FaFileExport,
   FaTimes,
   FaEye,
-  FaBolt
+  FaBolt,
+  FaArrowRight,
+  FaCheck
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
@@ -87,7 +89,7 @@ export default function TeacherResults() {
               O'quvchilar natijalarini kuzatish va akademik tahlil
             </p>
           </div>
-          <button className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-secondary border border-primary text-[10px] font-black text-primary uppercase tracking-[0.2em] hover:bg-primary transition-all shadow-sm">
+          <button className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-white/5 border border-white/10 shadow-inner text-[10px] font-black text-primary uppercase tracking-[0.2em] hover:bg-primary transition-all shadow-sm">
             <FaFileExport /> Umumiy Hisobot (Excel)
           </button>
         </div>
@@ -97,81 +99,98 @@ export default function TeacherResults() {
         <div className="grid gap-8">
           {tests.length > 0 ? (
             tests.map((test) => (
-              <div key={test._id} className="premium-card p-0 overflow-hidden group hover:border-indigo-500/50 transition-all">
-                <div className="p-8 flex flex-col md:flex-row justify-between items-center gap-6 bg-gradient-to-r from-secondary/50 to-transparent">
-                  <div className="flex items-center gap-6">
-                    <div className="w-16 h-16 rounded-[1.5rem] bg-primary border border-primary flex items-center justify-center text-indigo-500 font-black text-2xl shadow-inner group-hover:rotate-6 transition-transform">
+              <div key={test._id} className="bg-secondary/40 backdrop-blur-xl border border-primary rounded-[2.5rem] overflow-hidden group hover:border-indigo-500/50 transition-all duration-500 hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-1">
+                <div className="p-10 flex flex-col lg:flex-row items-center justify-between gap-8">
+                  <div className="flex flex-col md:flex-row items-center gap-8 text-center md:text-left">
+                    <div className="w-20 h-20 rounded-3xl bg-primary border-2 border-primary flex items-center justify-center text-indigo-500 font-black text-3xl shadow-2xl shadow-indigo-500/10 group-hover:rotate-6 transition-transform duration-500">
                       {test.title.charAt(0)}
                     </div>
                     <div>
-                      <h4 className="text-xl font-black text-primary uppercase tracking-tight">{test.title}</h4>
-                      <p className="text-[10px] text-muted font-bold tracking-widest uppercase mt-1">ID: {test._id.slice(-8)} • {test.duration} daqiqa</p>
+                      <div className="flex items-center gap-3 justify-center md:justify-start mb-2">
+                        <h4 className="text-2xl font-black text-primary uppercase tracking-tight italic">{test.title}</h4>
+                        <span className="px-3 py-1 bg-green-500/10 border border-green-500/20 text-[10px] font-black text-green-600 dark:text-green-400 rounded-full uppercase tracking-widest flex items-center gap-1">
+                          <FaCheck size={8} /> Bajarilgan
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-xs font-bold text-muted uppercase tracking-[0.2em]">
+                        <span className="flex items-center gap-2 px-3 py-1.5 bg-primary/40 rounded-xl border border-primary/50">
+                          <FaBolt className="text-indigo-500" /> {test._id.slice(-8)}
+                        </span>
+                        <span className="flex items-center gap-2 px-3 py-1.5 bg-primary/40 rounded-xl border border-primary/50">
+                          <FaChartBar size={14} className="text-indigo-500" /> {test.duration} Daqiqa
+                        </span>
+                      </div>
                     </div>
                   </div>
+                  
                   <button
-                    className={`min-w-[140px] py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition transform hover:scale-105 active:scale-95 ${
+                    className={`min-w-[200px] h-14 rounded-2xl text-[11px] font-black uppercase tracking-[0.25em] transition transform hover:scale-[1.03] active:scale-95 flex items-center justify-center gap-3 ${
                       analyzedTestId === test._id
-                        ? "bg-secondary text-primary border border-primary"
-                        : "bg-indigo-600 text-white shadow-xl shadow-indigo-600/20"
+                        ? "bg-secondary text-primary border border-primary shadow-inner"
+                        : "bg-indigo-600 text-white shadow-xl shadow-indigo-600/30"
                     }`}
                     onClick={() => analyzeTest(test._id)}
                   >
-                    {analyzedTestId === test._id ? "Yopish" : "Natijalarni Ko'rish"}
+                    {analyzedTestId === test._id ? "Yopish" : "Natijalarni Tahlil Qilish"}
+                    <FaArrowRight className={`transition-transform duration-500 ${analyzedTestId === test._id ? "rotate-90" : "group-hover:translate-x-1"}`} />
                   </button>
                 </div>
 
                 {analyzedTestId === test._id && (
-                  <div className="p-8 animate-fade-in overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead className="uppercase text-[10px] font-black tracking-widest text-muted border-b border-primary/50">
-                        <tr>
-                          <th className="pb-6 pl-2">Stat</th>
-                          <th className="pb-6">O'quvchi</th>
-                          <th className="pb-6">Ball / %</th>
-                          <th className="pb-6 text-center">To'g'ri</th>
-                          <th className="pb-6 text-center">Xato</th>
-                          <th className="pb-6 text-center">Tahlil</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-primary/10">
-                        {resultsData.length > 0 ? (
-                          resultsData.map((res, idx) => (
-                            <tr key={res._id} className="group/tr hover:bg-indigo-500/[0.02] transition-colors">
-                              <td className="py-6 pl-2">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs ${idx < 3 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-secondary text-muted'}`}>
-                                  {idx + 1}
-                                </div>
-                              </td>
-                              <td className="py-6 font-black uppercase text-xs tracking-tight text-primary">{res.studentName}</td>
-                              <td className="py-6">
-                                <div className="flex items-center gap-3">
-                                  <span className="text-lg font-black text-primary">{res.totalScore}</span>
-                                  <div className="w-16 h-1 bg-secondary rounded-full overflow-hidden">
-                                    <div className="h-full bg-indigo-600" style={{ width: `${(res.totalScore/30)*100}%` }} />
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="py-6 text-center">
-                                <span className="text-green-500 font-black">{res.correctAnswersCount}</span>
-                              </td>
-                              <td className="py-6 text-center">
-                                <span className="text-red-500 font-bold opacity-60">{res.wrongAnswersCount}</span>
-                              </td>
-                              <td className="py-6 text-center">
-                                <button
-                                  onClick={() => handleStudentAnalysis(res._id)}
-                                  className="w-10 h-10 bg-secondary border border-primary text-primary rounded-xl flex items-center justify-center hover:bg-indigo-500 hover:text-white hover:border-indigo-500 transition-all mx-auto shadow-sm"
-                                >
-                                  <FaEye />
-                                </button>
-                              </td>
+                  <div className="px-10 pb-10 pt-4 animate-in fade-in slide-in-from-top-4 duration-700">
+                    <div className="bg-primary/50 border border-primary rounded-[2rem] overflow-hidden shadow-inner">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead className="bg-secondary/50 uppercase text-[10px] font-black tracking-widest text-muted/60 border-b border-primary/50">
+                            <tr>
+                              <th className="py-6 px-8">№</th>
+                              <th className="py-6 px-8">Ism Familiya</th>
+                              <th className="py-6 px-8">Ball / Ko'rsatkich</th>
+                              <th className="py-6 px-8 text-center">T/X</th>
+                              <th className="py-6 px-8 text-center">Individual Tahlil</th>
                             </tr>
-                          ))
-                        ) : (
-                          <tr><td colSpan="6" className="py-10 text-center text-muted font-bold italic uppercase tracking-widest opacity-40">Natijalar hozircha mavjud emas</td></tr>
-                        )}
-                      </tbody>
-                    </table>
+                          </thead>
+                          <tbody className="divide-y divide-primary/10">
+                            {resultsData.length > 0 ? (
+                              resultsData.map((res, idx) => (
+                                <tr key={res._id} className="group/tr hover:bg-indigo-500/[0.03] transition-colors">
+                                  <td className="py-6 px-8">
+                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs ${idx < 3 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-primary border border-primary text-muted'}`}>
+                                      {idx + 1}
+                                    </div>
+                                  </td>
+                                  <td className="py-6 px-8 font-black uppercase text-xs tracking-tight text-primary">{res.studentName}</td>
+                                  <td className="py-6 px-8">
+                                    <div className="flex items-center gap-4">
+                                      <span className="text-xl font-black text-primary tracking-tighter">{res.totalScore}</span>
+                                      <div className="hidden md:block w-32 h-1.5 bg-primary/50 rounded-full overflow-hidden">
+                                        <div className="h-full bg-gradient-to-r from-indigo-500 to-blue-500 rounded-full" style={{ width: `${(res.totalScore/30)*100}%` }} />
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="py-6 px-8 text-center">
+                                    <div className="inline-flex items-center gap-3">
+                                      <span className="px-3 py-1 bg-green-500/10 text-green-600 text-[10px] font-black rounded-lg">{res.correctAnswersCount}</span>
+                                      <span className="px-3 py-1 bg-red-500/10 text-red-600 text-[10px] font-black rounded-lg">{res.wrongAnswersCount}</span>
+                                    </div>
+                                  </td>
+                                  <td className="py-6 px-8 text-center">
+                                    <button
+                                      onClick={() => handleStudentAnalysis(res._id)}
+                                      className="w-12 h-12 bg-primary border border-primary text-primary rounded-2xl flex items-center justify-center hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all mx-auto shadow-sm group-hover/tr:scale-110"
+                                    >
+                                      <FaEye size={18} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr><td colSpan="5" className="py-20 text-center text-muted font-bold italic uppercase tracking-widest opacity-30">Natijalar hozircha mavjud emas</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -187,16 +206,16 @@ export default function TeacherResults() {
       {/* Tahlil Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4 animate-fade-in">
-          <div className="bg-primary w-full max-w-4xl rounded-[3rem] shadow-2xl max-h-[90vh] flex flex-col overflow-hidden border border-primary">
+          <div className="bg-slate-900 w-full max-w-4xl rounded-[3rem] shadow-2xl max-h-[90vh] flex flex-col overflow-hidden border border-white/10">
             <div className="p-8 border-b border-primary flex justify-between items-center bg-secondary/50">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/20"><FaChartBar size={24} /></div>
                 <div>
-                  <h3 className="text-2xl font-black text-primary uppercase tracking-tighter italic">Individual Tahlil</h3>
-                  <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{selectedStudentAnalysis?.studentName}</p>
+                  <h3 className="text-2xl font-black text-white uppercase tracking-tighter italic">Individual Tahlil</h3>
+                  <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{selectedStudentAnalysis?.studentName}</p>
                 </div>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="w-12 h-12 rounded-2xl flex items-center justify-center bg-secondary border border-primary text-primary hover:bg-red-500 hover:text-white transition-all"><FaTimes size={20} /></button>
+              <button onClick={() => setIsModalOpen(false)} className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 shadow-inner text-primary hover:bg-red-500 hover:text-white transition-all"><FaTimes size={20} /></button>
             </div>
 
             <div className="p-10 overflow-y-auto custom-scrollbar">
@@ -208,32 +227,32 @@ export default function TeacherResults() {
               ) : (
                 <div className="space-y-12">
                   <div className="grid grid-cols-3 gap-8">
-                    <div className="premium-card flex flex-col items-center">
-                      <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-2">Jami Ball</p>
-                      <p className="text-5xl font-black text-primary tracking-tighter">{selectedStudentAnalysis?.totalScore}</p>
+                    <div className="bg-white/5 border border-white/10 p-8 rounded-[2rem] flex flex-col items-center">
+                      <p className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-2">Jami Ball</p>
+                      <p className="text-5xl font-black text-white tracking-tighter">{selectedStudentAnalysis?.totalScore}</p>
                     </div>
-                    <div className="premium-card flex flex-col items-center bg-green-500/5 border-green-500/10">
-                      <p className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-2">To'g'ri</p>
-                      <p className="text-5xl font-black text-green-600 tracking-tighter">{selectedStudentAnalysis?.correctAnswersCount}</p>
+                    <div className="bg-green-500/20 p-8 rounded-[2rem] flex flex-col items-center border-green-500/10">
+                      <p className="text-[10px] font-black text-green-400 uppercase tracking-widest mb-2">To'g'ri</p>
+                      <p className="text-5xl font-black text-white tracking-tighter">{selectedStudentAnalysis?.correctAnswersCount}</p>
                     </div>
-                    <div className="premium-card flex flex-col items-center bg-red-500/5 border-red-500/10">
-                      <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mb-2">Xato</p>
-                      <p className="text-5xl font-black text-red-600 tracking-tighter">{selectedStudentAnalysis?.wrongAnswersCount}</p>
+                    <div className="bg-red-500/20 p-8 rounded-[2rem] flex flex-col items-center border-red-500/10">
+                      <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-2">Xato</p>
+                      <p className="text-5xl font-black text-white tracking-tighter">{selectedStudentAnalysis?.wrongAnswersCount}</p>
                     </div>
                   </div>
 
                   <div className="space-y-6">
                     {selectedStudentAnalysis?.studentAnswers?.map((q, idx) => (
-                      <div key={idx} className={`p-8 rounded-[2.5rem] border-2 ${q.isCorrect ? 'bg-green-500/[0.02] border-green-500/10' : 'bg-red-500/[0.02] border-red-500/10'}`}>
+                      <div key={idx} className={`p-8 rounded-[2.5rem] border-2 ${q.isCorrect ? 'bg-green-500/5 border-green-500/20 shadow-sm' : 'bg-red-500/5 border-red-500/20 shadow-sm'}`}>
                         <div className="flex justify-between items-start mb-6">
                           <div className="flex gap-4">
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-white ${q.isCorrect ? 'bg-green-500' : 'bg-red-500'}`}>{idx + 1}</div>
-                            <h5 className="font-bold text-lg text-primary leading-tight">{q.questionText}</h5>
+                            <h5 className="font-black text-xl text-white leading-tight">{q.questionText}</h5>
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-6 pl-14">
-                          <div className="p-5 rounded-2xl bg-secondary border border-primary">
-                            <p className="text-muted text-[10px] font-black uppercase tracking-widest mb-2">O'quvchi javobi</p>
+                          <div className="p-5 rounded-2xl bg-white/5 border border-white/10 shadow-inner">
+                            <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mb-2">O'quvchi javobi</p>
                             <p className={`text-sm font-bold ${q.isCorrect ? 'text-green-500' : 'text-red-500'}`}>{q.selectedOption}</p>
                           </div>
                           {!q.isCorrect && (

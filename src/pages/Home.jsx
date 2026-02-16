@@ -177,7 +177,10 @@ const FeatureHighlight = ({ title, desc, features, image, reversed, badge }) => 
           </div>
         ))}
       </div>
-      <button className="px-10 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-600/30 transition-all transform hover:scale-105 active:scale-95">
+      <button
+        onClick={() => document.getElementById("roles")?.scrollIntoView({ behavior: "smooth" })}
+        className="px-10 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-600/30 transition-all transform hover:scale-105 active:scale-95"
+      >
         Ishlatib ko'rish
       </button>
     </div>
@@ -349,7 +352,7 @@ export default function Home() {
                 T
               </div>
             </div>
-            <span className="text-2xl font-black tracking-tighter uppercase text-primary">Oson<span className="text-indigo-600">TestOl</span></span>
+            <span className="text-2xl font-black tracking-tighter uppercase text-primary">Test<span className="text-indigo-600">Onlinee</span></span>
           </div>
           <div className="hidden md:flex gap-10 text-xs font-bold text-primary italic">
             <a href="#features" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Imkoniyatlar</a>
@@ -357,6 +360,7 @@ export default function Home() {
             <a href="#guide" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Qo'llanma</a>
             <a href="#pricing" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Tariflar</a>
             <a href="#faq" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Savollar</a>
+            <a href="#roles" className="hover:text-indigo-600 transition-colors uppercase tracking-widest text-indigo-500 font-black">Kirish</a>
           </div>
           <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 glass rounded-xl cursor-not-allowed">
@@ -743,10 +747,10 @@ export default function Home() {
       </section>
 
       {/* Roles Section */}
-      <section id="roles" className="py-32 px-6 relative overflow-hidden">
+      <section id="roles" className="py-32 px-6 scroll-mt-24 relative overflow-hidden">
         <div className="absolute inset-0 bg-indigo-600/5 dark:bg-indigo-600/10 -skew-y-3 origin-center scale-110" />
         <div className="max-w-7xl mx-auto text-center relative z-10">
-          <h2 className="text-4xl md:text-5xl font-black mb-16 text-primary uppercase tracking-tighter italic">Platforma kirish <span className="text-indigo-500">nuqtalari</span></h2>
+          <h2 className="text-4xl md:text-5xl font-black mb-16 text-primary uppercase tracking-tighter italic">Tizimga <span className="text-indigo-500">kirish</span></h2>
 
           <div className="grid md:grid-cols-3 gap-8">
             {roles.map((role, i) => (
@@ -782,7 +786,7 @@ export default function Home() {
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-indigo-500/20">
                   T
                 </div>
-                <span className="text-2xl font-black uppercase tracking-tighter">Oson<span className="text-indigo-600">TestOl</span></span>
+                <span className="text-2xl font-black uppercase tracking-tighter">Test<span className="text-indigo-600">Onlinee</span></span>
               </div>
               <ul className="space-y-6 text-sm font-medium text-gray-400">
                 <li className="flex items-start gap-3">
@@ -810,6 +814,7 @@ export default function Home() {
                 <li><a href="#features" className="hover:text-indigo-500 transition-colors uppercase tracking-widest text-[10px]">Xizmatlar</a></li>
                 <li><a href="#pricing" className="hover:text-indigo-500 transition-colors uppercase tracking-widest text-[10px]">Tariflar</a></li>
                 <li><a href="#faq" className="hover:text-indigo-500 transition-colors uppercase tracking-widest text-[10px]">Savollar</a></li>
+                <li><a href="#roles" className="hover:text-indigo-500 transition-colors uppercase tracking-widest text-indigo-500 font-black text-[10px]">Kirish</a></li>
               </ul>
             </div>
 

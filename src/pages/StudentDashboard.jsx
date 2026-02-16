@@ -351,15 +351,15 @@ export default function StudentDashboard() {
           {/* Stats Badges */}
           <div className="p-10 space-y-6">
             <div className="grid grid-cols-2 gap-6">
-              <div className="flex flex-col items-center justify-center gap-3 bg-green-500/5 dark:bg-green-500/10 text-green-600 dark:text-green-400 p-6 rounded-[2rem] border border-green-500/10 hover:bg-green-500/10 transition-all group">
+              <div className="flex flex-col items-center justify-center gap-3 bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-green-400 p-6 rounded-[2rem] border border-green-500/10 hover:bg-green-500/10 transition-all group">
                 <div className="p-2 bg-green-500/10 rounded-xl group-hover:scale-110 transition-transform"><CheckCircle size={24} /></div>
-                <span className="text-3xl font-black tracking-tight">{result.correctCount}</span>
-                <span className="text-[10px] uppercase font-black tracking-[0.2em] opacity-60">To‘g‘ri</span>
+                <span className="text-3xl font-black tracking-tight text-white">{result.correctCount}</span>
+                <span className="text-[10px] uppercase font-black tracking-[0.2em] text-white/70">To‘g‘ri</span>
               </div>
-              <div className="flex flex-col items-center justify-center gap-3 bg-red-500/5 dark:bg-red-500/10 text-red-600 dark:text-red-400 p-6 rounded-[2rem] border border-red-500/10 hover:bg-red-500/10 transition-all group">
+              <div className="flex flex-col items-center justify-center gap-3 bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400 p-6 rounded-[2rem] border border-red-500/10 hover:bg-red-500/10 transition-all group">
                 <div className="p-2 bg-red-500/10 rounded-xl group-hover:scale-110 transition-transform"><XCircle size={24} /></div>
-                <span className="text-3xl font-black tracking-tight">{result.wrongCount}</span>
-                <span className="text-[10px] uppercase font-black tracking-[0.2em] opacity-60">Xato</span>
+                <span className="text-3xl font-black tracking-tight text-white">{result.wrongCount}</span>
+                <span className="text-[10px] uppercase font-black tracking-[0.2em] text-white/70">Xato</span>
               </div>
             </div>
 

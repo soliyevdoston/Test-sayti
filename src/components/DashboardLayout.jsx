@@ -28,7 +28,7 @@ const SidebarItem = ({ icon: Icon, label, path, active, onClick }) => (
     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group ${
       active
         ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
-        : "text-muted hover:bg-indigo-50 dark:hover:bg-indigo-500/10 hover:text-indigo-600"
+        : "text-primary/70 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 hover:text-indigo-600"
     }`}
   >
     <Icon size={20} className={`${active ? "scale-110" : "group-hover:scale-110"} transition-transform`} />
@@ -50,11 +50,10 @@ export default function DashboardLayout({ children, role = "student", userName =
     ],
     teacher: [
       { icon: LayoutDashboard, label: "Asosiy Panel", path: "/teacher/dashboard" },
-      { icon: BookOpen, label: "Fanlar", path: "/teacher/subjects" },
+      { icon: BookOpen, label: "Fanlar (Tez orada)", path: "/teacher/dashboard" },
       { icon: ClipboardList, label: "Testlar", path: "/teacher/tests" },
       { icon: Users, label: "Guruhlar", path: "/teacher/groups" },
       { icon: BarChart3, label: "Natijalar", path: "/teacher/results" },
-      { icon: CreditCard, label: "To'lovlar", path: "/teacher/payments" },
       { icon: ShoppingBag, label: "Do'kon", path: "/teacher/shop" },
       { icon: Zap, label: "Resurslar", path: "/teacher/resources" },
       { icon: Settings, label: "Sozlamalar", path: "/teacher/settings" },
@@ -82,7 +81,7 @@ export default function DashboardLayout({ children, role = "student", userName =
             T
           </div>
           <span className="text-2xl font-black tracking-tighter uppercase text-primary">
-            OsonTest<span className="text-indigo-600">Ol</span>
+            Test<span className="text-indigo-600">Onlinee</span>
           </span>
         </div>
 
@@ -174,7 +173,7 @@ export default function DashboardLayout({ children, role = "student", userName =
           onClick={() => setIsSidebarOpen(false)}
         >
           <aside 
-            className="w-72 h-full bg-primary glass border-r border-primary p-6 animate-in slide-in-from-left duration-300"
+            className="w-72 h-full bg-primary border-r border-primary p-6 animate-in slide-in-from-left shadow-2xl duration-300"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Same sidebar content for mobile */}
@@ -183,7 +182,7 @@ export default function DashboardLayout({ children, role = "student", userName =
                 T
               </div>
               <span className="text-2xl font-black tracking-tighter uppercase text-primary">
-                OsonTest<span className="text-indigo-600">Ol</span>
+                Test<span className="text-indigo-600">Onlinee</span>
               </span>
             </div>
             <nav className="flex-grow space-y-2 mb-8">

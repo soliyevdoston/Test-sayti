@@ -19,7 +19,6 @@ import StudentLogin from "./pages/StudentLogin.jsx";
 import StudentDashboard from "./pages/StudentDashboard.jsx";
 import Home from "./pages/Home.jsx";
 import Profile from "./pages/Profile.jsx";
-import Payments from "./pages/Payments.jsx";
 import Register from "./pages/Register.jsx";
 import AvailableTests from "./pages/AvailableTests.jsx";
 import CreateTest from "./pages/CreateTest.jsx";
@@ -50,7 +49,6 @@ function App() {
           <Route path="/teacher/shop" element={<TeacherShop />} />
           <Route path="/teacher/resources" element={<TeacherResources />} />
           <Route path="/teacher/settings" element={<Profile />} />
-          <Route path="/teacher/payments" element={<Payments />} />
           
           {/* Student Routes */}
           <Route path="/student/login" element={<StudentLogin />} />
