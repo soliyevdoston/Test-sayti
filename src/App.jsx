@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter as Router, Routes, Route } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -26,7 +26,7 @@ import CreateTest from "./pages/CreateTest.jsx";
 function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
+      <Router>
         <ToastContainer position="top-right" autoClose={3000} />
 
         <Routes>
@@ -58,7 +58,7 @@ function App() {
         </Routes>
         
         <ThemeToggle />
-      </BrowserRouter>
+      </Router>
     </ThemeProvider>
   );
 }

@@ -10,7 +10,9 @@ import {
   Type, 
   Clock, 
   FileText,
-  ListPlus
+  ListPlus,
+  Clipboard,
+  X
 } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
 import { createManualTestApi } from "../api/api";
@@ -38,6 +40,76 @@ export default function CreateTest() {
       }
     ]
   });
+
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+
+  const parseBulkText = () => {
+    if (!bulkText.trim()) return toast.warning("Matnni kiriting");
+    
+    try {
+      // Split by # but keep the #
+      const blocks = bulkText.split(/(?=#)/g).filter(b => b.trim());
+      
+      const parsedQuestions = blocks.map(block => {
+        const lines = block.split('\n').map(l => l.trim()).filter(l => l);
+        if (lines.length === 0) return null;
+        
+        let questionText = lines[0].replace(/^#/, '').trim();
+        const options = [];
+        
+        // Find options (A, B, C, D)
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i];
+          const isCorrect = line.startsWith('+');
+          let cleanLine = line.replace(/^\+/, '').trim();
+          
+          // Match A) B) C) etc. or A. B. C. etc.
+          const optionLabelMatch = cleanLine.match(/^([A-Da-d])[\)\.\s]/);
+          if (optionLabelMatch) {
+            options.push({
+              text: cleanLine.replace(/^([A-Da-d])[\)\.\s]\s*/, '').trim(),
+              isCorrect: isCorrect
+            });
+          }
+        }
+        
+        if (options.length === 0) return null;
+        
+        // If no correct answer marked, set first as correct as fallback
+        if (!options.some(o => o.isCorrect)) {
+          options[0].isCorrect = true;
+        }
+
+        return {
+          id: Date.now() + Math.random(),
+          text: questionText,
+          points: 1,
+          options: options.slice(0, 4) // Limit to 4 options
+        };
+      }).filter(q => q !== null);
+      
+      if (parsedQuestions.length === 0) {
+        return toast.error("Format noto'g'ri. Namuna: #Savol... A) Variant");
+      }
+      
+      // Replace initial empty question if it exists
+      const newQuestions = testData.questions.length === 1 && testData.questions[0].text === "" 
+        ? parsedQuestions 
+        : [...testData.questions, ...parsedQuestions];
+
+      setTestData({
+        ...testData,
+        questions: newQuestions
+      });
+      
+      setBulkText("");
+      setShowBulkModal(false);
+      toast.success(`${parsedQuestions.length} ta savol qo'shildi!`);
+    } catch (err) {
+      toast.error("Xatolik yuz berdi");
+    }
+  };
 
   const addQuestion = () => {
     setTestData({
@@ -219,12 +291,20 @@ export default function CreateTest() {
                 <div className="p-2 bg-indigo-500/10 rounded-xl text-indigo-500"><ListPlus size={20} /></div>
                 <h3 className="text-sm font-black uppercase tracking-widest">Savollar ({testData.questions.length})</h3>
               </div>
-              <button 
-                onClick={addQuestion}
-                className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-500 hover:scale-105 transition-all"
-              >
-                <Plus size={16} /> Savol qo'shish
-              </button>
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => setShowBulkModal(true)}
+                  className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-500 hover:scale-105 transition-all bg-indigo-500/5 px-4 py-2 rounded-xl border border-indigo-500/20"
+                >
+                  <Clipboard size={14} /> Bulk Import
+                </button>
+                <button 
+                  onClick={addQuestion}
+                  className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-500 hover:scale-105 transition-all"
+                >
+                  <Plus size={16} /> Savol qo'shish
+                </button>
+              </div>
             </div>
 
             {testData.questions.map((q, idx) => (
@@ -288,6 +368,63 @@ export default function CreateTest() {
           </button>
         </div>
       </div>
+
+      {/* Bulk Import Modal */}
+      {showBulkModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-md bg-slate-950/60 animate-in fade-in duration-300">
+          <div className="bg-slate-900 border border-white/10 w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-8 border-b border-white/5 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-black text-white italic uppercase tracking-tight">Bulk <span className="text-indigo-500">Import</span></h2>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">#Savol matni va A) B) C) D) variantlar</p>
+              </div>
+              <button 
+                onClick={() => setShowBulkModal(false)}
+                className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-slate-400 hover:bg-red-500/10 hover:text-red-500 transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-8 flex-1 overflow-y-auto">
+              <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-2xl p-4 mb-6">
+                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.15em] mb-2 flex items-center gap-2">
+                  <Plus size={12} /> Format namunasi:
+                </p>
+                <pre className="text-[10px] text-slate-400 font-mono leading-relaxed">
+{`#Bugun havo qanday?
+A) Quyoshli
++B) Yomg'irli
+C) Bulutli
+D) Qorli`}
+                </pre>
+              </div>
+              
+              <textarea 
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                placeholder="Savollarni shu yerga joylashtiring..."
+                className="w-full h-[300px] bg-slate-950 border border-white/5 rounded-[1.5rem] p-6 text-sm text-slate-300 font-medium outline-none focus:border-indigo-500 transition-all resize-none"
+              />
+            </div>
+            
+            <div className="p-8 bg-slate-950/50 border-t border-white/5 flex gap-4">
+              <button 
+                onClick={() => setShowBulkModal(false)}
+                className="flex-1 py-4 bg-white/5 text-slate-400 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-white/10 transition-all"
+              >
+                Bekor qilish
+              </button>
+              <button 
+                onClick={parseBulkText}
+                className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-indigo-600/30 hover:scale-[1.02] active:scale-95 transition-all"
+              >
+                Import qilish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
