@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { loginUser } from "../api/api";
+import logo from "../assets/logo.svg";
+import { loginUser, studentIndividualLogin } from "../api/api";
 
 export default function LoginTemplate({ role, loginPath }) {
   const navigate = useNavigate();
@@ -9,30 +10,41 @@ export default function LoginTemplate({ role, loginPath }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [isIndividual, setIsIndividual] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    if (role === "Student" && !fullName.trim()) {
+    if (role === "Student" && !isIndividual && !fullName.trim()) {
       return toast.warning("Iltimos, ism va familiyangizni kiriting!");
     }
 
     setLoading(true);
     try {
-      const data = await loginUser(
-        role.toLowerCase(),
-        username,
-        password,
-        fullName
-      );
-
-      toast.success(data.message);
-
-      if (role === "Student") {
-        navigate(loginPath, { state: { testData: data } });
+      if (role === "Student" && isIndividual) {
+        const { data } = await studentIndividualLogin({ username, password });
+        localStorage.setItem("studentId", data._id);
+        localStorage.setItem("fullName", data.fullName);
+        localStorage.setItem("teacherId", data.teacherId);
+        localStorage.setItem("role", "student");
+        toast.success("Xush kelibsiz, " + data.fullName);
+        navigate("/student/dashboard");
       } else {
-        navigate(loginPath);
+        const data = await loginUser(
+          role.toLowerCase(),
+          username,
+          password,
+          fullName
+        );
+
+        toast.success(data.message);
+
+        if (role === "Student") {
+          navigate(loginPath, { state: { testData: data } });
+        } else {
+          navigate(loginPath);
+        }
       }
     } catch (err) {
       toast.error(err.response?.data?.msg || "Login xato!");
@@ -42,35 +54,61 @@ export default function LoginTemplate({ role, loginPath }) {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-black text-white overflow-hidden px-6">
+    <div className="relative min-h-screen flex items-center justify-center bg-primary text-primary overflow-hidden px-6 transition-colors duration-300">
       {/* Glow background */}
-      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-purple-600/30 rounded-full blur-3xl" />
-      <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-blue-600/30 rounded-full blur-3xl" />
+      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-indigo-600/10 dark:bg-indigo-600/30 rounded-full blur-3xl animate-blob pointer-events-none" />
+      <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-blue-600/10 dark:bg-blue-600/30 rounded-full blur-3xl animate-blob animation-delay-2000 pointer-events-none" />
 
       {/* Login Card */}
       <form
         onSubmit={handleLogin}
         className="
           relative z-10 w-full max-w-md
-          backdrop-blur-xl bg-white/5
-          border border-white/10
-          rounded-2xl p-10
+          backdrop-blur-2xl bg-secondary/50
+          border border-primary
+          rounded-[32px] p-10
           shadow-2xl
         "
       >
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
+          <div className="w-16 h-16 rounded-[1.25rem] bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-black text-3xl shadow-lg shadow-indigo-600/20">
+            T
+          </div>
+        </div>
+
         {/* Title */}
-        <h2 className="text-3xl font-extrabold text-center mb-2">
-          {role === "Student" ? "Testga Kirish" : `${role} Login`}
+        <h2 className="text-4xl font-black text-center mb-2 text-primary tracking-tighter uppercase italic">
+          {role === "Student" ? "Testga" : role} <span className="text-indigo-600 dark:text-indigo-400">{role === "Student" ? "Kirish" : "Login"}</span>
         </h2>
 
-        <p className="text-center text-gray-400 text-sm mb-8">
-          Online Test Platform
+        <p className="text-center text-muted text-xs font-bold uppercase tracking-widest mb-6 opacity-70">
+          OsonTestOl Platformasi
         </p>
 
-        {/* Student Full Name */}
         {role === "Student" && (
-          <div className="mb-5">
-            <label className="block text-sm text-gray-300 mb-1">
+          <div className="flex bg-primary/30 p-1 rounded-2xl mb-8 border border-primary/20">
+            <button 
+              type="button"
+              onClick={() => setIsIndividual(false)}
+              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!isIndividual ? 'bg-indigo-600 text-white shadow-lg' : 'text-muted hover:text-primary'}`}
+            >
+              Testga Kirish
+            </button>
+            <button 
+              type="button"
+              onClick={() => setIsIndividual(true)}
+              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isIndividual ? 'bg-indigo-600 text-white shadow-lg' : 'text-muted hover:text-primary'}`}
+            >
+              Shaxsiy Kabinet
+            </button>
+          </div>
+        )}
+
+        {/* Student Full Name - Only for Guest */}
+        {role === "Student" && !isIndividual && (
+          <div className="mb-6 animate-in slide-in-from-top-2 duration-300">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-muted mb-2 ml-1">
               Ism va Familiya
             </label>
             <input
@@ -79,40 +117,42 @@ export default function LoginTemplate({ role, loginPath }) {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               className="
-                w-full p-3 rounded-lg
-                bg-black/40 border border-white/10
-                focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400
-                outline-none transition
+                w-full p-4 rounded-2xl
+                bg-primary border border-primary
+                focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
+                outline-none transition-all shadow-sm
+                text-primary placeholder:text-muted/50
               "
             />
           </div>
         )}
 
         {/* Username */}
-        <div className="mb-5">
-          <label className="block text-sm text-gray-300 mb-1">
-            {role === "Student" ? "Test Logini" : "Username"}
+        <div className="mb-6">
+          <label className="block text-[10px] font-black uppercase tracking-widest text-muted mb-2 ml-1">
+            {isIndividual ? "Username" : "Test Logini"}
           </label>
           <input
             type="text"
             placeholder={
-              role === "Student" ? "O‘qituvchi bergan login" : "Username"
+              isIndividual ? "Username" : "O‘qituvchi bergan login"
             }
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="
-              w-full p-3 rounded-lg
-              bg-black/40 border border-white/10
-              focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400
-              outline-none transition
+              w-full p-4 rounded-2xl
+              bg-primary border border-primary
+              focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
+              outline-none transition-all shadow-sm
+              text-primary placeholder:text-muted/50
             "
           />
         </div>
 
         {/* Password */}
-        <div className="mb-8">
-          <label className="block text-sm text-gray-300 mb-1">
-            {role === "Student" ? "Test Paroli" : "Parol"}
+        <div className="mb-10">
+          <label className="block text-[10px] font-black uppercase tracking-widest text-muted mb-2 ml-1">
+            {isIndividual ? "Parol" : "Test Paroli"}
           </label>
           <input
             type="password"
@@ -120,10 +160,11 @@ export default function LoginTemplate({ role, loginPath }) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="
-              w-full p-3 rounded-lg
-              bg-black/40 border border-white/10
-              focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400
-              outline-none transition
+              w-full p-4 rounded-2xl
+              bg-primary border border-primary
+              focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
+              outline-none transition-all shadow-sm
+              text-primary placeholder:text-muted/50
             "
           />
         </div>
@@ -133,17 +174,31 @@ export default function LoginTemplate({ role, loginPath }) {
           type="submit"
           disabled={loading}
           className={`
-            w-full py-3 rounded-xl font-semibold
-            transition transform
+            w-full py-5 rounded-2xl
+            font-black uppercase tracking-[0.2em] text-xs
+            transition-all flex items-center justify-center gap-3
             ${
               loading
-                ? "bg-gray-500 cursor-not-allowed"
-                : "bg-gradient-to-r from-cyan-500 to-blue-600 hover:scale-105"
+                ? "bg-secondary text-muted cursor-not-allowed opacity-50"
+                : "bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-xl shadow-indigo-600/30 hover:shadow-indigo-600/50 hover:scale-[1.02] active:scale-95"
             }
           `}
         >
           {loading ? "Kirilmoqda..." : "Kirish"}
         </button>
+
+        {role === "Student" && (
+          <div className="mt-8 text-center">
+            <p className="text-xs font-bold text-muted mb-4 italic">Sizda hali akkaunt yo'qmi?</p>
+            <button
+              type="button"
+              onClick={() => navigate("/register")}
+              className="text-sm font-black text-indigo-500 hover:text-indigo-600 uppercase tracking-widest transition-colors"
+            >
+              Ro'yxatdan o'tish
+            </button>
+          </div>
+        )}
       </form>
     </div>
   );

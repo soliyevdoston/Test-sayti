@@ -1,19 +1,24 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
-import { UserPlus, LogOut, Shield, Trash2 } from "lucide-react";
-import { createTeacher, getTeachers, deleteTeacher } from "../api/api";
+import { UserPlus, LogOut, Shield, Trash2, Activity, Globe, Zap, Users, Edit, Key, Eye, EyeOff, CheckCircle, XCircle } from "lucide-react";
+import logo from "../assets/logo.svg";
+import { createTeacher, getTeachers, deleteTeacher, updateTeacher } from "../api/api";
+import DashboardLayout from "../components/DashboardLayout";
 
 const Footer = () => {
   return (
-    <footer className="mt-24 border-t border-white/10 bg-black/30 backdrop-blur-xl">
-      <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col md:flex-row justify-between items-center gap-4 text-gray-400">
-        <p className="text-sm">
-          © {new Date().getFullYear()} Knowledge Gateway
-        </p>
+    <footer className="mt-24 border-t border-primary bg-secondary/30 backdrop-blur-xl py-12">
+      <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8 text-muted">
+        <div className="flex items-center gap-3">
+           <img src={logo} alt="OsonTestOl" className="w-6 h-6 object-contain grayscale opacity-50" />
+           <p className="text-sm font-bold tracking-widest uppercase">
+             © {new Date().getFullYear()} OsonTestOl
+           </p>
+        </div>
         <p className="text-sm">
           Admin Panel · Built by{" "}
-          <span className="text-white font-medium">Soliyev</span>
+          <span className="text-primary font-medium">Soliyev</span>
         </p>
       </div>
     </footer>
@@ -30,6 +35,9 @@ export default function AdminDashboard() {
     username: "",
     password: "",
   });
+  const [editMode, setEditMode] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [showPasswords, setShowPasswords] = useState({});
 
   const fetchTeachers = async () => {
     try {
@@ -44,22 +52,54 @@ export default function AdminDashboard() {
     fetchTeachers();
   }, []);
 
-  const handleCreate = async (e) => {
+  const handleCreateOrUpdate = async (e) => {
     e.preventDefault();
     if (!formData.fullName || !formData.username || !formData.password)
       return toast.warning("Barcha maydonlarni to‘ldiring!");
 
     try {
       setLoading(true);
-      await createTeacher(formData);
-      toast.success("O‘qituvchi qo‘shildi");
+      if (editMode) {
+        await updateTeacher(editingId, formData);
+        toast.success("O‘qituvchi ma'lumotlari yangilandi");
+      } else {
+        await createTeacher(formData);
+        toast.success("O‘qituvchi qo‘shildi");
+      }
       setFormData({ fullName: "", username: "", password: "" });
+      setEditMode(false);
+      setEditingId(null);
       fetchTeachers();
     } catch {
       toast.error("Xatolik yuz berdi");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEdit = (teacher) => {
+    setFormData({
+      fullName: teacher.fullName,
+      username: teacher.username,
+      password: teacher.password
+    });
+    setEditMode(true);
+    setEditingId(teacher._id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleToggleStatus = async (teacher) => {
+    try {
+      await updateTeacher(teacher._id, { ...teacher, isActive: !teacher.isActive });
+      toast.success("Status o'zgardi");
+      fetchTeachers();
+    } catch {
+      toast.error("Statusni o'zgartirishda xato");
+    }
+  };
+
+  const togglePasswordVisibility = (id) => {
+    setShowPasswords(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const handleDelete = async (id) => {
@@ -73,141 +113,171 @@ export default function AdminDashboard() {
     }
   };
 
-  const logout = () => {
-    navigate("/admin/login");
-    toast.info("Chiqildi");
-  };
-
   return (
-    <div className="min-h-screen relative bg-black text-white overflow-hidden px-6 flex flex-col">
-      {/* ---------- Glow Background ---------- */}
-      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-purple-600/30 rounded-full blur-3xl animate-blob" />
-      <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-blue-600/30 rounded-full blur-3xl animate-blob animation-delay-2000" />
-
-      {/* ================= HEADER ================= */}
-      <header className="sticky top-0 z-50 bg-black/30 backdrop-blur-xl border-b border-white/10">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-          <h1 className="text-lg font-semibold flex items-center gap-2">
-            <Shield className="text-indigo-400" size={20} /> Admin Dashboard
-          </h1>
-          <button
-            onClick={logout}
-            className="flex items-center gap-2 text-gray-400 hover:text-white transition"
-          >
-            <LogOut size={18} /> Chiqish
-          </button>
+    <DashboardLayout role="admin" userName="Admin">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-12">
+          <h1 className="text-4xl font-black text-primary italic uppercase tracking-tighter mb-2">Admin <span className="text-indigo-500">Boshqaruvi</span></h1>
+          <p className="text-sm text-muted font-bold uppercase tracking-widest">O'qituvchilar va tizim parametrlarini boshqaring</p>
         </div>
-      </header>
 
-      {/* ================= MAIN ================= */}
-      <main className="flex-grow max-w-6xl mx-auto px-6 py-20 space-y-20 relative z-10">
-        {/* -------- CREATE TEACHER -------- */}
-        <section className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-10 shadow-2xl">
-          <h2 className="text-2xl font-semibold mb-8 flex items-center gap-2">
-            <UserPlus size={24} /> Yangi o‘qituvchi qo‘shish
-          </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Create Teacher Section */}
+          <div className="lg:col-span-1">
+            <div className="premium-card sticky top-28">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="p-3 bg-indigo-500/10 rounded-2xl text-indigo-500"><Users size={24} /></div>
+                <h2 className="text-xl font-black text-primary uppercase italic tracking-tighter">Yangi <span className="text-indigo-500">o'qituvchi</span></h2>
+              </div>
 
-          <form onSubmit={handleCreate} className="space-y-6">
-            <input
-              type="text"
-              placeholder="To‘liq ism"
-              value={formData.fullName}
-              onChange={(e) =>
-                setFormData({ ...formData, fullName: e.target.value })
-              }
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition"
-            />
+               <form onSubmit={handleCreateOrUpdate} className="space-y-6">
+                <input
+                  type="text"
+                  placeholder="To‘liq ism"
+                  value={formData.fullName}
+                  onChange={(e) =>
+                    setFormData({ ...formData, fullName: e.target.value })
+                  }
+                   className="w-full p-4 rounded-2xl bg-secondary border border-primary focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-primary transition-all outline-none"
+                />
 
-            <div className="grid md:grid-cols-2 gap-6">
-              <input
-                type="text"
-                placeholder="Username"
-                value={formData.username}
-                onChange={(e) =>
-                  setFormData({ ...formData, username: e.target.value })
-                }
-                className="bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition"
-              />
-              <input
-                type="text"
-                placeholder="Parol"
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
-                }
-                className="bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition"
-              />
-            </div>
+                <input
+                  type="text"
+                  placeholder="Username"
+                  value={formData.username}
+                  onChange={(e) =>
+                    setFormData({ ...formData, username: e.target.value })
+                  }
+                  className="w-full p-4 rounded-2xl bg-secondary border border-primary focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-primary transition-all outline-none"
+                />
+                <input
+                  type="text"
+                  placeholder="Parol"
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  className="w-full p-4 rounded-2xl bg-secondary border border-primary focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-primary transition-all outline-none"
+                />
 
-            <button
-              disabled={loading}
-              className={`w-full py-3 rounded-xl font-semibold transition transform ${
-                loading
-                  ? "bg-gray-500 cursor-not-allowed"
-                  : "bg-gradient-to-r from-cyan-500 to-blue-600 hover:scale-105"
-              }`}
-            >
-              {loading ? "Saqlanmoqda..." : "Saqlash"}
-            </button>
-          </form>
-        </section>
-
-        {/* -------- TEACHERS LIST -------- */}
-        <section className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-10 shadow-2xl">
-          <h2 className="text-2xl font-semibold mb-6">
-            O‘qituvchilar ro‘yxati
-          </h2>
-
-          {teachers.length ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-gray-400 border-b border-white/10">
-                  <tr>
-                    <th className="py-3 text-left">Ism</th>
-                    <th className="py-3 text-left">Login</th>
-                    <th className="py-3 text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {teachers.map((t) => (
-                    <tr
-                      key={t._id}
-                      className="border-b border-white/5 hover:bg-white/5 transition"
+                 <div className="flex gap-2">
+                   <button
+                     type="submit"
+                     disabled={loading}
+                     className={`flex-1 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${
+                       loading ? "bg-gray-500 opacity-50" : "bg-gradient-to-r from-indigo-600 to-blue-700 text-white shadow-xl shadow-indigo-600/30 hover:shadow-indigo-600/50 hover:scale-[1.02]"
+                     }`}
+                   >
+                    {loading ? "Saqlanmoqda..." : editMode ? "Yangilash" : "Saqlash"}
+                  </button>
+                  {editMode && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditMode(false);
+                        setEditingId(null);
+                        setFormData({ fullName: "", username: "", password: "" });
+                      }}
+                      className="px-6 py-5 rounded-2xl bg-secondary border border-primary text-muted hover:text-primary transition-all font-black text-xs uppercase"
                     >
-                      <td className="py-3">{t.fullName}</td>
-                      <td className="py-3">{t.username}</td>
-                      <td className="py-3 text-center">
-                        <button
-                          onClick={() => handleDelete(t._id)}
-                          className="inline-flex items-center gap-1 text-red-400 hover:text-red-500"
-                        >
-                          <Trash2 size={15} /> O‘chirish
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      Bekor qilish
+                    </button>
+                  )}
+                 </div>
+              </form>
             </div>
-          ) : (
-            <p className="text-gray-400">Hozircha o‘qituvchi yo‘q</p>
-          )}
-        </section>
-      </main>
+          </div>
 
+          {/* Teachers List Section */}
+          <div className="lg:col-span-2">
+            <div className="premium-card">
+                 <div className="flex items-center gap-3 mb-8">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
+                       <Shield size={20} />
+                    </div>
+                <h2 className="text-xl font-black text-primary uppercase italic tracking-tighter">O'qituvchilar <span className="text-indigo-500">ro'yxati</span></h2>
+              </div>
+
+              {teachers.length ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-primary">
+                    <thead className="text-muted border-b border-primary uppercase text-xs tracking-widest font-black">
+                      <tr>
+                        <th className="py-4 text-left">Ism</th>
+                        <th className="py-4 text-left">Login / Parol</th>
+                        <th className="py-4 text-center">Status</th>
+                        <th className="py-4 text-center">Amallar</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {teachers.map((t) => (
+                        <tr
+                          key={t._id}
+                          className="border-b border-primary hover:bg-secondary/40 transition-colors"
+                        >
+                          <td className="py-4 font-bold">{t.fullName}</td>
+                          <td className="p-4">
+                                     <div className="flex flex-col gap-1">
+                                       <span className="px-3 py-1 bg-indigo-500/10 text-indigo-500 rounded-lg text-[10px] font-black uppercase tracking-widest border border-indigo-500/20 w-fit">
+                                         {t.username}
+                                       </span>
+                                       <div className="flex items-center gap-2 group/pass">
+                                         <span className="text-[10px] font-mono text-muted">
+                                           {showPasswords[t._id] ? t.password : "••••••••"}
+                                         </span>
+                                         <button 
+                                           onClick={() => togglePasswordVisibility(t._id)}
+                                           className="opacity-0 group-hover/pass:opacity-100 transition-opacity text-muted hover:text-indigo-500"
+                                         >
+                                           {showPasswords[t._id] ? <EyeOff size={12} /> : <Eye size={12} />}
+                                         </button>
+                                       </div>
+                                     </div>
+                                 </td>
+                          <td className="py-4 text-center">
+                            <button
+                              onClick={() => handleToggleStatus(t)}
+                              className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter transition-all border ${
+                                t.isActive 
+                                ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" 
+                                : "bg-red-500/10 text-red-600 border-red-500/20"
+                              }`}
+                            >
+                              {t.isActive ? <CheckCircle size={12} /> : <XCircle size={12} />}
+                              {t.isActive ? "Aktiv" : "Nofaol"}
+                            </button>
+                          </td>
+                          <td className="py-4 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => handleEdit(t)}
+                                className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500 hover:text-white transition-all"
+                                title="Tahrirlash"
+                              >
+                                <Edit size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(t._id)}
+                                className="p-2 rounded-xl bg-red-500/10 text-red-600 hover:bg-red-500 hover:text-white transition-all"
+                                title="O'chirish"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-gray-400 py-20 text-center italic font-bold opacity-30">Hozircha o‘qituvchi yo‘q</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
       <Footer />
-
-      <style>
-        {`
-          @keyframes blob {
-            0%,100% { transform: translate(0px,0px) scale(1); }
-            33% { transform: translate(30px,-50px) scale(1.1); }
-            66% { transform: translate(-20px,20px) scale(0.9); }
-          }
-          .animate-blob { animation: blob 7s infinite; }
-          .animation-delay-2000 { animation-delay: 2s; }
-        `}
-      </style>
-    </div>
+    </DashboardLayout>
   );
 }
