@@ -11,14 +11,14 @@ const Footer = () => {
     <footer className="mt-24 border-t border-primary bg-secondary/30 backdrop-blur-xl py-12">
       <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8 text-muted">
         <div className="flex items-center gap-3">
-           <img src={logo} alt="OsonTestOl" className="w-6 h-6 object-contain grayscale opacity-50" />
+           <img src={logo} alt="TestOnlinee" className="w-6 h-6 object-contain grayscale opacity-50" />
            <p className="text-sm font-bold tracking-widest uppercase">
-             © {new Date().getFullYear()} OsonTestOl
+             © {new Date().getFullYear()} TestOnlinee
            </p>
         </div>
         <p className="text-sm">
-          Admin Panel · Built by{" "}
-          <span className="text-primary font-medium">Soliyev</span>
+          Developed by{" "}
+          <a href="https://soliyev.uz" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">Soliyev.uz</a>
         </p>
       </div>
     </footer>
@@ -227,7 +227,7 @@ export default function AdminDashboard() {
                                          </span>
                                          <button 
                                            onClick={() => togglePasswordVisibility(t._id)}
-                                           className="opacity-0 group-hover/pass:opacity-100 transition-opacity text-muted hover:text-indigo-500"
+                                           className="transition-opacity text-muted hover:text-indigo-500"
                                          >
                                            {showPasswords[t._id] ? <EyeOff size={12} /> : <Eye size={12} />}
                                          </button>

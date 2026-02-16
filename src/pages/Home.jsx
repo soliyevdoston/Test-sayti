@@ -27,7 +27,8 @@ import {
   BookOpen,
   UserCheck,
   Search,
-  Languages
+  Languages,
+  Key
 } from "lucide-react";
 import logo from "../assets/logo.svg";
 
@@ -57,7 +58,7 @@ const OrbitBadge = ({ icon: Icon, label, className, color, delay }) => (
 const PartnershipLogo = ({ name, color = "text-primary" }) => (
   <div className="flex items-center gap-4 group cursor-pointer">
     <div className={`w-12 h-12 rounded-xl border border-primary/20 flex items-center justify-center p-2 bg-white/5 shadow-premium group-hover:border-indigo-500/50 transition-colors`}>
-      <img src={logo} alt={name} className="w-full h-full object-contain opacity-50 group-hover:opacity-100 transition-opacity" />
+      <img src={logo} alt={`${name} logo`} className="w-full h-full object-contain opacity-50 group-hover:opacity-100 transition-opacity" />
     </div>
     <span className={`text-[10px] font-black uppercase tracking-tighter max-w-[120px] leading-tight group-hover:text-blue-500 transition-colors ${color}`}>{name}</span>
   </div>
@@ -140,7 +141,12 @@ const FeatureHighlight = ({ title, desc, features, image, reversed, badge }) => 
     <div className="w-full lg:w-1/2 relative group">
       <div className="absolute inset-0 bg-indigo-500/10 rounded-[3rem] blur-3xl group-hover:bg-indigo-500/20 transition-all duration-700" />
       <div className="relative p-2 glass rounded-[3rem] shadow-2xl overflow-hidden aspect-[4/3] border border-primary/20">
-        <img src={image} alt={title} className="w-full h-full object-cover rounded-[2.5rem] group-hover:scale-105 transition-transform duration-1000" />
+        <img 
+          src={image} 
+          alt={`TestOnlinee - ${title}`} 
+          loading="lazy"
+          className="w-full h-full object-cover rounded-[2.5rem] group-hover:scale-105 transition-transform duration-1000" 
+        />
         {badge && (
           <div className="absolute top-6 right-6 p-4 glass rounded-2xl shadow-xl animate-bounce">
             {badge}
@@ -182,6 +188,139 @@ const FeatureHighlight = ({ title, desc, features, image, reversed, badge }) => 
   </div>
 );
 
+const GuideStep = ({ number, title, desc, icon: Icon }) => (
+  <div className="flex gap-6 group/step">
+    <div className="flex flex-col items-center">
+      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 group-hover/step:scale-110 transition-transform relative z-10">
+        <Icon size={24} />
+      </div>
+      <div className="w-px h-full bg-indigo-500/20 my-2 group-last/step:hidden"></div>
+    </div>
+    <div className="pb-10 group-last/step:pb-0">
+      <h4 className="text-xl font-black text-primary uppercase tracking-tighter italic mb-2">{number}. {title}</h4>
+      <p className="text-sm text-secondary font-medium leading-relaxed max-w-md">{desc}</p>
+    </div>
+  </div>
+);
+
+const GuideSection = () => {
+  const [activeTab, setActiveTab] = useState("teacher");
+
+  return (
+    <section id="guide" className="py-32 px-6 bg-secondary/10">
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-20 space-y-4">
+          <h2 className="text-4xl md:text-6xl font-black text-primary tracking-tighter uppercase italic">
+            Platformadan <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-blue-600 underline decoration-indigo-500/30 decoration-8 underline-offset-8">foydalanish</span>
+          </h2>
+          <p className="text-muted font-bold uppercase tracking-widest text-xs">Eng oddiy va mayda qadamlar bilan tanishasiz</p>
+        </div>
+
+        <div className="flex justify-center mb-16">
+          <div className="inline-flex p-1.5 bg-primary/20 backdrop-blur-xl rounded-[2rem] border border-primary/20">
+            <button
+              onClick={() => setActiveTab("teacher")}
+              className={`px-10 py-4 rounded-[1.8rem] font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'teacher' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/30' : 'text-secondary hover:text-primary'}`}
+            >
+              O'qituvchi uchun
+            </button>
+            <button
+              onClick={() => setActiveTab("student")}
+              className={`px-10 py-4 rounded-[1.8rem] font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'student' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/30' : 'text-secondary hover:text-primary'}`}
+            >
+              O'quvchi uchun
+            </button>
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="space-y-2 animate-in fade-in slide-in-from-left duration-700">
+            {activeTab === "teacher" ? (
+              <div className="space-y-2">
+                <GuideStep 
+                  number="01" 
+                  title="Kirish" 
+                  desc="Tizimga o'qituvchi sifatida kiring. Agar akkountingiz bo'lmasa, Adminstrator sizga login va parolni taqdim etadi." 
+                  icon={Shield} 
+                />
+                <GuideStep 
+                  number="02" 
+                  title="Fan yaratish" 
+                  desc="Asosiy panelda 'Fanlar' bo'limiga o'ting va 'Yangi fan' tugmasini bosing. Fan nomini kiriting." 
+                  icon={Plus} 
+                />
+                <GuideStep 
+                  number="03" 
+                  title="Test yuklash" 
+                  desc="Word (.docx) faylidagi testlaringizni tizimga yuklang. Savollar avtomatik tarzda tahlil qilinadi va bazaga saqlanadi." 
+                  icon={ArrowRight} 
+                />
+                <GuideStep 
+                  number="04" 
+                  title="Testni boshlash" 
+                  desc="Testni ikki xil usulda o'tkazishingiz mumkin: 1) Ommaviy xona kodi (ID) orqali hamma uchun; 2) Faqat ma'lum bir guruhga biriktirib, faqat shu o'quvchilardan test olish." 
+                  icon={Rocket} 
+                />
+                <GuideStep 
+                  number="05" 
+                  title="Tahlil va Natija" 
+                  desc="O'quvchilar testni yechishni boshlashi bilan natijalarni real vaqt rejimida kuzatib boring. Shaxsiy kabinet orqali kirgan o'quvchilarning natijalari ularning profilida saqlanadi." 
+                  icon={BarChart3} 
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <GuideStep 
+                  number="01" 
+                  title="Login" 
+                  desc="O'qituvchingiz bergan login va parol orqali o'quvchi kabinetiga kiring." 
+                  icon={Users} 
+                />
+                <GuideStep 
+                  number="02" 
+                  title="Testga kirish" 
+                  desc="O'qituvchi bergan xona kodi (ID) orqali kiring YOKI agar guruhga biriktirilgan bo'lsangiz, shaxsiy kabinetingizdagi 'Mening testlarim' bo'limidan kirishingiz mumkin." 
+                  icon={Key} 
+                />
+                <GuideStep 
+                  number="03" 
+                  title="Testni yechish" 
+                  desc="Test savollarini diqqat bilan o'qib chiqing va to'g'ri javoblarni belgilang." 
+                  icon={FileText} 
+                />
+                <GuideStep 
+                  number="04" 
+                  title="Yakunlash" 
+                  desc="Barcha savollarga javob bergach, 'Testni yakunlash' tugmasini bosing." 
+                  icon={Check} 
+                />
+                <GuideStep 
+                  number="05" 
+                  title="Natija" 
+                  desc="Sizga darhol necha ball to'plaganingiz va qaysi savollarda xato qilganingiz ko'rsatiladi." 
+                  icon={Award} 
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="relative group">
+             <div className="absolute inset-0 bg-indigo-500/10 rounded-[3rem] blur-3xl" />
+             <div className="relative p-2 glass rounded-[3rem] shadow-2xl overflow-hidden border border-primary/20 aspect-video flex items-center justify-center bg-primary/40">
+                <div className="text-center space-y-6">
+                  <div className="w-20 h-20 rounded-full bg-indigo-600/20 flex items-center justify-center mx-auto text-indigo-500 animate-pulse">
+                    <Play size={40} fill="currentColor" />
+                  </div>
+                  <p className="text-sm font-black uppercase tracking-widest text-primary italic">Video qo'llanma tez orada...</p>
+                </div>
+             </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 export default function Home() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
@@ -215,6 +354,7 @@ export default function Home() {
           <div className="hidden md:flex gap-10 text-xs font-bold text-primary italic">
             <a href="#features" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Imkoniyatlar</a>
             <a href="#how-it-works" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Qanday ishlaydi?</a>
+            <a href="#guide" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Qo'llanma</a>
             <a href="#pricing" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Tariflar</a>
             <a href="#faq" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Savollar</a>
           </div>
@@ -225,7 +365,7 @@ export default function Home() {
               <ChevronDown size={12} className="text-secondary" />
             </div>
             <button 
-              onClick={() => navigate('/student/login')}
+              onClick={() => document.getElementById('roles')?.scrollIntoView({ behavior: 'smooth' })}
               className="px-6 py-2.5 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20"
             >
               Tizimga kirish
@@ -243,14 +383,14 @@ export default function Home() {
           {/* Left: Text Content */}
           <div className="text-left space-y-10">
             <h1 className="text-5xl md:text-7xl font-black tracking-tight text-primary leading-[1.1]">
-              Bilimlarni <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-blue-600 underline decoration-indigo-500/30 decoration-8 underline-offset-10">OsonTestOl</span> bilan loyihalang va baholang
+              Bilimlarni <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-blue-600 underline decoration-indigo-500/30 decoration-8 underline-offset-10">TestOnlinee</span> bilan loyihalang va baholang
             </h1>
             <p className="max-w-xl text-lg text-secondary font-medium leading-relaxed">
               Professional test platformasi: o'qituvchilar uchun qulay boshqaruv, o'quvchilar uchun shaffof va tezkor natijalar.
             </p>
             <div className="flex flex-wrap items-center gap-6">
               <button
-                onClick={() => navigate('/student/login')}
+                onClick={() => document.getElementById('roles')?.scrollIntoView({ behavior: 'smooth' })}
                 className="px-10 py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-[2rem] text-sm uppercase tracking-widest shadow-xl shadow-indigo-600/30 transition-all active:scale-95"
               >
                 Tizimga kirish
@@ -356,7 +496,7 @@ export default function Home() {
       <section className="py-20 border-y border-primary/10 bg-secondary/10">
         <div className="max-w-7xl mx-auto px-6 overflow-hidden relative">
           <div className="flex items-center justify-center gap-16 opacity-40 grayscale hover:grayscale-0 transition-all duration-1000">
-            <span className="text-2xl font-black uppercase tracking-tighter whitespace-nowrap italic text-secondary">OsonTestOl</span>
+            <span className="text-2xl font-black uppercase tracking-tighter whitespace-nowrap italic text-secondary">TestOnlinee</span>
             <span className="text-2xl font-black uppercase tracking-tighter whitespace-nowrap italic text-secondary">Elite Education</span>
             <span className="text-2xl font-black uppercase tracking-tighter whitespace-nowrap italic text-secondary">Pro Academy</span>
             <span className="text-2xl font-black uppercase tracking-tighter whitespace-nowrap italic text-secondary">Digital School</span>
@@ -494,7 +634,7 @@ export default function Home() {
                 {[1,2,3,4,5].map(i => <Star key={i} size={20} className="fill-indigo-500 text-indigo-500" />)}
               </div>
               <p className="text-xl text-secondary leading-relaxed italic">
-                "OsonTestOl bizning maktabimizda test o'tkazish madaniyatini butunlay o'zgartirdi. O'qituvchilar endi test tayyorlashga soatlab vaqt sarflashmaydi."
+                "TestOnlinee bizning maktabimizda test o'tkazish madaniyatini butunlay o'zgartirdi. O'qituvchilar endi test tayyorlashga soatlab vaqt sarflashmaydi."
               </p>
               <div className="mt-8 flex items-center gap-4">
                 <div className="w-12 h-12 rounded-full bg-indigo-500/20 border border-indigo-500/20" />
@@ -532,6 +672,8 @@ export default function Home() {
         </div>
       </section>
 
+      <GuideSection />
+
       {/* Pricing Section */}
       <section id="pricing" className="py-32 px-6">
         <div className="max-w-7xl mx-auto">
@@ -551,7 +693,7 @@ export default function Home() {
             />
             <PricingCard
               title="O'qituvchi"
-              price="49k"
+              price="0"
               recommended
               features={["Word & Manual import", "Guruhlar va Shaxsiy kabinetlar", "Shaxsiy Chat tizimi", "Chuqur statistika", "PDF eksport"]}
               path="/teacher/login"
@@ -560,7 +702,7 @@ export default function Home() {
             <PricingCard
               title="Maktab"
               price="499k"
-              features={["Cheksiz o'qituvchilar", "Butun maktab boshqaruvi", "Ota-onalar paneli", "24/7 Premium yordam", "Maxsus subdomen"]}
+              features={["Cheksiz o'qituvchilar", "Butun maktab boshqaruvi", "Ota-onalar paneli (Tez orada)", "24/7 Premium yordam", "Maxsus subdomen (Tez orada)"]}
               path="/admin/login"
               navigate={navigate}
             />
@@ -576,7 +718,7 @@ export default function Home() {
         <FAQItem
           index={1}
           q="Platformada test yaratish uchun nimalar kerak?"
-          a="OsonTestOl platformasida test yaratish uchun sizga faqatgina tayyor savollar to'plami (Word yoki matn ko'rinishida) kerak bo'ladi. Tizimimiz Word (.docx) fayllarini avtomatik tahlil qilib, soniyalar ichida testga aylantiradi."
+          a="TestOnlinee platformasida test yaratish uchun sizga faqatgina tayyor savollar to'plami (Word yoki matn ko'rinishida) kerak bo'ladi. Tizimimiz Word (.docx) fayllarini avtomatik tahlil qilib, soniyalar ichida testga aylantiradi."
         />
         <FAQItem
           index={2}
@@ -596,7 +738,7 @@ export default function Home() {
         <FAQItem
           index={5}
           q="Platformani mobil qurilmalarda ishlatsa bo'ladimi?"
-          a="Albatta! OsonTestOl platformasi to'liq moslashuvchan (responsive) qilib yaratilgan. U kompyuter, planshet va smartfonlarda birdek mukammal ishlaydi."
+          a="Albatta! TestOnlinee platformasi to'liq moslashuvchan (responsive) qilib yaratilgan. U kompyuter, planshet va smartfonlarda birdek mukammal ishlaydi."
         />
       </section>
 
@@ -645,16 +787,16 @@ export default function Home() {
               <ul className="space-y-6 text-sm font-medium text-gray-400">
                 <li className="flex items-start gap-3">
                   <Send size={18} className="text-indigo-500 mt-1" />
-                  <span>info@osontestol.uz</span>
+                  <span>dostonbek@soliyev.uz</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <Zap size={18} className="text-indigo-500 mt-1" />
-                  <span>+998 99 303 64 07</span>
+                  <span>+998 91 660 56 06</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <Globe size={18} className="text-indigo-500 mt-1" />
                   <span className="leading-relaxed text-xs">
-                    Toshkent shahri, Olmazor tumani, Innovatsion ta'lim markazi
+                    O'zbekiston, Farg'ona viloyati
                   </span>
                 </li>
               </ul>
@@ -699,8 +841,8 @@ export default function Home() {
           </div>
           
           <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] font-black uppercase tracking-widest text-gray-500">
-            <p>© 2026 OsonTestOl Platformasi. Barcha huquqlar himoyalangan.</p>
-            <p>Made with 🔥 in <span className="text-indigo-500 underline">Tashkent</span></p>
+            <p>© 2026 TestOnlinee Platformasi. Barcha huquqlar himoyalangan.</p>
+            <p>Developed by <a href="https://soliyev.uz" target="_blank" rel="noopener noreferrer" className="text-indigo-500 underline">Soliyev.uz</a></p>
           </div>
         </div>
       </footer>

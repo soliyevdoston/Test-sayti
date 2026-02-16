@@ -18,16 +18,22 @@ const api = axios.create({
 
 export const loginUser = async (role, username, password, fullName = "") => {
   try {
-    // ===== ADMIN (Statik Login) =====
+    // ===== ADMIN (School) =====
     if (role === "admin") {
-      if (username === "admin" && password === "admin123") {
-        localStorage.setItem("userRole", "admin");
-        return {
-          role: "admin",
-          message: "Admin tizimga kirdi",
-        };
-      }
-      throw new Error("Admin logini yoki paroli xato!");
+      const res = await api.post("/school/login", {
+        name: username,
+        adminPassword: password,
+      });
+
+      localStorage.setItem("schoolId", res.data.schoolId);
+      localStorage.setItem("schoolName", res.data.name);
+      localStorage.setItem("userRole", "admin");
+      
+      return {
+        ...res.data,
+        role: "admin",
+        message: "Admin tizimga kirdi",
+      };
     }
 
     // ===== TEACHER (O'qituvchi) =====
@@ -82,6 +88,7 @@ export const getTeachers = () => api.get("/admin/teachers");
 export const deleteTeacher = (teacherId) =>
   api.delete(`/admin/delete-teacher/${teacherId}`);
 export const updateTeacher = (id, data) => api.put(`/admin/update-teacher/${id}`, data);
+export const updateAdminApi = (id, data) => api.put(`/school/update/${id}`, data);
 
 /* ===================== TEACHER API ===================== */
 
@@ -110,19 +117,19 @@ export const getAnalysisApi = (resultId) =>
   api.get(`/teacher/analysis/${resultId}`);
 
 // Subjects & Groups
-export const getTeacherSubjects = (teacherId) => api.get(`/subjects/${teacherId}`);
-export const addTeacherSubject = (data) => api.post("/add-subject", data);
-export const deleteTeacherSubject = (id) => api.delete(`/delete-subject/${id}`);
+export const getTeacherSubjects = (teacherId) => api.get(`/teacher/subjects/${teacherId}`);
+export const addTeacherSubject = (data) => api.post("/teacher/add-subject", data);
+export const deleteTeacherSubject = (id) => api.delete(`/teacher/delete-subject/${id}`);
 
-export const getTeacherGroups = (teacherId) => api.get(`/groups/${teacherId}`);
-export const addTeacherGroup = (data) => api.post("/add-group", data);
-export const deleteTeacherGroup = (id) => api.delete(`/delete-group/${id}`);
+export const getTeacherGroups = (teacherId) => api.get(`/teacher/groups/${teacherId}`);
+export const addTeacherGroup = (data) => api.post("/teacher/add-group", data);
+export const deleteTeacherGroup = (id) => api.delete(`/teacher/delete-group/${id}`);
 
 // Advanced Student Management
-export const getTeacherStudents = (teacherId) => api.get(`/students/${teacherId}`);
-export const getGroupStudents = (groupId) => api.get(`/group/${groupId}/students`);
-export const addStudentApi = (data) => api.post("/add-student", data);
-export const deleteStudentApi = (id) => api.delete(`/delete-student/${id}`);
+export const getTeacherStudents = (teacherId) => api.get(`/teacher/students/${teacherId}`);
+export const getGroupStudents = (groupId) => api.get(`/teacher/group/${groupId}/students`);
+export const addStudentApi = (data) => api.post("/teacher/add-student", data);
+export const deleteStudentApi = (id) => api.delete(`/teacher/delete-student/${id}`);
 
 // Manual Test Creation
 export const createManualTestApi = (data) => api.post("/teacher/create-manual-test", data);
@@ -132,19 +139,10 @@ export const getChatHistory = (teacherId, studentId) =>
   api.get(`/chat/history/${teacherId}/${studentId}`);
 export const sendChatMessage = (data) => api.post("/chat/send", data);
  
- /* ===================== SUBSCRIPTION API ===================== */
- 
- export const getSubscriptionPlans = () => api.get("/subscriptions/plans");
- 
- export const createSubscription = (data) => api.post("/subscriptions/create", data);
- 
- export const getSubscriptionStatus = (teacherId) => api.get(`/subscriptions/status/${teacherId}`);
- 
- export const verifyPayment = (data) => api.post("/subscriptions/verify", data);
- 
  /* ===================== STUDENT API ===================== */
 
 export const submitTestApi = (data) => api.post("/student/submit", data);
 export const studentIndividualLogin = (data) => api.post("/auth/student-login", data);
+export const getAvailableTests = (teacherId) => api.get(`/student/available-tests/${teacherId}`);
 
 export default api;

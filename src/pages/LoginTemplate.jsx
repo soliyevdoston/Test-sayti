@@ -83,7 +83,7 @@ export default function LoginTemplate({ role, loginPath }) {
         </h2>
 
         <p className="text-center text-muted text-xs font-bold uppercase tracking-widest mb-6 opacity-70">
-          OsonTestOl Platformasi
+          TestOnlinee Platformasi
         </p>
 
         {role === "Student" && (
@@ -130,12 +130,12 @@ export default function LoginTemplate({ role, loginPath }) {
         {/* Username */}
         <div className="mb-6">
           <label className="block text-[10px] font-black uppercase tracking-widest text-muted mb-2 ml-1">
-            {isIndividual ? "Username" : "Test Logini"}
+            {role === "Student" && !isIndividual ? "Test Logini" : "Login"}
           </label>
           <input
             type="text"
             placeholder={
-              isIndividual ? "Username" : "O‘qituvchi bergan login"
+              role === "Student" && !isIndividual ? "O'qituvchi bergan login" : "Loginni kiriting"
             }
             value={username}
             onChange={(e) => setUsername(e.target.value)}

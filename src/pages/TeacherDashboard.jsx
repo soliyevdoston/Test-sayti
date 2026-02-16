@@ -188,18 +188,18 @@ export default function TeacherDashboard() {
              navigate={navigate}
            />
            <QuickNavCard 
-             title="Do'kon" 
+             title="Do'kon (Tez orada)" 
              desc="Premium paketlar" 
              icon={<FaBolt />} 
-             path="/teacher/shop" 
+             path="/teacher/dashboard" 
              color="from-purple-500 to-pink-600" 
              navigate={navigate}
            />
            <QuickNavCard 
-             title="Resurslar" 
+             title="Resurslar (Tez orada)" 
              desc="Metodik qo'llanmalar" 
              icon={<FaClipboardList />} 
-             path="/teacher/resources" 
+             path="/teacher/dashboard" 
              color="from-emerald-500 to-teal-600" 
              navigate={navigate}
            />
