@@ -38,7 +38,6 @@ export default function StudentDashboard() {
   const [result, setResult] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [loading, setLoading] = useState(false);
   const questionRefs = useRef({});
 
   // ================= INIT =================
@@ -199,7 +198,6 @@ export default function StudentDashboard() {
     const studentName = studentData?.name || localStorage.getItem("fullName");
     const studentId = localStorage.getItem("studentId");
     try {
-      setLoading(true);
       const data = await loginUser("student", test.testLogin, "none", studentName, studentId);
       setStudentData({
         name: studentName,
@@ -219,8 +217,6 @@ export default function StudentDashboard() {
       socket.emit("join-test-room", data.testLogin);
     } catch (err) {
       toast.error(err.response?.data?.msg || "Testga kirishda xato");
-    } finally {
-      setLoading(false);
     }
   };
 
