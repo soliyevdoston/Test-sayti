@@ -18,6 +18,7 @@ import {
   parsePreviewApi,
   uploadPreviewApi,
   getTeacherTests, 
+  getTeacherGroups,
   startTestApi, 
   stopTestApi,
   deleteTestApi, 
@@ -38,7 +39,10 @@ export default function TeacherTests() {
     password: "",
     duration: 20,
     file: null,
+    accessType: "public",
+    groupId: "",
   });
+  const [groups, setGroups] = useState([]);
   const [createMode, setCreateMode] = useState("file"); // "file" or "text"
   const [pasteText, setPasteText] = useState("");
   const [previewData, setPreviewData] = useState(null);
@@ -51,8 +55,18 @@ export default function TeacherTests() {
     else {
       setTeacherName(name);
       loadTests(id);
+      loadGroups(id);
     }
   }, [navigate]);
+
+  const loadGroups = async (id) => {
+    try {
+      const { data } = await getTeacherGroups(id || localStorage.getItem("teacherId"));
+      setGroups(Array.isArray(data) ? data : []);
+    } catch {
+      toast.error("Guruhlarni yuklashda xatolik");
+    }
+  };
 
   const loadTests = async (id) => {
     try {
@@ -118,6 +132,8 @@ export default function TeacherTests() {
           duration: newTest.duration,
           testLogin: newTest.username,
           testPassword: newTest.password,
+          accessType: newTest.accessType,
+          groupId: newTest.groupId,
           teacherId: localStorage.getItem("teacherId"),
         }).forEach(([k, v]) => formData.append(k, v));
 
@@ -131,6 +147,8 @@ export default function TeacherTests() {
           duration: newTest.duration,
           testLogin: newTest.username,
           testPassword: newTest.password,
+          accessType: newTest.accessType,
+          groupId: newTest.groupId,
           teacherId: localStorage.getItem("teacherId"),
         };
         const res = await parseTextApi(payload);
@@ -144,6 +162,8 @@ export default function TeacherTests() {
         password: "",
         duration: 20,
         file: null,
+        accessType: "public",
+        groupId: "",
       });
       setPasteText("");
       setPreviewData(null);
@@ -322,6 +342,46 @@ export default function TeacherTests() {
                 />
               )}
             </div>
+
+            {/* 🔥 Visibility Control */}
+            <div className="col-span-full grid md:grid-cols-2 gap-6 bg-indigo-500/5 p-6 rounded-3xl border border-indigo-500/10">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-widest text-indigo-600 block ml-2">Kirish ruxsati</label>
+                <div className="flex gap-2">
+                  <button 
+                    type="button"
+                    onClick={() => setNewTest({...newTest, accessType: "public", groupId: ""})}
+                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${newTest.accessType === 'public' ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20' : 'bg-secondary text-muted border-primary hover:text-primary'}`}
+                  >
+                    Umumiy (Barchaga)
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setNewTest({...newTest, accessType: "group"})}
+                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${newTest.accessType === 'group' ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20' : 'bg-secondary text-muted border-primary hover:text-primary'}`}
+                  >
+                    Faqat Guruhga
+                  </button>
+                </div>
+              </div>
+
+              {newTest.accessType === "group" && (
+                <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-indigo-600 block ml-2">Guruhni Tanlang</label>
+                  <select 
+                    required
+                    value={newTest.groupId}
+                    onChange={(e) => setNewTest({...newTest, groupId: e.target.value})}
+                    className="w-full p-3.5 rounded-xl bg-secondary border border-primary focus:border-indigo-500 transition-all outline-none font-bold text-primary shadow-sm text-xs"
+                  >
+                    <option value="">Guruhni tanlang...</option>
+                    {groups.map(g => (
+                      <option key={g._id} value={g._id}>{g.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
             <div className="col-span-full flex gap-4">
               <button
                 type="button"
@@ -400,10 +460,16 @@ export default function TeacherTests() {
                       </div>
                       <div>
                         <h4 className="font-black text-primary uppercase tracking-tight">{t.title}</h4>
-                        <div className="flex gap-3 mt-1">
+                        <div className="flex flex-wrap gap-2 mt-1">
                           <span className="text-[10px] font-black text-muted uppercase tracking-widest">Login: {t.testLogin}</span>
                           <span className="text-[10px] font-black text-muted uppercase tracking-widest">•</span>
                           <span className="text-[10px] font-black text-muted uppercase tracking-widest">Parol: {t.testPassword}</span>
+                          {t.accessType === "group" && (
+                            <>
+                              <span className="text-[10px] font-black text-muted uppercase tracking-widest">•</span>
+                              <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Faqat Guruh</span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>

@@ -23,11 +23,13 @@ export default function LoginTemplate({ role, loginPath, initialUsername = "", i
     setLoading(true);
     try {
       if (role === "Student" && isIndividual) {
+        localStorage.clear(); // Clear any existing guest session/garbage
         const { data } = await studentIndividualLogin({ username, password });
         localStorage.setItem("studentId", data._id);
         localStorage.setItem("fullName", data.fullName);
         localStorage.setItem("teacherId", data.teacherId);
-        localStorage.setItem("role", "student");
+        localStorage.setItem("groupId", data.groupId || "");
+        localStorage.setItem("userRole", "student"); // Consistent key with Admin/Teacher
         toast.success("Xush kelibsiz, " + data.fullName);
         navigate("/student/dashboard");
       } else {

@@ -15,6 +15,7 @@ import {
   XCircle,
   FileText,
   MessageCircle,
+  Search,
   X
 } from "lucide-react";
 import logo from "../assets/logo.svg";
@@ -36,95 +37,100 @@ export default function StudentDashboard() {
   const [answers, setAnswers] = useState([]);
   const [result, setResult] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const questionRefs = useRef({});
 
   // ================= INIT =================
   useEffect(() => {
-    const savedResult = localStorage.getItem("test_result_data");
-    if (savedResult) {
-      setResult(JSON.parse(savedResult));
-      setStatus("finished");
-      return;
-    }
-
-    const studentId = localStorage.getItem("studentId");
-    const teacherId = localStorage.getItem("teacherId");
-
-    if (studentId && !location.state?.testData && !localStorage.getItem("active_test_session")) {
-      const name = localStorage.getItem("fullName");
-      setStudentData({ name, studentId });
-      loadAvailableTests(teacherId);
-      setStatus("selection");
-      return;
-    }
-
-    let activeSession = location.state?.testData;
-    if (!activeSession) {
-      const saved = localStorage.getItem("active_test_session");
-      if (saved) activeSession = JSON.parse(saved);
-    }
-
-    if (!activeSession) {
-      navigate("/", { replace: true });
-      return;
-    }
-
-    setStudentData({
-      name: activeSession.studentName,
-      testId: activeSession.testId,
-      testLogin: activeSession.testLogin,
-    });
-
-    setTestData({
-      title: activeSession.title,
-      description: activeSession.description,
-      duration: activeSession.duration,
-      questions: activeSession.questions,
-      readingText: activeSession.readingText || null,
-    });
-
-    localStorage.setItem("active_test_session", JSON.stringify(activeSession));
-
-    const savedAnswers = localStorage.getItem(
-      `answers_${activeSession.testId}`
-    );
-    if (savedAnswers) setAnswers(JSON.parse(savedAnswers));
-
-    if (timeLeft === 0) setTimeLeft(activeSession.duration * 60);
-
-    setStatus(activeSession.isStarted ? "started" : "waiting");
-
-    socket.emit("join-test-room", activeSession.testLogin);
-
-    const handleStartTest = () => {
-      toast.info("Test boshlandi! Omad.");
-      setStatus("started");
-    };
-
-    const handleForceStop = () => {
-      if (status === "finished") return;
-      toast.warning("O'qituvchi testni yakunladi!");
-      handleSubmit(true);
-    };
-
-    socket.on("start-test", handleStartTest);
-    socket.on("force-stop-test", handleForceStop);
-
-    const handleBeforeUnload = (e) => {
-      if (status === "started") {
-        e.preventDefault();
-        e.returnValue = "";
+    const init = async () => {
+      const savedResult = localStorage.getItem("test_result_data");
+      if (savedResult) {
+        setResult(JSON.parse(savedResult));
+        setStatus("finished");
+        return;
       }
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
 
-    return () => {
-      socket.off("start-test", handleStartTest);
-      socket.off("force-stop-test", handleForceStop);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
+      const studentId = localStorage.getItem("studentId");
+      const teacherId = localStorage.getItem("teacherId");
+      const groupId = localStorage.getItem("groupId");
+
+      if (studentId && !location.state?.testData && !localStorage.getItem("active_test_session")) {
+        const name = localStorage.getItem("fullName");
+        setStudentData({ name, studentId });
+        loadAvailableTests(teacherId, groupId);
+        setStatus("selection");
+        return;
+      }
+
+      let activeSession = location.state?.testData;
+      if (!activeSession) {
+        const saved = localStorage.getItem("active_test_session");
+        if (saved) activeSession = JSON.parse(saved);
+      }
+
+      if (!activeSession) {
+        navigate("/", { replace: true });
+        return;
+      }
+
+      setStudentData({
+        name: activeSession.studentName,
+        testId: activeSession.testId,
+        testLogin: activeSession.testLogin,
+      });
+
+      setTestData({
+        title: activeSession.title,
+        description: activeSession.description,
+        duration: activeSession.duration,
+        questions: activeSession.questions,
+        readingText: activeSession.readingText || null,
+      });
+
+      localStorage.setItem("active_test_session", JSON.stringify(activeSession));
+
+      const savedAnswers = localStorage.getItem(
+        `answers_${activeSession.testId}`
+      );
+      if (savedAnswers) setAnswers(JSON.parse(savedAnswers));
+
+      if (timeLeft === 0) setTimeLeft(activeSession.duration * 60);
+
+      const currentStatus = activeSession.isStarted ? "started" : "waiting";
+      setStatus(currentStatus);
+
+      socket.emit("join-test-room", activeSession.testLogin);
+
+      const handleStartTest = () => {
+        toast.info("Test boshlandi! Omad.");
+        setStatus("started");
+      };
+
+      const handleForceStop = () => {
+        toast.warning("O'qituvchi testni yakunladi!");
+        handleSubmit(true);
+      };
+
+      socket.on("start-test", handleStartTest);
+      socket.on("force-stop-test", handleForceStop);
+
+      const handleBeforeUnload = (e) => {
+        if (currentStatus === "started") {
+          e.preventDefault();
+          e.returnValue = "";
+        }
+      };
+      window.addEventListener("beforeunload", handleBeforeUnload);
+
+      return () => {
+        socket.off("start-test", handleStartTest);
+        socket.off("force-stop-test", handleForceStop);
+        window.removeEventListener("beforeunload", handleBeforeUnload);
+      };
     };
+    init();
     // eslint-disable-next-line
-  }, [status]);
+  }, [location.pathname]);
 
   // ================= TIMER =================
   useEffect(() => {
@@ -216,9 +222,9 @@ export default function StudentDashboard() {
     }
   };
 
-  const loadAvailableTests = async (tid) => {
+  const loadAvailableTests = async (tid, gid) => {
     try {
-      const { data } = await getAvailableTests(tid);
+      const { data } = await getAvailableTests(tid, gid);
       setAvailableTests(data);
     } catch {
       toast.error("Testlarni yuklashda xatolik");
@@ -244,6 +250,38 @@ export default function StudentDashboard() {
     return `${m}:${sec < 10 ? "0" : ""}${sec}`;
   };
 
+  const renderGlobalChat = () => {
+    if (!localStorage.getItem("studentId")) return null;
+    return (
+      <div className="fixed bottom-32 right-8 z-[60]">
+        {chatOpen ? (
+          <div className="absolute bottom-16 right-0 w-80 h-[450px] animate-in slide-in-from-bottom-4 duration-300">
+            <div className="h-full relative shadow-2xl rounded-3xl overflow-hidden border border-primary">
+              <button 
+                onClick={() => setChatOpen(false)}
+                className="absolute top-3 right-4 z-10 p-1 text-muted hover:text-red-500 transition-colors"
+              >
+                <X size={16} />
+              </button>
+              <ChatBox 
+                teacherId={localStorage.getItem("teacherId")}
+                studentId={localStorage.getItem("studentId")}
+                role="student"
+              />
+            </div>
+          </div>
+        ) : (
+          <button 
+            onClick={() => setChatOpen(true)}
+            className="w-14 h-14 bg-indigo-600 text-white rounded-2xl shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all animate-bounce"
+          >
+            <MessageCircle size={28} />
+          </button>
+        )}
+      </div>
+    );
+  };
+
   // ================= SELECTION =================
   if (status === "selection") {
     return (
@@ -258,9 +296,20 @@ export default function StudentDashboard() {
             </p>
           </div>
 
+          <div className="mb-8 relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
+            <input 
+              type="text"
+              placeholder="Test nomini qidirish..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-secondary/50 border border-primary rounded-2xl pl-12 pr-4 py-4 outline-none focus:border-indigo-500 transition-all font-bold text-primary shadow-sm"
+            />
+          </div>
+
           <div className="grid md:grid-cols-2 gap-6">
-            {availableTests.length > 0 ? (
-              availableTests.map((t) => (
+            {availableTests.filter(t => t.title.toLowerCase().includes(searchTerm.toLowerCase())).length > 0 ? (
+              availableTests.filter(t => t.title.toLowerCase().includes(searchTerm.toLowerCase())).map((t) => (
                 <div key={t.testLogin} className="bg-secondary/50 border border-primary p-5 md:p-8 rounded-[2rem] group relative overflow-hidden hover:border-indigo-500/50 transition-all">
                   <div className="flex justify-between items-start mb-6">
                     <h3 className="text-lg md:text-lg md:text-xl font-black text-primary uppercase tracking-tight">{t.title}</h3>
@@ -296,6 +345,7 @@ export default function StudentDashboard() {
             )}
           </div>
         </div>
+        {renderGlobalChat()}
       </DashboardLayout>
     );
   }
@@ -319,6 +369,7 @@ export default function StudentDashboard() {
             Vaqt: <span className="text-indigo-600 dark:text-indigo-400 font-bold">{testData?.duration}</span> daqiqa
           </div>
         </div>
+        {renderGlobalChat()}
         <p className="mt-8 text-muted text-xs animate-pulse font-medium">
           Aloqa o'rnatildi...
         </p>
@@ -382,6 +433,7 @@ export default function StudentDashboard() {
             </button>
           </div>
         </div>
+        {renderGlobalChat()}
       </div>
     );
   }
@@ -564,36 +616,7 @@ export default function StudentDashboard() {
              </button>
           </div>
         </div>
-
-        {/* Global Chat Button (Only for Individual Students) */}
-        {localStorage.getItem("studentId") && (
-          <div className="fixed bottom-32 right-8 z-50">
-             {chatOpen ? (
-               <div className="absolute bottom-16 right-0 w-80 h-96 animate-in slide-in-from-bottom-4 duration-300">
-                  <div className="h-full relative">
-                    <button 
-                      onClick={() => setChatOpen(false)}
-                      className="absolute top-3 md:p-4 right-4 z-10 p-1 text-muted hover:text-red-500 transition-colors"
-                    >
-                      <X size={16} />
-                    </button>
-                    <ChatBox 
-                      teacherId={localStorage.getItem("teacherId")}
-                      studentId={localStorage.getItem("studentId")}
-                      role="student"
-                    />
-                  </div>
-               </div>
-             ) : (
-               <button 
-                 onClick={() => setChatOpen(true)}
-                 className="w-14 h-14 bg-indigo-600 text-white rounded-2xl shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all animate-bounce"
-               >
-                 <MessageCircle size={28} />
-               </button>
-             )}
-          </div>
-        )}
+        {renderGlobalChat()}
       </DashboardLayout>
     );
   }

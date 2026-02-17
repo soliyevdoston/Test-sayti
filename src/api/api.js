@@ -148,10 +148,32 @@ export const getChatHistory = (teacherId, studentId) =>
   api.get(`/chat/history/${teacherId}/${studentId}`);
 export const sendChatMessage = (data) => api.post("/chat/send", data);
  
- /* ===================== STUDENT API ===================== */
+/* ===================== STUDENT API ===================== */
 
-export const submitTestApi = (data) => api.post("/student/submit", data);
-export const studentIndividualLogin = (data) => api.post("/auth/student-login", data);
-export const getAvailableTests = (teacherId) => api.get(`/student/available-tests/${teacherId}`);
+const handleApiError = (err) => {
+  throw new Error(
+    err?.response?.data?.msg || err?.response?.data?.error || err.message
+  );
+};
+
+export const submitTestApi = async (data) => {
+  try { return await api.post("/student/submit", data); }
+  catch (err) { handleApiError(err); }
+};
+
+export const studentIndividualLogin = async (data) => {
+  try { return await api.post("/auth/student-login", data); }
+  catch (err) { handleApiError(err); }
+};
+
+export const getAvailableTests = async (teacherId, studentGroupId) => {
+  try { 
+    const url = studentGroupId 
+      ? `/student/available-tests/${teacherId}?studentGroupId=${studentGroupId}`
+      : `/student/available-tests/${teacherId}`;
+    return await api.get(url); 
+  }
+  catch (err) { handleApiError(err); }
+};
 
 export default api;

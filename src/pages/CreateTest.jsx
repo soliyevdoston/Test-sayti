@@ -16,7 +16,7 @@ import {
   HelpCircle
 } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
-import { createManualTestApi, parsePreviewApi } from "../api/api";
+import { createManualTestApi, parsePreviewApi, getTeacherGroups } from "../api/api";
 
 export default function CreateTest() {
   const navigate = useNavigate();
@@ -27,6 +27,8 @@ export default function CreateTest() {
     duration: 30,
     testLogin: "",
     testPassword: "",
+    accessType: "public",
+    groupId: "",
     questions: [
       {
         id: Date.now(),
@@ -45,6 +47,16 @@ export default function CreateTest() {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [bulkText, setBulkText] = useState("");
+  const [groups, setGroups] = useState([]);
+
+  React.useEffect(() => {
+    const id = localStorage.getItem("teacherId");
+    if (id) {
+      getTeacherGroups(id).then(res => {
+        setGroups(Array.isArray(res.data) ? res.data : []);
+      });
+    }
+  }, []);
 
   const parseBulkText = async () => {
     if (!bulkText.trim()) return toast.warning("Matnni kiriting");
@@ -249,6 +261,46 @@ export default function CreateTest() {
                   onChange={(e) => setTestData({...testData, testLogin: e.target.value})}
                   className="w-full bg-primary/50 border border-primary rounded-2xl px-6 py-4 outline-none focus:border-indigo-500 transition-all text-sm font-bold"
                 />
+              </div>
+
+              {/* Visibility & Group */}
+              <div className="col-span-full grid md:grid-cols-2 gap-6 bg-indigo-500/5 p-6 rounded-3xl border border-indigo-500/10 mt-4">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-indigo-600 block ml-1">Kirish ruxsati</label>
+                  <div className="flex gap-2">
+                    <button 
+                      type="button"
+                      onClick={() => setTestData({...testData, accessType: "public", groupId: ""})}
+                      className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${testData.accessType === 'public' ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20' : 'bg-secondary text-muted border-primary hover:text-primary'}`}
+                    >
+                      Umumiy (Barchaga)
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setTestData({...testData, accessType: "group"})}
+                      className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${testData.accessType === 'group' ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20' : 'bg-secondary text-muted border-primary hover:text-primary'}`}
+                    >
+                      Faqat Guruhga
+                    </button>
+                  </div>
+                </div>
+
+                {testData.accessType === "group" && (
+                  <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-indigo-600 block ml-1">Guruhni Tanlang</label>
+                    <select 
+                      required
+                      value={testData.groupId}
+                      onChange={(e) => setTestData({...testData, groupId: e.target.value})}
+                      className="w-full p-3.5 rounded-xl bg-primary/50 border border-primary focus:border-indigo-500 transition-all outline-none font-bold text-primary shadow-sm text-xs"
+                    >
+                      <option value="">Guruhni tanlang...</option>
+                      {groups.map(g => (
+                        <option key={g._id} value={g._id}>{g.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">Kirish paroli</label>
