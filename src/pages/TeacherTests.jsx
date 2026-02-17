@@ -83,7 +83,7 @@ export default function TeacherTests() {
       setPreviewData(res.data);
       toast.success(`${res.data.questions.length} ta savol topildi`);
     } catch (err) {
-      toast.error("Tahlil qilishda xatolik");
+      toast.error(err.response?.data?.msg || "Tahlil qilishda xatolik");
     } finally {
       setPreviewLoading(false);
     }
@@ -149,7 +149,7 @@ export default function TeacherTests() {
       setPreviewData(null);
       loadTests(localStorage.getItem("teacherId"));
     } catch (err) {
-      toast.error(err.message || "Xatolik yuz berdi");
+      toast.error(err.response?.data?.msg || err.message || "Xatolik yuz berdi");
     } finally {
       setLoading(false);
     }

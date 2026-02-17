@@ -83,7 +83,7 @@ export default function CreateTest() {
       toast.success(`${finalQuestions.length} ta savol qo'shildi!`);
     } catch (err) {
       console.error(err);
-      toast.error("Xatolik yuz berdi: " + (err.message || ""));
+      toast.error(err.response?.data?.msg || "Xatolik yuz berdi: " + (err.message || ""));
     } finally {
       setLoading(false);
     }
@@ -180,7 +180,7 @@ export default function CreateTest() {
       toast.success("Test muvaffaqiyatli yaratildi!");
       navigate("/teacher/tests");
     } catch (err) {
-      toast.error("Xatolik: " + err.message);
+      toast.error(err.response?.data?.msg || "Xatolik: " + err.message);
     } finally {
       setLoading(false);
     }
