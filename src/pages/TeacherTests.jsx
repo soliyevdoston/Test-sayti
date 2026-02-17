@@ -14,6 +14,9 @@ import { io } from "socket.io-client";
 import DashboardLayout from "../components/DashboardLayout";
 import { 
   teacherUploadTest, 
+  parseTextApi,
+  parsePreviewApi,
+  uploadPreviewApi,
   getTeacherTests, 
   startTestApi, 
   stopTestApi,
@@ -36,6 +39,10 @@ export default function TeacherTests() {
     duration: 20,
     file: null,
   });
+  const [createMode, setCreateMode] = useState("file"); // "file" or "text"
+  const [pasteText, setPasteText] = useState("");
+  const [previewData, setPreviewData] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     const name = localStorage.getItem("teacherName");
@@ -59,28 +66,77 @@ export default function TeacherTests() {
     }
   };
 
+  const handlePreview = async () => {
+    if (createMode === "file" && !newTest.file) return toast.warning("Fayl tanlang");
+    if (createMode === "text" && !pasteText.trim()) return toast.warning("Matnni kiriting");
+
+    try {
+      setPreviewLoading(true);
+      let res;
+      if (createMode === "file") {
+        const formData = new FormData();
+        formData.append("file", newTest.file);
+        res = await uploadPreviewApi(formData);
+      } else {
+        res = await parsePreviewApi({ text: pasteText });
+      }
+      setPreviewData(res.data);
+      toast.success(`${res.data.questions.length} ta savol topildi`);
+    } catch (err) {
+      toast.error("Tahlil qilishda xatolik");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   const addTest = async (e) => {
     e.preventDefault();
-    if (!newTest.title || !newTest.username || !newTest.password || !newTest.file) {
-      toast.warning("Barcha maydonlarni to'ldiring!");
+    if (!newTest.title || !newTest.username || !newTest.password) {
+      toast.warning("Asosiy maydonlarni to'ldiring!");
       return;
     }
 
-    const formData = new FormData();
-    Object.entries({
-      file: newTest.file,
-      title: newTest.title,
-      description: newTest.description,
-      duration: newTest.duration,
-      testLogin: newTest.username,
-      testPassword: newTest.password,
-      teacherId: localStorage.getItem("teacherId"),
-    }).forEach(([k, v]) => formData.append(k, v));
+    if (createMode === "file" && !newTest.file) {
+      toast.warning("Fayl tanlang!");
+      return;
+    }
+
+    if (createMode === "text" && !pasteText.trim()) {
+      toast.warning("Matnni kiriting!");
+      return;
+    }
 
     try {
       setLoading(true);
-      await teacherUploadTest(formData);
-      toast.success("Test yuklandi!");
+      
+      if (createMode === "file") {
+        const formData = new FormData();
+        Object.entries({
+          file: newTest.file,
+          title: newTest.title,
+          description: newTest.description,
+          duration: newTest.duration,
+          testLogin: newTest.username,
+          testPassword: newTest.password,
+          teacherId: localStorage.getItem("teacherId"),
+        }).forEach(([k, v]) => formData.append(k, v));
+
+        const res = await teacherUploadTest(formData);
+        toast.success(`${res.data.count || ""} ta savol yuklandi!`);
+      } else {
+        const payload = {
+          text: pasteText,
+          title: newTest.title,
+          description: newTest.description,
+          duration: newTest.duration,
+          testLogin: newTest.username,
+          testPassword: newTest.password,
+          teacherId: localStorage.getItem("teacherId"),
+        };
+        const res = await parseTextApi(payload);
+        toast.success(`${res.data.count || ""} ta savol muvaffaqiyatli saqlandi!`);
+      }
+
       setNewTest({
         title: "",
         description: "",
@@ -89,9 +145,11 @@ export default function TeacherTests() {
         duration: 20,
         file: null,
       });
+      setPasteText("");
+      setPreviewData(null);
       loadTests(localStorage.getItem("teacherId"));
-    } catch {
-      toast.error("Xatolik yuz berdi");
+    } catch (err) {
+      toast.error(err.message || "Xatolik yuz berdi");
     } finally {
       setLoading(false);
     }
@@ -168,11 +226,30 @@ export default function TeacherTests() {
       <main className="relative z-10 px-6 max-w-7xl mx-auto space-y-12 pb-20">
         {/* Upload Section */}
         <div className="premium-card">
-          <div className="flex items-center gap-4 mb-8">
-            <div className="p-3 bg-indigo-500/10 rounded-2xl text-indigo-500"><FaFileUpload size={24} /></div>
-            <div>
-              <h3 className="text-xl font-black text-primary uppercase italic tracking-tighter">Yangi test yuklash</h3>
-              <p className="text-xs text-muted font-bold uppercase tracking-widest">Word (.docx) fayl tanlang</p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-indigo-500/10 rounded-2xl text-indigo-500"><FaFileUpload size={24} /></div>
+              <div>
+                <h3 className="text-xl font-black text-primary uppercase italic tracking-tighter">Yangi test {createMode === "file" ? "yuklash" : "yaratish"}</h3>
+                <p className="text-xs text-muted font-bold uppercase tracking-widest">{createMode === "file" ? "Word (.docx) fayl tanlang" : "Matnni nusxalab joylashtiring"}</p>
+              </div>
+            </div>
+            
+            <div className="flex bg-primary/30 p-1 rounded-xl border border-primary/50 self-start">
+              <button 
+                type="button"
+                onClick={() => setCreateMode("file")}
+                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${createMode === "file" ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-muted hover:text-primary'}`}
+              >
+                Word Fayl
+              </button>
+              <button 
+                type="button"
+                onClick={() => setCreateMode("text")}
+                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${createMode === "text" ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-muted hover:text-primary'}`}
+              >
+                Matnli Test
+              </button>
             </div>
           </div>
           <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" onSubmit={addTest}>
@@ -225,27 +302,85 @@ export default function TeacherTests() {
                 onChange={(e) => setNewTest({ ...newTest, duration: e.target.value })}
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-muted ml-2">Fayl (.docx)</label>
-              <input
-                required
-                type="file"
-                accept=".docx"
-                className="w-full p-3.5 rounded-2xl bg-secondary border border-primary focus:border-indigo-500 transition-all outline-none font-bold text-primary shadow-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-indigo-500/10 file:text-indigo-500 hover:file:bg-indigo-500/20"
-                onChange={(e) => setNewTest({ ...newTest, file: e.target.files[0] })}
-              />
+            <div className="col-span-full space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted ml-2">{createMode === "file" ? "Fayl (.docx)" : "Matnni shu yerga joylashtiring"}</label>
+              {createMode === "file" ? (
+                <input
+                  required
+                  type="file"
+                  accept=".docx"
+                  className="w-full p-3.5 rounded-2xl bg-secondary border border-primary focus:border-indigo-500 transition-all outline-none font-bold text-primary shadow-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-indigo-500/10 file:text-indigo-500 hover:file:bg-indigo-500/20"
+                  onChange={(e) => setNewTest({ ...newTest, file: e.target.files[0] })}
+                />
+              ) : (
+                <textarea
+                  required
+                  placeholder="1. Savol... A) Javob... B) Javob..."
+                  className="w-full h-48 p-6 rounded-2xl bg-secondary border border-primary focus:border-indigo-500 transition-all outline-none font-bold text-primary shadow-sm resize-none text-sm leading-relaxed"
+                  value={pasteText}
+                  onChange={(e) => setPasteText(e.target.value)}
+                />
+              )}
             </div>
-            <button
-              disabled={loading}
-              className={`col-span-full py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-white transition transform ${
-                loading
-                  ? "bg-gray-500 cursor-not-allowed"
-                  : "bg-gradient-to-r from-indigo-500 to-indigo-700 hover:scale-[1.02] shadow-xl shadow-indigo-500/20 active:scale-[0.98]"
-              }`}
-            >
-              {loading ? "Yuklanmoqda..." : "Testni Yaratish va Saqlash"}
-            </button>
+            <div className="col-span-full flex gap-4">
+              <button
+                type="button"
+                onClick={handlePreview}
+                disabled={previewLoading || loading}
+                className="flex-1 py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-indigo-500 bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500 hover:text-white transition group flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {previewLoading ? "Tahlil qilinmoqda..." : (
+                  <>
+                    <FaCheckCircle className="group-hover:scale-110 transition-transform" />
+                    Tahlil Qilish (Preview)
+                  </>
+                )}
+              </button>
+              <button
+                disabled={loading || previewLoading}
+                className={`flex-[2] py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-white transition transform ${
+                  loading
+                    ? "bg-gray-500 cursor-not-allowed"
+                    : "bg-gradient-to-r from-indigo-500 to-indigo-700 hover:scale-[1.02] shadow-xl shadow-indigo-500/20 active:scale-[0.98]"
+                }`}
+              >
+                {loading ? "Saqlanmoqda..." : "Testni Yaratish va Saqlash"}
+              </button>
+            </div>
           </form>
+
+          {/* Preview Results */}
+          {previewData && (
+            <div className="mt-12 p-8 border-2 border-indigo-500/20 rounded-[2.5rem] bg-indigo-500/5 animate-in slide-in-from-top duration-500">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center text-white"><FaCheckCircle size={20} /></div>
+                  <h4 className="text-xl font-black text-primary uppercase italic tracking-tighter">Tahlil Natijasi</h4>
+                </div>
+                <div className="px-4 py-2 bg-indigo-500/20 rounded-xl text-indigo-500 text-[10px] font-black uppercase tracking-widest">
+                  {previewData.questions.length} Savol Aniqlanadi
+                </div>
+              </div>
+              
+              <div className="space-y-6 max-h-[400px] overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-indigo-500/20">
+                {previewData.questions.map((q, idx) => (
+                  <div key={idx} className="p-6 bg-secondary/50 border border-primary/50 rounded-2xl">
+                    <p className="text-sm font-bold text-primary mb-4 flex gap-3">
+                      <span className="text-indigo-500">#{idx + 1}</span> {q.text}
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {q.options.map((opt, oIdx) => (
+                        <div key={oIdx} className={`px-4 py-2 rounded-xl text-[10px] font-bold flex items-center justify-between ${opt.isCorrect ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-primary/20 text-muted border border-primary/20'}`}>
+                          <span>{String.fromCharCode(65 + oIdx)}) {opt.text}</span>
+                          {opt.isCorrect && <FaCheckCircle size={10} />}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Tests List Section */}

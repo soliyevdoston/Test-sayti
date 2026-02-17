@@ -97,13 +97,22 @@ export const teacherUploadTest = (formData) =>
   api.post("/teacher/upload", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
-      // Fayl yuklashda ham header qolishi kerak
-      "ngrok-skip-browser-warning": "true",
+    },
+  });
+
+export const parseTextApi = (data) => api.post("/teacher/parse-text", data);
+export const parsePreviewApi = (data) => api.post("/teacher/parse-preview", data);
+export const uploadPreviewApi = (formData) =>
+  api.post("/teacher/upload-preview", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
     },
   });
 
 export const getTeacherTests = (teacherId) =>
   api.get(`/teacher/tests/${teacherId}`);
+
+export const getTeacherStats = (teacherId) => api.get(`/teacher/stats/${teacherId}`);
 
 export const startTestApi = (testId) => api.post(`/teacher/start/${testId}`);
 export const stopTestApi = (testId) => api.post(`/teacher/stop/${testId}`);

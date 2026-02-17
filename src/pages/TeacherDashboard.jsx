@@ -17,6 +17,7 @@ import { io } from "socket.io-client";
 import DashboardLayout from "../components/DashboardLayout";
 import { 
   getTeacherTests, 
+  getTeacherStats,
   BASE_URL
 } from "../api/api";
 
@@ -26,6 +27,12 @@ export default function TeacherDashboard() {
   const navigate = useNavigate();
   const [tests, setTests] = useState([]);
   const [teacherName, setTeacherName] = useState("");
+  const [stats, setStats] = useState({
+    totalTests: 0,
+    totalStudents: 0,
+    averageScore: 0,
+    activeTestsCount: 0
+  });
 
   useEffect(() => {
     const name = localStorage.getItem("teacherName");
@@ -34,6 +41,7 @@ export default function TeacherDashboard() {
     else {
       setTeacherName(name);
       loadTests(id);
+      fetchStats(id);
     }
   }, [navigate]);
 
@@ -43,6 +51,14 @@ export default function TeacherDashboard() {
       setTests(Array.isArray(data) ? data : []);
     } catch {
       toast.error("Ma'lumotlarni yuklashda xatolik");
+    }
+  };
+
+  const fetchStats = async (id) => {
+    try {
+      const { data } = await getTeacherStats(id || localStorage.getItem("teacherId"));
+      setStats(data);
+    } catch (err) {
     }
   };
 
@@ -99,8 +115,8 @@ export default function TeacherDashboard() {
               <h2 className="text-xl font-black text-primary uppercase italic tracking-tighter">O'rtacha <span className="text-green-500">Ball</span></h2>
             </div>
             <div className="flex items-end justify-between">
-              <span className="text-5xl font-black text-primary tracking-tighter">78%</span>
-              <span className="text-[10px] font-bold text-muted uppercase tracking-widest mb-1">+5% o'sish</span>
+              <span className="text-5xl font-black text-primary tracking-tighter">{stats.averageScore}%</span>
+              <span className="text-[10px] font-bold text-muted uppercase tracking-widest mb-1">Live Natija</span>
             </div>
           </div>
 
@@ -110,7 +126,7 @@ export default function TeacherDashboard() {
               <h2 className="text-xl font-black text-primary uppercase italic tracking-tighter">O'quvchi<span className="text-blue-500">lar</span></h2>
             </div>
             <div className="flex items-end justify-between">
-              <span className="text-5xl font-black text-primary tracking-tighter">156</span>
+              <span className="text-5xl font-black text-primary tracking-tighter">{stats.totalStudents}</span>
               <button onClick={() => navigate("/teacher/groups")} className="text-[10px] font-black uppercase tracking-widest text-blue-500 flex items-center gap-2 hover:translate-x-1 transition-transform">
                 Guruhlar <FaArrowRight />
               </button>

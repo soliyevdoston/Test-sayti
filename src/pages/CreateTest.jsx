@@ -16,7 +16,7 @@ import {
   HelpCircle
 } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
-import { createManualTestApi } from "../api/api";
+import { createManualTestApi, parsePreviewApi } from "../api/api";
 
 export default function CreateTest() {
   const navigate = useNavigate();
@@ -46,112 +46,28 @@ export default function CreateTest() {
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [bulkText, setBulkText] = useState("");
 
-  const parseBulkText = () => {
+  const parseBulkText = async () => {
     if (!bulkText.trim()) return toast.warning("Matnni kiriting");
     
     try {
-      let text = bulkText;
-      const results = {}; // Map to store answer key: { 1: 'D', 2: 'A' ... }
-      
-      // 1. Detect Answer Key at the bottom
-      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-      
-      // Look for table-like answers at the end
-      const answerKeyMarkers = ["savol №", "to'g'ri javob", "to‘gri javob", "javoblar"];
-      let answerKeyStartLine = -1;
-      
-      for (let i = lines.length - 1; i >= 0; i--) {
-        if (answerKeyMarkers.some(m => lines[i].toLowerCase().includes(m)) && lines[i].length < 60) {
-          answerKeyStartLine = i;
-          break;
-        }
+      setLoading(true);
+      const res = await parsePreviewApi({ text: bulkText });
+      const parsedQuestions = res.data.questions;
+
+      if (!parsedQuestions || parsedQuestions.length === 0) {
+        return toast.error("Format noto'g'ri. Savollar topilmadi.");
       }
 
-      if (answerKeyStartLine !== -1) {
-        for (let i = answerKeyStartLine + 1; i < lines.length; i++) {
-          const match = lines[i].match(/^(\d+)[\.\s\t]+([A-Da-d])/);
-          if (match) {
-            results[parseInt(match[1])] = match[2].toUpperCase();
-          }
-        }
-        // Remove the answer key from question parsing
-        text = lines.slice(0, answerKeyStartLine).join('\n');
-      }
-
-      // 2. Sequential Line-by-Line Parsing
-      const parsedQuestions = [];
-      let currentQ = null;
-      let lastQNum = 0;
-
-      lines.forEach(line => {
-        const qMatch = line.match(/^(\d+)[\.\)]\s/);
-        const hashStart = line.startsWith('#');
-        const isOpt = line.match(/^[\+]?([A-E])[\)\.]/);
-
-        // Determine if this line starts a NEW question
-        let isNewQ = false;
-        if (hashStart) {
-          isNewQ = true;
-        } else if (qMatch) {
-          const num = parseInt(qMatch[1]);
-          // A new question either starts from 1 or is sequential (N+1)
-          // This avoids matching "1. Item" inside question 2
-          if (lastQNum === 0 || num === lastQNum + 1) {
-            isNewQ = true;
-            lastQNum = num;
-          }
-        }
-
-        if (isNewQ) {
-          if (currentQ) parsedQuestions.push(currentQ);
-          currentQ = {
-            id: Date.now() + Math.random(),
-            text: line.replace(/^#|^\d+[\.\)]\s?/, '').trim(),
-            points: 1,
-            options: []
-          };
-        } else if (isOpt && currentQ) {
-          const letter = isOpt[1].toUpperCase();
-          const isCorrectMarked = line.startsWith('+');
-          const isCorrectByKey = results[lastQNum] === letter;
-          
-          currentQ.options.push({
-            text: line.replace(/^[\+]?([A-E])[\)\.]\s*/, '').trim(),
-            isCorrect: isCorrectMarked || isCorrectByKey
-          });
-        } else if (currentQ) {
-          // Continuation text
-          if (currentQ.options.length > 0) {
-            // Append to the last option
-            currentQ.options[currentQ.options.length - 1].text += " " + line;
-          } else {
-            // Append to the question text
-            currentQ.text += " " + line;
-          }
-        }
-      });
-
-      if (currentQ) parsedQuestions.push(currentQ);
-
-      // Final cleanup and validation
-      const finalQuestions = parsedQuestions.map(q => {
-        if (q.options.length === 0) return null;
-        if (!q.options.some(o => o.isCorrect)) {
-          // If no answer marked, default to first or check results map again
-          q.options[0].isCorrect = true; 
-        }
-        // Ensure at least one correct answer
-        if (!q.options.some(o => o.isCorrect)) q.options[0].isCorrect = true;
-        
-        return {
-          ...q,
-          options: q.options.slice(0, 5)
-        };
-      }).filter(q => q !== null);
-
-      if (finalQuestions.length === 0) {
-        return toast.error("Format noto'g'ri. Namuna: 1. Savol... A) Variant");
-      }
+      // Map backend format to local format (id generation, etc.)
+      const finalQuestions = parsedQuestions.map(q => ({
+        id: Date.now() + Math.random(),
+        text: q.text,
+        points: q.points || 1,
+        options: q.options.map(o => ({
+          text: o.text,
+          isCorrect: o.isCorrect
+        }))
+      }));
       
       const newQuestions = testData.questions.length === 1 && testData.questions[0].text === "" 
         ? finalQuestions 
@@ -167,7 +83,9 @@ export default function CreateTest() {
       toast.success(`${finalQuestions.length} ta savol qo'shildi!`);
     } catch (err) {
       console.error(err);
-      toast.error("Xatolik yuz berdi");
+      toast.error("Xatolik yuz berdi: " + (err.message || ""));
+    } finally {
+      setLoading(false);
     }
   };
 
