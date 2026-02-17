@@ -4,11 +4,11 @@ import { toast } from "react-toastify";
 import logo from "../assets/logo.svg";
 import { loginUser, studentIndividualLogin } from "../api/api";
 
-export default function LoginTemplate({ role, loginPath }) {
+export default function LoginTemplate({ role, loginPath, initialUsername = "", initialPassword = "" }) {
   const navigate = useNavigate();
 
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState(initialUsername);
+  const [password, setPassword] = useState(initialPassword);
   const [fullName, setFullName] = useState("");
   const [isIndividual, setIsIndividual] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -47,7 +47,7 @@ export default function LoginTemplate({ role, loginPath }) {
         }
       }
     } catch (err) {
-      toast.error(err.response?.data?.msg || "Login xato!");
+      toast.error(err.message || "Login xato!");
     } finally {
       setLoading(false);
     }
@@ -83,7 +83,7 @@ export default function LoginTemplate({ role, loginPath }) {
         </h2>
 
         <p className="text-center text-muted text-xs font-bold uppercase tracking-widest mb-6 opacity-70">
-          TestOnlinee Platformasi
+          osontestol.uz Platformasi
         </p>
 
         {role === "Student" && (

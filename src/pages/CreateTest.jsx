@@ -43,6 +43,7 @@ export default function CreateTest() {
   });
 
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
   const [bulkText, setBulkText] = useState("");
 
   const parseBulkText = () => {
@@ -77,63 +78,84 @@ export default function CreateTest() {
         text = lines.slice(0, answerKeyStartLine).join('\n');
       }
 
-      // 2. Split by Question markers: # OR "1." at beginning of line
-      const blocks = text.split(/(?:\n|^)(?=#|\d+[\.\)])/g).filter(b => b.trim());
-      
-      const parsedQuestions = blocks.map((block, bIdx) => {
-        const linesArr = block.split('\n').map(l => l.trim()).filter(l => l);
-        if (linesArr.length === 0) return null;
-        
-        let questionNum = bIdx + 1;
-        const firstLineMatch = linesArr[0].match(/^(\d+)[\.\)]/);
-        if (firstLineMatch) {
-          questionNum = parseInt(firstLineMatch[1]);
-        }
+      // 2. Sequential Line-by-Line Parsing
+      const parsedQuestions = [];
+      let currentQ = null;
+      let lastQNum = 0;
 
-        let firstOptionLineIdx = linesArr.findIndex(l => l.match(/^[\+]?([A-Da-d])[\)\.]/));
-        if (firstOptionLineIdx === -1) return null;
+      lines.forEach(line => {
+        const qMatch = line.match(/^(\d+)[\.\)]\s/);
+        const hashStart = line.startsWith('#');
+        const isOpt = line.match(/^[\+]?([A-E])[\)\.]/);
 
-        const questionText = linesArr.slice(0, firstOptionLineIdx).join(' ').replace(/^#|^\d+[\.\)]/, '').trim();
-        const options = [];
-        
-        for (let i = firstOptionLineIdx; i < linesArr.length; i++) {
-          const line = linesArr[i];
-          const optionMatch = line.match(/^[\+]?([A-Da-d])[\)\.]/);
-          
-          if (optionMatch) {
-            const letter = optionMatch[1].toUpperCase();
-            const isCorrectMarked = line.startsWith('+');
-            const isCorrectByKey = results[questionNum] === letter;
-            
-            const optionText = line.replace(/^[\+]?([A-Da-d])[\)\.]\s*/, '').trim();
-            
-            options.push({
-              text: optionText,
-              isCorrect: isCorrectMarked || isCorrectByKey
-            });
+        // Determine if this line starts a NEW question
+        let isNewQ = false;
+        if (hashStart) {
+          isNewQ = true;
+        } else if (qMatch) {
+          const num = parseInt(qMatch[1]);
+          // A new question either starts from 1 or is sequential (N+1)
+          // This avoids matching "1. Item" inside question 2
+          if (lastQNum === 0 || num === lastQNum + 1) {
+            isNewQ = true;
+            lastQNum = num;
           }
         }
-        
-        if (options.length === 0) return null;
-        if (!options.some(o => o.isCorrect)) {
-          options[0].isCorrect = true;
-        }
 
+        if (isNewQ) {
+          if (currentQ) parsedQuestions.push(currentQ);
+          currentQ = {
+            id: Date.now() + Math.random(),
+            text: line.replace(/^#|^\d+[\.\)]\s?/, '').trim(),
+            points: 1,
+            options: []
+          };
+        } else if (isOpt && currentQ) {
+          const letter = isOpt[1].toUpperCase();
+          const isCorrectMarked = line.startsWith('+');
+          const isCorrectByKey = results[lastQNum] === letter;
+          
+          currentQ.options.push({
+            text: line.replace(/^[\+]?([A-E])[\)\.]\s*/, '').trim(),
+            isCorrect: isCorrectMarked || isCorrectByKey
+          });
+        } else if (currentQ) {
+          // Continuation text
+          if (currentQ.options.length > 0) {
+            // Append to the last option
+            currentQ.options[currentQ.options.length - 1].text += " " + line;
+          } else {
+            // Append to the question text
+            currentQ.text += " " + line;
+          }
+        }
+      });
+
+      if (currentQ) parsedQuestions.push(currentQ);
+
+      // Final cleanup and validation
+      const finalQuestions = parsedQuestions.map(q => {
+        if (q.options.length === 0) return null;
+        if (!q.options.some(o => o.isCorrect)) {
+          // If no answer marked, default to first or check results map again
+          q.options[0].isCorrect = true; 
+        }
+        // Ensure at least one correct answer
+        if (!q.options.some(o => o.isCorrect)) q.options[0].isCorrect = true;
+        
         return {
-          id: Date.now() + Math.random(),
-          text: questionText,
-          points: 1,
-          options: options.slice(0, 4)
+          ...q,
+          options: q.options.slice(0, 5)
         };
       }).filter(q => q !== null);
-      
-      if (parsedQuestions.length === 0) {
+
+      if (finalQuestions.length === 0) {
         return toast.error("Format noto'g'ri. Namuna: 1. Savol... A) Variant");
       }
       
       const newQuestions = testData.questions.length === 1 && testData.questions[0].text === "" 
-        ? parsedQuestions 
-        : [...testData.questions, ...parsedQuestions];
+        ? finalQuestions 
+        : [...testData.questions, ...finalQuestions];
 
       setTestData({
         ...testData,
@@ -142,7 +164,7 @@ export default function CreateTest() {
       
       setBulkText("");
       setShowBulkModal(false);
-      toast.success(`${parsedQuestions.length} ta savol qo'shildi!`);
+      toast.success(`${finalQuestions.length} ta savol qo'shildi!`);
     } catch (err) {
       console.error(err);
       toast.error("Xatolik yuz berdi");
@@ -331,6 +353,12 @@ export default function CreateTest() {
               </div>
               <div className="flex items-center gap-4">
                 <button 
+                  onClick={() => setShowGuideModal(true)}
+                  className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all bg-white/5 px-4 py-2 rounded-xl border border-white/10"
+                >
+                  <HelpCircle size={14} /> Qo'llanma
+                </button>
+                <button 
                   onClick={() => setShowBulkModal(true)}
                   className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-500 hover:scale-105 transition-all bg-indigo-500/5 px-4 py-2 rounded-xl border border-indigo-500/20"
                 >
@@ -463,6 +491,98 @@ D) Qorli`}
           </div>
         </div>
       )}
+      <GuideModal isOpen={showGuideModal} onClose={() => setShowGuideModal(false)} />
     </DashboardLayout>
   );
 }
+
+{/* Guide Modal Component (Rendered outside for z-index) */}
+const GuideModal = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 backdrop-blur-md bg-slate-950/60 animate-in fade-in duration-300">
+      <div className="bg-slate-900 border border-white/10 w-full max-w-4xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="p-8 border-b border-white/5 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
+              <HelpCircle size={24} />
+            </div>
+            <div>
+              <h2 className="text-2xl font-black text-white italic uppercase tracking-tight italic">Professional <span className="text-indigo-500">Parser Qo'llanmasi</span></h2>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Murakkab testlarni yuklash bo'yicha yo'riqnoma</p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose}
+            className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-slate-400 hover:bg-red-500/10 hover:text-red-500 transition-all"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        
+        <div className="p-8 flex-1 overflow-y-auto space-y-10 scrollbar-hide">
+          {/* Feature 1: Sequential Tracking */}
+          <section className="space-y-4">
+            <div className="flex items-center gap-3 text-indigo-400">
+              <Plus size={18} />
+              <h3 className="text-lg font-black uppercase tracking-tight italic">1. Aqlli Ketma-ketlik (Sequential Tracking)</h3>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed font-medium">
+              Tizim savollarni 1, 2, 3 tartibida qat'iy kuzatib boradi. Bu savol matni ichidagi boshqa raqamli ro'yxatlar bilan asosiy savolni adashtirmaslikka yordam beradi.
+            </p>
+            <div className="p-6 bg-slate-950 rounded-2xl border border-white/5 font-mono text-[11px] leading-relaxed text-indigo-300">
+               1. Quyidagi shaxslarni muvofiqlashtiring:<br/>
+               1) Muhammad Rahim; 2) Doniyolbiy; 3) Shohmurod.<br/>
+               A) Variant 1<br/>
+               B) Variant 2
+            </div>
+          </section>
+
+          {/* Feature 2: Case Sensitive Options */}
+          <section className="space-y-4">
+            <div className="flex items-center gap-3 text-indigo-400">
+              <Clipboard size={18} />
+              <h3 className="text-lg font-black uppercase tracking-tight italic">2. Katta-Kichik Harflar (Case Sensitivity)</h3>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed font-medium">
+              Variantlar har doim KATTA harflar (`A, B, C, D`) bilan belgilanishi tavsiya etiladi. Tizim kichik harfli ro'yxatlarni (`a, b, c...`) variant deb hisoblamaydi va savol matni sifatida qabul qiladi.
+            </p>
+            <div className="p-6 bg-slate-950 rounded-2xl border border-white/5 font-mono text-[11px] leading-relaxed text-emerald-300">
+               1. Noto'g'ri hukmni aniqlang:<br/>
+               a) Birinchi ma'lumot...<br/>
+               b) Ikkinchi ma'lumot...<br/>
+               A) To'g'ri javob shu yerda<br/>
+               B) Noto'g'ri javob
+            </div>
+          </section>
+
+          {/* Feature 3: Answer Key Detection */}
+          <section className="space-y-4">
+            <div className="flex items-center gap-3 text-indigo-400">
+              <Zap size={18} />
+              <h3 className="text-lg font-black uppercase tracking-tight italic">3. Javoblar Kaliti (Answer Keys)</h3>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed font-medium">
+              Matn oxiriga "Javoblar" yoki "Savol № To'g'ri javob" jadvalini qo'shsangiz, tizim avtomatik ravishda to'g'ri javoblarni belgilab chiqadi.
+            </p>
+            <pre className="p-6 bg-slate-950 rounded-2xl border border-white/5 font-mono text-[11px] leading-relaxed text-blue-300">
+{`Savol № To‘gri javob
+1 B
+2 A
+3 D`}
+            </pre>
+          </section>
+        </div>
+        
+        <div className="p-8 bg-slate-950/50 border-t border-white/5">
+          <button 
+            onClick={onClose}
+            className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-indigo-600/30 hover:scale-[1.02] active:scale-95 transition-all"
+          >
+            Tushunarli, Rahmat!
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

@@ -11,9 +11,9 @@ const Footer = () => {
     <footer className="mt-24 border-t border-primary bg-secondary/30 backdrop-blur-xl py-12">
       <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8 text-muted">
         <div className="flex items-center gap-3">
-           <img src={logo} alt="TestOnlinee" className="w-6 h-6 object-contain grayscale opacity-50" />
+           <img src={logo} alt="osontestol.uz" className="w-6 h-6 object-contain grayscale opacity-50" />
            <p className="text-sm font-bold tracking-widest uppercase">
-             © {new Date().getFullYear()} TestOnlinee
+             © {new Date().getFullYear()} osontestol.uz
            </p>
         </div>
         <p className="text-sm">
