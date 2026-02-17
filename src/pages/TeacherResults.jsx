@@ -10,6 +10,7 @@ import {
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
+import { io } from "socket.io-client"; // ✅
 import DashboardLayout from "../components/DashboardLayout";
 import { 
   getTeacherTests, 
@@ -19,6 +20,8 @@ import {
   handleRetakeRequest, // ✅
   BASE_URL
 } from "../api/api";
+
+const socket = io(BASE_URL, { transports: ["polling", "websocket"] }); // ✅
 
 export default function TeacherResults() {
   const navigate = useNavigate();
@@ -41,6 +44,17 @@ export default function TeacherResults() {
       loadTests(id);
       fetchRetakeRequests(id);
     }
+
+    // 🔥 REAL-TIME RETAKE REQUESTS
+    socket.on("new-retake-request", ({ teacherId, request }) => {
+      const myId = localStorage.getItem("teacherId");
+      if (teacherId === myId) {
+        toast.info("Yangi qayta yechish so'rovi keldi!");
+        setRetakeRequests(prev => [request, ...prev]);
+      }
+    });
+
+    return () => socket.off("new-retake-request");
   }, [navigate]);
 
   const loadTests = async (id) => {

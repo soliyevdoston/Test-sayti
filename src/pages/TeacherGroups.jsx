@@ -8,6 +8,7 @@ import {
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
+import { io } from "socket.io-client"; // ✅
 import DashboardLayout from "../components/DashboardLayout";
 import ChatBox from "../components/ChatBox";
 
@@ -21,6 +22,8 @@ import {
   getRetakeRequests, // ✅
   handleRetakeRequest // ✅
 } from "../api/api";
+
+const socket = io(BASE_URL, { transports: ["polling", "websocket"] }); // ✅
 
 export default function TeacherGroups() {
   const navigate = useNavigate();
@@ -43,6 +46,17 @@ export default function TeacherGroups() {
       loadGroups(id);
       fetchRetakeRequests(id);
     }
+
+    // 🔥 REAL-TIME RETAKE REQUESTS
+    socket.on("new-retake-request", ({ teacherId, request }) => {
+      const myId = localStorage.getItem("teacherId");
+      if (teacherId === myId) {
+        toast.info("Yangi qayta yechish so'rovi keldi!");
+        setRetakeRequests(prev => [request, ...prev]);
+      }
+    });
+
+    return () => socket.off("new-retake-request");
   }, [navigate]);
 
   const loadGroups = async (id) => {

@@ -47,6 +47,17 @@ export default function TeacherDashboard() {
       fetchStats(id);
       fetchRetakeRequests(id); // ✅
     }
+
+    // 🔥 REAL-TIME RETAKE REQUESTS
+    socket.on("new-retake-request", ({ teacherId, request }) => {
+      const myId = localStorage.getItem("teacherId");
+      if (teacherId === myId) {
+        toast.info("Yangi qayta yechish so'rovi keldi!");
+        setRetakeRequests(prev => [request, ...prev]);
+      }
+    });
+
+    return () => socket.off("new-retake-request");
   }, [navigate]);
 
   const loadTests = async (id) => {
