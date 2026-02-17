@@ -55,24 +55,38 @@ export default function LoginTemplate({ role, loginPath, initialUsername = "", i
     } catch (err) {
       const errorMsg = err.response?.data?.msg || err.message || "Login xato!";
       
-      // ✅ Handle "Already Taken" 403 error specifically
-      if (err.response?.status === 403 && err.response?.data?.alreadyTaken) {
-         if (window.confirm(errorMsg + "\n\nQayta yechish uchun ustozga so'rov yuborasizmi?")) {
-            try {
-              const testId = err.response.data.testId;
-              const teacherId = err.response.data.teacherId;
-              const studentId = localStorage.getItem("studentId");
-
-              if (!studentId) {
-                toast.error("So'rov yuborish uchun tizimga shaxsiy kabinet orqali kirgan bo'lishingiz kerak.");
-                return setIsIndividual(true);
-              }
-
-              toast.info("So'rov yuborilmoqda...");
-              const res = await requestRetake({ studentId, testId, teacherId });
-              toast.success(res.data.msg || "So'rov yuborildi!");
-            } catch (e) {
-              toast.error(e.response?.data?.msg || "So'rov yuborishda xatolik");
+      // ✅ Handle Forbidden 403 errors specifically
+      if (err.response?.status === 403) {
+         const { alreadyTaken, teacherId, testId } = err.response.data || {};
+         
+         if (alreadyTaken) {
+            if (window.confirm(errorMsg + "\n\nQayta yechish uchun ustozga so'rov yuborasizmi?")) {
+               try {
+                 const studentId = localStorage.getItem("studentId");
+                 if (!studentId) {
+                   toast.error("So'rov yuborish uchun tizimga shaxsiy kabinet orqali kirgan bo'lishingiz kerak.");
+                   return setIsIndividual(true);
+                 }
+                 toast.info("So'rov yuborilmoqda...");
+                 const res = await requestRetake({ studentId, testId, teacherId });
+                 toast.success(res.data.msg || "So'rov yuborildi!");
+               } catch (e) {
+                 toast.error(e.response?.data?.msg || "So'rov yuborishda xatolik");
+               }
+            }
+         } else {
+            // Other 403 (Group restricted, etc.)
+            toast.error(errorMsg);
+            
+            // If they are a guest with an existing studentId, maybe that's the problem
+            if (role === "Student" && !isIndividual && localStorage.getItem("studentId")) {
+               if (window.confirm("Balki eski sessiya xalaqit berayotgan bo'lishi mumkin. Sessiyani tozalab qaytadan urinib ko'rasizmi?")) {
+                  localStorage.removeItem("studentId");
+                  localStorage.removeItem("fullName");
+                  localStorage.removeItem("teacherId");
+                  localStorage.removeItem("groupId");
+                  toast.info("Sessiya tozalandi. Qayta urinib ko'ring.");
+               }
             }
          }
       } else {

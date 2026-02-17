@@ -76,9 +76,7 @@ export const loginUser = async (role, username, password, fullName = "", student
 
     throw new Error("Role noto‘g‘ri tanlandi!");
   } catch (err) {
-    throw new Error(
-      err?.response?.data?.msg || err?.response?.data?.error || err.message
-    );
+    throw err;
   }
 };
 
@@ -161,9 +159,7 @@ export const sendChatMessage = (data) => api.post("/chat/send", data);
 /* ===================== STUDENT API ===================== */
 
 const handleApiError = (err) => {
-  throw new Error(
-    err?.response?.data?.msg || err?.response?.data?.error || err.message
-  );
+  throw err;
 };
 
 export const submitTestApi = async (data) => {

@@ -222,13 +222,14 @@ export default function StudentDashboard() {
       setStatus("waiting");
       socket.emit("join-test-room", data.testLogin);
     } catch (err) {
-      const msg = err.response?.data?.msg || "Testga kirishda xato";
-      toast.error(msg);
+      const { msg, alreadyTaken, teacherId, testId } = err.response?.data || {};
+      const errorMsg = msg || err.message || "Testga kirishda xato";
       
-      if (err.response?.data?.alreadyTaken) {
-         // Show retake request option if already taken
-         if (window.confirm("Siz ushbu testni yechib bo'lgansiz. Qayta yechish uchun ustozga so'rov yuborasizmi?")) {
-            handleRequestRetake(test._id, err.response.data.teacherId || test.teacherId || localStorage.getItem("teacherId"));
+      toast.error(errorMsg);
+      
+      if (err.response?.status === 403 && alreadyTaken) {
+         if (window.confirm("Qayta yechish uchun ustozga so'rov yuborasizmi?")) {
+            handleRequestRetake(testId || test._id, teacherId || test.teacherId);
          }
       }
     } finally {
