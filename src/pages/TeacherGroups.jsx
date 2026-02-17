@@ -373,7 +373,7 @@ export default function TeacherGroups() {
                         </div>
 
                         {/* ✅ QAYTA YECHISH SO'ROVLARI (STUDENT DARAXTIDA) */}
-                        {retakeRequests.filter(r => r.studentId?._id === s._id).map(req => (
+                        {retakeRequests.filter(r => String(r.studentId?._id) === String(s._id)).map(req => (
                           <div key={req._id} className="mt-2 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-between animate-in slide-in-from-top-1">
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />

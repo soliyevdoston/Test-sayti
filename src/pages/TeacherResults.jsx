@@ -124,17 +124,22 @@ export default function TeacherResults() {
 
       <main className="relative z-10 px-6 max-w-7xl mx-auto pb-20">
         {/* ✅ QAYTA YECHISH SO'ROVLARI SECTION */}
-        {retakeRequests.length > 0 && (
-          <div className="mb-16">
-            <h3 className="text-xl font-black text-primary uppercase tracking-tighter italic mb-6 flex items-center gap-3">
-               <FaBolt className="text-yellow-500" /> Qayta yechish so'rovlari
-            </h3>
+        <div className="mb-16">
+          <h3 className="text-xl font-black text-primary uppercase tracking-tighter italic mb-6 flex items-center gap-3">
+             <FaBolt className="text-yellow-500" /> Qayta yechish so'rovlari
+          </h3>
+          {retakeRequests.length > 0 ? (
             <div className="grid gap-4">
               {retakeRequests.map(req => (
-                <div key={req._id} className="p-6 bg-yellow-500/5 border border-yellow-500/20 rounded-3xl flex flex-col md:flex-row justify-between items-center gap-4">
-                  <div>
-                    <h4 className="font-bold text-primary">{req.studentId?.fullName}</h4>
-                    <p className="text-xs text-muted uppercase tracking-widest font-black">Test: {req.testId?.title}</p>
+                <div key={req._id} className="p-6 bg-yellow-500/5 border border-yellow-500/20 rounded-3xl flex flex-col md:flex-row justify-between items-center gap-4 animate-in slide-in-from-top-2">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-yellow-500/10 flex items-center justify-center text-yellow-600">
+                      <FaBolt />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-primary">{req.studentId?.fullName}</h4>
+                      <p className="text-[10px] text-muted uppercase tracking-widest font-black">Test: {req.testId?.title}</p>
+                    </div>
                   </div>
                   <div className="flex gap-3">
                     <button 
@@ -153,8 +158,12 @@ export default function TeacherResults() {
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="p-10 border-2 border-dashed border-primary rounded-3xl opacity-30 text-center">
+               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted italic">Hozircha yangi so'rovlar yo'q</p>
+            </div>
+          )}
+        </div>
 
         <div className="grid gap-8">
           {tests.length > 0 ? (

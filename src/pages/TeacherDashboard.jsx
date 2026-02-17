@@ -18,6 +18,7 @@ import DashboardLayout from "../components/DashboardLayout";
 import { 
   getTeacherTests, 
   getTeacherStats,
+  getRetakeRequests, // ✅
   BASE_URL
 } from "../api/api";
 
@@ -33,6 +34,8 @@ export default function TeacherDashboard() {
     averageScore: 0,
     activeTestsCount: 0
   });
+  const [retakeRequests, setRetakeRequests] = useState([]); // ✅
+
 
   useEffect(() => {
     const name = localStorage.getItem("teacherName");
@@ -42,6 +45,7 @@ export default function TeacherDashboard() {
       setTeacherName(name);
       loadTests(id);
       fetchStats(id);
+      fetchRetakeRequests(id); // ✅
     }
   }, [navigate]);
 
@@ -60,6 +64,13 @@ export default function TeacherDashboard() {
       setStats(data);
     } catch (err) {
     }
+  };
+
+  const fetchRetakeRequests = async (tid) => {
+    try {
+      const { data } = await getRetakeRequests(tid);
+      setRetakeRequests(data);
+    } catch {}
   };
 
   const handleForceStop = (testLogin) => {
@@ -91,6 +102,29 @@ export default function TeacherDashboard() {
              </div>
           </div>
         </div>
+
+        {/* ✅ RE-TAKE REQUESTS NOTIFICATION */}
+        {retakeRequests.length > 0 && (
+          <div className="mb-12 animate-in slide-in-from-top-4 duration-700">
+             <div 
+               onClick={() => navigate("/teacher/results")}
+               className="p-6 bg-yellow-500/10 border-2 border-dashed border-yellow-500/30 rounded-[2rem] flex items-center justify-between cursor-pointer hover:bg-yellow-500/20 transition-all group"
+             >
+                <div className="flex items-center gap-6">
+                   <div className="w-16 h-16 rounded-2xl bg-yellow-500 flex items-center justify-center text-white shadow-lg shadow-yellow-500/20 group-hover:rotate-12 transition-transform">
+                      <FaBolt size={24} />
+                   </div>
+                   <div>
+                      <h3 className="text-xl font-black text-primary uppercase italic tracking-tighter">Qayta yechish so'rovlari!</h3>
+                      <p className="text-[10px] text-muted font-bold uppercase tracking-widest mt-1">Sizda <span className="text-yellow-600 font-black">{retakeRequests.length} ta</span> yangi so'rov mavjud</p>
+                   </div>
+                </div>
+                <div className="flex items-center gap-3 px-6 py-3 bg-yellow-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-yellow-500/20">
+                   Ko'rish <FaArrowRight />
+                </div>
+             </div>
+          </div>
+        )}
       </section>
 
       <main className="relative z-10 px-6 max-w-7xl mx-auto space-y-12 pb-20">

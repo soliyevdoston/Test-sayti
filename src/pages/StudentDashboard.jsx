@@ -228,7 +228,7 @@ export default function StudentDashboard() {
       if (err.response?.data?.alreadyTaken) {
          // Show retake request option if already taken
          if (window.confirm("Siz ushbu testni yechib bo'lgansiz. Qayta yechish uchun ustozga so'rov yuborasizmi?")) {
-            handleRequestRetake(test._id, localStorage.getItem("teacherId"));
+            handleRequestRetake(test._id, err.response.data.teacherId || test.teacherId || localStorage.getItem("teacherId"));
          }
       }
     } finally {
