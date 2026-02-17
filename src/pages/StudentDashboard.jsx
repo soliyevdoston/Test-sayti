@@ -546,13 +546,16 @@ export default function StudentDashboard() {
                           {Math.round((res.totalScore / res.maxScore) * 100)}%
                        </div>
                       <div>
-                        <h4 className="font-bold text-primary text-sm">{res.testId?.title || "O'chirilgan test"}</h4>
+                        <h4 className="font-bold text-primary text-sm">
+                           {res.testId?.title || "O'chirilgan test"} 
+                           {res.attempt > 1 && <span className="text-indigo-600 ml-2">({res.attempt}-urinish)</span>}
+                        </h4>
                         <p className="text-[10px] text-muted font-bold tracking-widest uppercase">
                            {new Date(res.submittedAt).toLocaleDateString()} · {res.totalScore}/{res.maxScore} ball
                         </p>
                       </div>
-                   </div>
-                    <div className="h-1.5 w-24 bg-primary rounded-full overflow-hidden">
+                    </div>
+                     <div className="h-1.5 w-24 bg-primary rounded-full overflow-hidden">
                        <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${(res.totalScore / res.maxScore) * 100}%` }} />
                     </div>
                 </div>

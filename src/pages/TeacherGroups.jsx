@@ -17,7 +17,9 @@ import {
   deleteTeacherGroup,
   getGroupStudents,
   addStudentApi,
-  deleteStudentApi
+  deleteStudentApi,
+  getRetakeRequests, // ✅
+  handleRetakeRequest // ✅
 } from "../api/api";
 
 export default function TeacherGroups() {
@@ -30,6 +32,7 @@ export default function TeacherGroups() {
   const [studentLoading, setStudentLoading] = useState(false);
   const [newStudent, setNewStudent] = useState({ fullName: "", username: "", password: "" });
   const [activeChat, setActiveChat] = useState(null); // { studentId, fullName }
+  const [retakeRequests, setRetakeRequests] = useState([]); // ✅ NEW
 
   useEffect(() => {
     const name = localStorage.getItem("teacherName");
@@ -38,6 +41,7 @@ export default function TeacherGroups() {
     else {
       setTeacherName(name);
       loadGroups(id);
+      fetchRetakeRequests(id);
     }
   }, [navigate]);
 
@@ -124,6 +128,25 @@ export default function TeacherGroups() {
       toast.info("O'chirildi");
       fetchStudents(studentModal.group._id);
       loadGroups(); // Update count
+    } catch {
+      toast.error("Xatolik");
+    }
+  };
+
+  const fetchRetakeRequests = async (tid) => {
+    try {
+      const { data } = await getRetakeRequests(tid || localStorage.getItem("teacherId"));
+      setRetakeRequests(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleRetakeResolve = async (requestId, status) => {
+    try {
+      await handleRetakeRequest({ requestId, status });
+      toast.success(status === "approved" ? "Ruxsat berildi" : "Rad etildi");
+      fetchRetakeRequests();
     } catch {
       toast.error("Xatolik");
     }
@@ -317,35 +340,59 @@ export default function TeacherGroups() {
                 ) : students.length > 0 ? (
                   <div className="space-y-3">
                     {students.map((s, idx) => (
-                      <div key={s._id} className="flex items-center justify-between p-4 rounded-2xl bg-secondary/50 border border-primary group hover:border-indigo-500/30 transition-all">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-primary border border-primary flex items-center justify-center text-xs font-black text-indigo-500">
-                            {idx + 1}
+                      <div key={s._id} className="flex flex-col gap-2 p-4 rounded-2xl bg-secondary/50 border border-primary group hover:border-indigo-500/30 transition-all">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-primary border border-primary flex items-center justify-center text-xs font-black text-indigo-500">
+                              {idx + 1}
+                            </div>
+                            <div>
+                              <p className="text-sm font-black text-primary uppercase tracking-tight">{s.fullName}</p>
+                              <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Username: {s.username}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-black text-primary uppercase tracking-tight">{s.fullName}</p>
-                            <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Username: {s.username}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="text-right hidden sm:block mr-2">
-                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{s.totalScore || 0} ball</p>
-                          </div>
-                          
-                          <button 
-                            onClick={() => setActiveChat({ studentId: s._id, fullName: s.fullName })}
-                            className="p-2 border border-primary rounded-lg text-indigo-500 hover:bg-indigo-500 hover:text-white transition-all flex items-center gap-2"
-                          >
-                            <span className="text-[8px] font-black uppercase tracking-widest px-1">Chat</span>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <div className="text-right hidden sm:block mr-2">
+                              <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{s.totalScore || 0} ball</p>
+                            </div>
+                            
+                            <button 
+                              onClick={() => setActiveChat({ studentId: s._id, fullName: s.fullName })}
+                              className="p-2 border border-primary rounded-lg text-indigo-500 hover:bg-indigo-500 hover:text-white transition-all flex items-center gap-2"
+                            >
+                              <span className="text-[8px] font-black uppercase tracking-widest px-1">Chat</span>
+                            </button>
 
-                          <button 
-                            onClick={() => handleDeleteStudent(s._id)}
-                            className="p-2 text-red-500 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/10 rounded-lg shadow-sm"
-                          >
-                            <FaTrash size={12} />
-                          </button>
+                            <button 
+                              onClick={() => handleDeleteStudent(s._id)}
+                              className="p-2 text-red-500 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/10 rounded-lg shadow-sm"
+                            >
+                              <FaTrash size={12} />
+                            </button>
+                          </div>
                         </div>
+
+                        {/* ✅ QAYTA YECHISH SO'ROVLARI (STUDENT DARAXTIDA) */}
+                        {retakeRequests.filter(r => r.studentId?._id === s._id).map(req => (
+                          <div key={req._id} className="mt-2 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-between animate-in slide-in-from-top-1">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                              <p className="text-[9px] font-black text-primary uppercase tracking-widest">
+                                Qayta yechish: <span className="text-indigo-600">{req.testId?.title}</span>
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={() => handleRetakeResolve(req._id, "rejected")}
+                                className="px-2 py-1 text-[8px] font-black uppercase tracking-tighter text-red-500 hover:bg-red-500/10 rounded-md"
+                              >Rad etish</button>
+                              <button 
+                                onClick={() => handleRetakeResolve(req._id, "approved")}
+                                className="px-2 py-1 text-[8px] font-black uppercase tracking-tighter bg-indigo-600 text-white rounded-md shadow-lg shadow-indigo-600/20"
+                              >Ruxsat berish</button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     ))}
                   </div>

@@ -21,9 +21,11 @@ import {
   getTeacherGroups,
   startTestApi, 
   stopTestApi,
+  updateTestAccess, // ✅
   deleteTestApi, 
   BASE_URL
 } from "../api/api";
+import { FaGlobe, FaCogs } from "react-icons/fa"; // ✅
 
 const socket = io(BASE_URL, { transports: ["polling", "websocket"] });
 
@@ -219,6 +221,16 @@ export default function TeacherTests() {
     if (window.confirm("Barcha o'quvchilar uchun testni majburiy to'xtatmoqchimisiz?")) {
       socket.emit("force-stop-test", testLogin);
       toast.warning("Test majburiy to'xtatildi!");
+    }
+  };
+
+  const handleUpdateAccess = async (testId, accessType, groupId = null) => {
+    try {
+      await updateTestAccess(testId, { accessType, groupId });
+      toast.success("Ruxsat holati yangilandi");
+      loadTests(localStorage.getItem("teacherId"));
+    } catch {
+      toast.error("Xatolik yuz berdi");
     }
   };
 
@@ -464,17 +476,52 @@ export default function TeacherTests() {
                           <span className="text-[10px] font-black text-muted uppercase tracking-widest">Login: {t.testLogin}</span>
                           <span className="text-[10px] font-black text-muted uppercase tracking-widest">•</span>
                           <span className="text-[10px] font-black text-muted uppercase tracking-widest">Parol: {t.testPassword}</span>
-                          {t.accessType === "group" && (
-                            <>
-                              <span className="text-[10px] font-black text-muted uppercase tracking-widest">•</span>
-                              <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Faqat Guruh</span>
-                            </>
+                          {t.accessType === "group" ? (
+                            <span className="flex items-center gap-1 text-[10px] font-black text-indigo-500 uppercase tracking-widest">
+                              <FaUsers size={10} /> Faqat Guruh
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-[10px] font-black text-green-500 uppercase tracking-widest">
+                              <FaGlobe size={10} /> Umumiy
+                            </span>
                           )}
                         </div>
                       </div>
                     </div>
-                    <div className="px-3 py-1 bg-indigo-500/10 rounded-lg text-indigo-500 text-[10px] font-black uppercase tracking-widest">
-                      {t.duration} Daqiqa
+                    <div className="flex gap-2">
+                       <div className="px-3 py-1 bg-indigo-500/10 rounded-lg text-indigo-500 text-[10px] font-black uppercase tracking-widest flex items-center">
+                          {t.duration} Daqiqa
+                       </div>
+                       
+                       {/* 🔥 Dynamik Access Control */}
+                       <div className="relative group/access">
+                          <button className="w-8 h-8 rounded-lg bg-secondary border border-primary flex items-center justify-center text-primary hover:border-indigo-500 transition-all">
+                             <FaCogs size={12} />
+                          </button>
+                          <div className="absolute right-0 top-full mt-2 w-48 bg-primary border border-primary rounded-xl shadow-2xl opacity-0 invisible group-hover/access:opacity-100 group-hover/access:visible transition-all z-20 overflow-hidden">
+                             <div className="p-2 border-b border-primary bg-secondary/30">
+                                <p className="text-[8px] font-black uppercase text-muted tracking-widest">Tizimni o'zgartirish</p>
+                             </div>
+                             <button 
+                               onClick={() => handleUpdateAccess(t._id, "public")}
+                               className={`w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-green-500/10 hover:text-green-500 transition-all ${t.accessType === 'public' ? 'text-green-500 bg-green-500/5' : 'text-muted'}`}
+                             >
+                                <FaGlobe /> Umumiyga O'tkazish
+                             </button>
+                             <div className="border-t border-primary">
+                                <p className="px-4 py-2 text-[8px] font-black uppercase text-muted tracking-widest bg-secondary/10">Guruhga yo'naltirish</p>
+                                {groups.map(g => (
+                                  <button 
+                                    key={g._id}
+                                    onClick={() => handleUpdateAccess(t._id, "group", g._id)}
+                                    className={`w-full text-left px-4 py-2 text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-indigo-500/10 hover:text-indigo-500 transition-all ${t.groupId === g._id ? 'text-indigo-500 bg-indigo-500/5' : 'text-muted'}`}
+                                  >
+                                    <FaUsers /> {g.name}
+                                  </button>
+                                ))}
+                             </div>
+                          </div>
+                       </div>
                     </div>
                   </div>
 

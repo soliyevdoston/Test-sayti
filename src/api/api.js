@@ -115,11 +115,11 @@ export const getTeacherTests = (teacherId) =>
 
 export const getTeacherStats = (teacherId) => api.get(`/teacher/stats/${teacherId}`);
 
-export const startTestApi = (testId) => api.post(`/teacher/start/${testId}`);
-export const stopTestApi = (testId) => api.post(`/teacher/stop/${testId}`);
-
-export const deleteTestApi = (testId) =>
-  api.delete(`/teacher/delete/${testId}`);
+export const startTestApi = (id) => api.post(`/teacher/start/${id}`);
+export const stopTestApi = (id) => api.post(`/teacher/stop/${id}`);
+export const updateTestAccess = (id, data) => api.patch(`/teacher/update-test-access/${id}`, data);
+export const deleteTestApi = (id) =>
+  api.delete(`/teacher/delete/${id}`);
 
 export const getResultsApi = (testId) => api.get(`/teacher/results/${testId}`);
 
