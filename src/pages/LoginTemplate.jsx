@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import logo from "../assets/logo.svg";
-import { loginUser, studentIndividualLogin } from "../api/api";
+import { loginUser, studentIndividualLogin, requestRetake } from "../api/api";
 
 export default function LoginTemplate({ role, loginPath, initialUsername = "", initialPassword = "" }) {
   const navigate = useNavigate();
@@ -33,11 +33,15 @@ export default function LoginTemplate({ role, loginPath, initialUsername = "", i
         toast.success("Xush kelibsiz, " + data.fullName);
         navigate("/student/dashboard");
       } else {
+        // ✅ For guests, still check if they have a studentId in localStorage
+        const existingStudentId = role === "Student" ? localStorage.getItem("studentId") : "";
+
         const data = await loginUser(
           role.toLowerCase(),
           username,
           password,
-          fullName
+          fullName,
+          existingStudentId
         );
 
         toast.success(data.message);
@@ -49,7 +53,31 @@ export default function LoginTemplate({ role, loginPath, initialUsername = "", i
         }
       }
     } catch (err) {
-      toast.error(err.message || "Login xato!");
+      const errorMsg = err.response?.data?.msg || err.message || "Login xato!";
+      
+      // ✅ Handle "Already Taken" 403 error specifically
+      if (err.response?.status === 403 && err.response?.data?.alreadyTaken) {
+         if (window.confirm(errorMsg + "\n\nQayta yechish uchun ustozga so'rov yuborasizmi?")) {
+            try {
+              const testId = err.response.data.testId;
+              const teacherId = err.response.data.teacherId;
+              const studentId = localStorage.getItem("studentId");
+
+              if (!studentId) {
+                toast.error("So'rov yuborish uchun tizimga shaxsiy kabinet orqali kirgan bo'lishingiz kerak.");
+                return setIsIndividual(true);
+              }
+
+              toast.info("So'rov yuborilmoqda...");
+              const res = await requestRetake({ studentId, testId, teacherId });
+              toast.success(res.data.msg || "So'rov yuborildi!");
+            } catch (e) {
+              toast.error(e.response?.data?.msg || "So'rov yuborishda xatolik");
+            }
+         }
+      } else {
+        toast.error(errorMsg);
+      }
     } finally {
       setLoading(false);
     }
