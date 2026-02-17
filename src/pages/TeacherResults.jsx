@@ -15,6 +15,8 @@ import {
   getTeacherTests, 
   getResultsApi, 
   getAnalysisApi,
+  getRetakeRequests, // ✅
+  handleRetakeRequest, // ✅
   BASE_URL
 } from "../api/api";
 
@@ -27,6 +29,8 @@ export default function TeacherResults() {
   const [selectedStudentAnalysis, setSelectedStudentAnalysis] = useState(null);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [teacherName, setTeacherName] = useState("");
+  const [retakeRequests, setRetakeRequests] = useState([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
 
   useEffect(() => {
     const name = localStorage.getItem("teacherName");
@@ -35,6 +39,7 @@ export default function TeacherResults() {
     else {
       setTeacherName(name);
       loadTests(id);
+      fetchRetakeRequests(id);
     }
   }, [navigate]);
 
@@ -77,6 +82,28 @@ export default function TeacherResults() {
     }
   };
 
+  const fetchRetakeRequests = async (tid) => {
+    try {
+      setLoadingRequests(true);
+      const { data } = await getRetakeRequests(tid);
+      setRetakeRequests(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
+  const handleRetakeResolve = async (requestId, status) => {
+    try {
+      await handleRetakeRequest({ requestId, status });
+      toast.success(status === "approved" ? "Ruxsat berildi" : "Rad etildi");
+      fetchRetakeRequests(localStorage.getItem("teacherId"));
+    } catch (err) {
+      toast.error("Amalni bajarishda xatolik");
+    }
+  };
+
   return (
     <DashboardLayout role="teacher" userName={teacherName}>
       <section className="relative z-10 pt-12 pb-6 px-6 max-w-7xl mx-auto">
@@ -96,6 +123,39 @@ export default function TeacherResults() {
       </section>
 
       <main className="relative z-10 px-6 max-w-7xl mx-auto pb-20">
+        {/* ✅ QAYTA YECHISH SO'ROVLARI SECTION */}
+        {retakeRequests.length > 0 && (
+          <div className="mb-16">
+            <h3 className="text-xl font-black text-primary uppercase tracking-tighter italic mb-6 flex items-center gap-3">
+               <FaBolt className="text-yellow-500" /> Qayta yechish so'rovlari
+            </h3>
+            <div className="grid gap-4">
+              {retakeRequests.map(req => (
+                <div key={req._id} className="p-6 bg-yellow-500/5 border border-yellow-500/20 rounded-3xl flex flex-col md:flex-row justify-between items-center gap-4">
+                  <div>
+                    <h4 className="font-bold text-primary">{req.studentId?.fullName}</h4>
+                    <p className="text-xs text-muted uppercase tracking-widest font-black">Test: {req.testId?.title}</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => handleRetakeResolve(req._id, "rejected")}
+                      className="px-6 py-2 rounded-xl border border-red-500/50 text-red-600 text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all"
+                    >
+                      Rad etish
+                    </button>
+                    <button 
+                      onClick={() => handleRetakeResolve(req._id, "approved")}
+                      className="px-6 py-2 rounded-xl bg-green-600 text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-green-600/20"
+                    >
+                      Tasdiqlash
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="grid gap-8">
           {tests.length > 0 ? (
             tests.map((test) => (

@@ -138,6 +138,15 @@ export const deleteTeacherGroup = (id) => api.delete(`/teacher/delete-group/${id
 // Advanced Student Management
 export const getTeacherStudents = (teacherId) => api.get(`/teacher/students/${teacherId}`);
 export const getGroupStudents = (groupId) => api.get(`/teacher/group/${groupId}/students`);
+
+// ✅ O'QUVCHI NATIJALARI VA QAYTA YECHISH
+export const getMyResults = (studentId) => api.get(`/student/my-results/${studentId}`);
+export const requestRetake = (data) => api.post("/student/request-retake", data);
+
+// ✅ O'QITUVCHI: QAYTA YECHISH SO'ROVLARI
+export const getRetakeRequests = (teacherId) => api.get(`/teacher/retake-requests/${teacherId}`);
+export const handleRetakeRequest = (data) => api.post("/teacher/handle-retake", data);
+
 export const addStudentApi = (data) => api.post("/teacher/add-student", data);
 export const deleteStudentApi = (id) => api.delete(`/teacher/delete-student/${id}`);
 

@@ -19,7 +19,7 @@ import {
   X
 } from "lucide-react";
 import logo from "../assets/logo.svg";
-import { submitTestApi, BASE_URL, getAvailableTests, loginUser } from "../api/api";
+import { submitTestApi, BASE_URL, getAvailableTests, loginUser, getMyResults, requestRetake } from "../api/api";
 import DashboardLayout from "../components/DashboardLayout";
 import ChatBox from "../components/ChatBox";
 
@@ -38,6 +38,8 @@ export default function StudentDashboard() {
   const [result, setResult] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState([]);
   const questionRefs = useRef({});
 
   // ================= INIT =================
@@ -58,6 +60,7 @@ export default function StudentDashboard() {
         const name = localStorage.getItem("fullName");
         setStudentData({ name, studentId });
         loadAvailableTests(teacherId, groupId);
+        fetchHistory(studentId);
         setStatus("selection");
         return;
       }
@@ -177,6 +180,7 @@ export default function StudentDashboard() {
         testId: studentData.testId,
         studentName: studentData.name,
         answers,
+        studentId: studentData.studentId || localStorage.getItem("studentId")
       };
       const { data } = await submitTestApi(payload);
       setResult(data);
@@ -198,11 +202,13 @@ export default function StudentDashboard() {
     const studentName = studentData?.name || localStorage.getItem("fullName");
     const studentId = localStorage.getItem("studentId");
     try {
+      setLoading(true);
       const data = await loginUser("student", test.testLogin, "none", studentName, studentId);
       setStudentData({
         name: studentName,
         testId: data.testId,
         testLogin: data.testLogin,
+        studentId // Keep studentId in state
       });
       setTestData({
         title: data.title,
@@ -216,7 +222,39 @@ export default function StudentDashboard() {
       setStatus("waiting");
       socket.emit("join-test-room", data.testLogin);
     } catch (err) {
-      toast.error(err.response?.data?.msg || "Testga kirishda xato");
+      const msg = err.response?.data?.msg || "Testga kirishda xato";
+      toast.error(msg);
+      
+      if (err.response?.data?.alreadyTaken) {
+         // Show retake request option if already taken
+         if (window.confirm("Siz ushbu testni yechib bo'lgansiz. Qayta yechish uchun ustozga so'rov yuborasizmi?")) {
+            handleRequestRetake(test._id, localStorage.getItem("teacherId"));
+         }
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchHistory = async (sid) => {
+    try {
+      const { data } = await getMyResults(sid);
+      setHistory(data);
+    } catch (err) {
+      console.error("History fetch error:", err);
+    }
+  };
+
+  const handleRequestRetake = async (testId, teacherId) => {
+    try {
+      setLoading(true);
+      const studentId = localStorage.getItem("studentId");
+      await requestRetake({ studentId, testId, teacherId });
+      toast.success("So'rov muvaffaqiyatli yuborildi!");
+    } catch (err) {
+      toast.error(err.response?.data?.msg || "So'rov yuborishda xatolik");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -231,8 +269,24 @@ export default function StudentDashboard() {
 
   const handleExit = () => {
     socket.disconnect();
+    const isCabinet = !!localStorage.getItem("studentId");
+    
     localStorage.removeItem("active_test_session");
     localStorage.removeItem("test_result_data");
+    
+    if (isCabinet) {
+      // If from cabinet, just refresh selection view
+      const tid = localStorage.getItem("teacherId");
+      const gid = localStorage.getItem("groupId");
+      const sid = localStorage.getItem("studentId");
+      loadAvailableTests(tid, gid);
+      fetchHistory(sid);
+      setStatus("selection");
+      setResult(null);
+      setTestData(null);
+      return;
+    }
+
     localStorage.removeItem("studentId");
     localStorage.removeItem("fullName");
     localStorage.removeItem("teacherId");
@@ -427,7 +481,8 @@ export default function StudentDashboard() {
               onClick={handleExit}
               className="group w-full py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] text-white bg-gradient-to-r from-indigo-600 to-indigo-700 shadow-xl shadow-indigo-600/30 hover:shadow-indigo-600/50 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
             >
-              <LogOut size={16} className="group-hover:-translate-x-1 transition-transform" /> Bosh sahifaga qaytish
+              <LogOut size={16} className="group-hover:-translate-x-1 transition-transform" /> 
+              {localStorage.getItem("studentId") ? "Kabinetga qaytish" : "Bosh sahifaga qaytish"}
             </button>
           </div>
         </div>
@@ -481,27 +536,29 @@ export default function StudentDashboard() {
         {/* Previous Results Section (Simplified Mock) */}
          <section className="max-w-3xl mx-auto px-4 md:px-4 md:px-6 mb-20">
             <h3 className="text-lg md:text-lg md:text-xl font-black text-primary uppercase tracking-tighter italic mb-6 flex items-center gap-3">
-               <History className="text-indigo-500" /> Oxirgi natijalar (Tez orada)
+               <History className="text-indigo-500" /> Mening Natijalarim
             </h3>
            <div className="space-y-4">
-              {[
-                { title: "Matematika - Algebra", score: 90, date: "Bugun" },
-                { title: "Ingliz tili - Grammar", score: 75, date: "Kecha" },
-                { title: "Fizika - Mexanika", score: 85, date: "2 kun oldin" }
-              ].map((res, i) => (
+              {history.length > 0 ? history.map((res, i) => (
                  <div key={i} className="p-6 bg-secondary/40 backdrop-blur-xl border border-primary rounded-2xl md:rounded-3xl flex justify-between items-center group hover:border-indigo-500/50 transition-all">
                     <div className="flex items-center gap-3 md:p-4">
-                       <div className="w-10 h-10 rounded-xl bg-primary border border-primary flex items-center justify-center text-indigo-500 font-black">{res.score}</div>
+                       <div className="w-10 h-10 rounded-xl bg-primary border border-primary flex items-center justify-center text-indigo-500 font-black">
+                          {Math.round((res.totalScore / res.maxScore) * 100)}%
+                       </div>
                       <div>
-                        <h4 className="font-bold text-primary text-sm">{res.title}</h4>
-                        <p className="text-[10px] text-muted font-bold tracking-widest uppercase">{res.date}</p>
+                        <h4 className="font-bold text-primary text-sm">{res.testId?.title || "O'chirilgan test"}</h4>
+                        <p className="text-[10px] text-muted font-bold tracking-widest uppercase">
+                           {new Date(res.submittedAt).toLocaleDateString()} · {res.totalScore}/{res.maxScore} ball
+                        </p>
                       </div>
                    </div>
                     <div className="h-1.5 w-24 bg-primary rounded-full overflow-hidden">
-                       <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${res.score}%` }} />
+                       <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${(res.totalScore / res.maxScore) * 100}%` }} />
                     </div>
                 </div>
-              ))}
+              )) : (
+                 <p className="text-muted text-sm italic py-4">Sizda hali natijalar mavjud emas</p>
+              )}
            </div>
         </section>
 
