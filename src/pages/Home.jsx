@@ -352,12 +352,12 @@ export default function Home() {
                 T
               </div>
             </div>
-            <span className="text-2xl font-black tracking-tighter uppercase text-primary">osontestol<span className="text-indigo-600">.uz</span></span>
+            <span className="text-2xl font-black tracking-tighter uppercase text-primary">OsonTestOl</span>
           </div>
           <div className="hidden md:flex gap-10 text-xs font-bold text-primary italic">
             <a href="#features" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Imkoniyatlar</a>
             <a href="#how-it-works" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Qanday ishlaydi?</a>
-            <a href="#guide" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Qo'llanma</a>
+            <a href="/#/guide" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Qo'llanma</a>
             <a href="#pricing" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Tariflar</a>
             <a href="#faq" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Savollar</a>
             <a href="#roles" className="hover:text-indigo-600 transition-colors uppercase tracking-widest text-indigo-500 font-black">Kirish</a>

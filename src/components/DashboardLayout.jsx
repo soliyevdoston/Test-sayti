@@ -81,7 +81,7 @@ export default function DashboardLayout({ children, role = "student", userName =
             T
           </div>
           <span className="text-2xl font-black tracking-tighter uppercase text-primary">
-            osontestol<span className="text-indigo-600">.uz</span>
+            OsonTestOl
           </span>
         </div>
 
@@ -182,7 +182,7 @@ export default function DashboardLayout({ children, role = "student", userName =
                 T
               </div>
               <span className="text-2xl font-black tracking-tighter uppercase text-primary">
-                osontestol<span className="text-indigo-600">.uz</span>
+                OsonTestOl
               </span>
             </div>
             <nav className="flex-grow space-y-2 mb-8">
