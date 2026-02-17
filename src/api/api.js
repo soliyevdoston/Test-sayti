@@ -16,7 +16,7 @@ const api = axios.create({
 
 /* ===================== LOGIN ===================== */
 
-export const loginUser = async (role, username, password, fullName = "") => {
+export const loginUser = async (role, username, password, fullName = "", studentId = "") => {
   try {
     // ===== ADMIN (School) =====
     if (role === "admin") {
@@ -60,6 +60,7 @@ export const loginUser = async (role, username, password, fullName = "") => {
         login: username,
         password,
         studentName: fullName,
+        studentId
       });
 
       localStorage.setItem("studentTestId", res.data.testId);
