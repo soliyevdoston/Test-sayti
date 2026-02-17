@@ -28,7 +28,9 @@ import {
   UserCheck,
   Search,
   Languages,
-  Key
+  Key,
+  Menu,
+  X
 } from "lucide-react";
 import logo from "../assets/logo.svg";
 
@@ -118,7 +120,7 @@ const FAQItem = ({ index, q, a }) => {
 };
 
 const FeatureCard = ({ title, desc, icon: Icon, className = "" }) => (
-  <div className={`premium-card group ${className}`}>
+  <div className={`premium-card group hover:animate-tilt ${className}`}>
     <div className="w-14 h-14 flex items-center justify-center bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl mb-8 text-white shadow-lg shadow-indigo-500/20 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500">
       <Icon size={28} />
     </div>
@@ -327,6 +329,7 @@ const GuideSection = () => {
 export default function Home() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -375,66 +378,163 @@ export default function Home() {
               Tizimga kirish
             </button>
           </div>
+          
+          {/* Mobile Menu Button */}
+          <button 
+            className="md:hidden p-2 text-primary"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
+
+        {/* Mobile Menu Overlay */}
+        {mobileMenuOpen && (
+          <div className="md:hidden absolute top-full left-0 w-full bg-bg-primary/95 backdrop-blur-xl border-b border-primary/20 shadow-2xl animate-in slide-in-from-top-5">
+            <div className="flex flex-col p-6 space-y-4 text-center">
+              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-bold uppercase tracking-widest hover:text-indigo-500">Imkoniyatlar</a>
+              <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-bold uppercase tracking-widest hover:text-indigo-500">Qanday ishlaydi?</a>
+              <a href="/#/guide" onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-bold uppercase tracking-widest hover:text-indigo-500">Qo'llanma</a>
+              <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-bold uppercase tracking-widest hover:text-indigo-500">Tariflar</a>
+              <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-bold uppercase tracking-widest hover:text-indigo-500">Savollar</a>
+              <a href="#roles" onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-black uppercase tracking-widest text-indigo-500">Kirish</a>
+              <div className="pt-4 border-t border-primary/10">
+                <button 
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    document.getElementById('roles')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="w-full py-4 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20"
+                >
+                  Tizimga kirish
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-32 md:pt-48 pb-16 md:pb-24 overflow-hidden">
-        {/* Decorative background elements */}
-        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-indigo-500/5 dark:bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none" />
+      <section className="relative pt-32 md:pt-48 pb-16 md:pb-32 overflow-hidden">
+        {/* Animated Background Blobs */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+          <div className="absolute top-0 right-[-10%] w-[800px] h-[800px] bg-indigo-500/10 dark:bg-indigo-600/20 rounded-full blur-[120px] animate-blob" />
+          <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-blue-500/10 dark:bg-blue-600/20 rounded-full blur-[100px] animate-blob animation-delay-4000" />
+          <div className="absolute top-[20%] left-[20%] w-[300px] h-[300px] bg-purple-500/10 dark:bg-purple-600/20 rounded-full blur-[80px] animate-blob animation-delay-2000" />
+        </div>
         
-        <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+        <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center relative z-10">
           {/* Left: Text Content */}
-          <div className="text-left space-y-10">
-            <h1 className="text-5xl md:text-7xl font-black tracking-tight text-primary leading-[1.1]">
-              Bilimlarni <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-blue-600 underline decoration-indigo-500/30 decoration-8 underline-offset-10">OsonTestOl</span> bilan loyihalang va baholang
+          <div className="text-left space-y-8 md:space-y-10">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/5 border border-indigo-500/10 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-700">
+               <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                </span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Yangi avlod platformasi</span>
+            </div>
+
+            <h1 className="text-4xl md:text-7xl lg:text-8xl font-black tracking-tighter text-primary leading-[1.1] animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
+              Bilimni <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 animate-shine">OsonTestOl</span>
             </h1>
-            <p className="max-w-xl text-lg text-secondary font-medium leading-relaxed">
-              Professional test platformasi: o'qituvchilar uchun qulay boshqaruv, o'quvchilar uchun shaffof va tezkor natijalar.
+            
+            <p className="max-w-lg text-lg md:text-xl text-secondary font-medium leading-relaxed animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
+              Professional test platformasi: <span className="text-primary font-bold">o'qituvchilar uchun</span> qulay boshqaruv, <span className="text-primary font-bold">o'quvchilar uchun</span> shaffof va tezkor natijalar.
             </p>
-            <div className="flex flex-wrap items-center gap-6">
+
+            <div className="flex flex-wrap items-center gap-6 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
               <button
                 onClick={() => document.getElementById('roles')?.scrollIntoView({ behavior: 'smooth' })}
-                className="px-10 py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-[2rem] text-sm uppercase tracking-widest shadow-xl shadow-indigo-600/30 transition-all active:scale-95"
+                className="group relative px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-[2rem] text-sm uppercase tracking-widest shadow-xl shadow-indigo-600/30 transition-all active:scale-95 overflow-hidden"
               >
-                Tizimga kirish
+                <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shine" />
+                <span className="relative flex items-center gap-3">
+                  Boshlash <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                </span>
               </button>
+              
+              <button 
+                 onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
+                 className="px-8 py-4 bg-transparent border border-primary text-primary hover:bg-secondary rounded-[2rem] font-black text-sm uppercase tracking-widest transition-all flex items-center gap-3"
+              >
+                <Play size={18} className="text-indigo-500" /> Video-qo'llanma
+              </button>
+            </div>
+            
+            <div className="flex items-center gap-4 text-xs font-bold text-muted animate-in fade-in slide-in-from-bottom-8 duration-700 delay-500">
+               <div className="flex -space-x-3">
+                  {[1,2,3,4].map(i => (
+                    <div key={i} className={`w-8 h-8 rounded-full border-2 border-primary bg-gray-200 dark:bg-gray-700 z-${10-i}`} />
+                  ))}
+               </div>
+               <div>
+                 <div className="flex text-yellow-500 text-[10px] gap-0.5">
+                    {[1,2,3,4,5].map(i => <Star key={i} size={10} fill="currentColor" />)}
+                 </div>
+                 <p className="text-[10px] uppercase tracking-widest"><span className="text-primary">500+</span> mamnun o'qituvchilar</p>
+               </div>
             </div>
           </div>
 
-          {/* Right: Original Composition (Replaced Orbit Illustration) */}
-          <div className="relative flex items-center justify-center min-h-[500px]">
-            <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/10 to-blue-500/10 blur-[100px] rounded-full animate-pulse" />
+          {/* Right: Dynamic Composition */}
+          <div className="relative flex items-center justify-center min-h-[500px] lg:min-h-[600px] animate-in fade-in slide-in-from-right-8 duration-1000">
+            <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/20 to-blue-500/20 blur-[80px] rounded-full animate-blob opacity-60" />
             
-            {/* abstract composition instead of direct orbit copy */}
-            <div className="relative z-10 w-full max-w-lg aspect-square">
-               <div className="absolute top-0 right-0 w-64 h-64 bg-white/40 dark:bg-white/5 backdrop-blur-3xl rounded-[3rem] border border-white/20 shadow-2xl rotate-12 transition-transform hover:rotate-6 duration-700 p-8">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2 bg-indigo-600 rounded-xl text-white shadow-lg"><BarChart3 size={24} /></div>
-                    <div className="h-3 w-32 bg-indigo-600/20 rounded-full" />
+            {/* Main Floating Card */}
+            <div className="relative z-20 w-full max-w-md aspect-square animate-float">
+               {/* Back Card (Decoration) */}
+               <div className="absolute -top-4 -right-4 w-full h-full bg-indigo-600/5 rounded-[3rem] border border-indigo-500/10 rotate-6" />
+               
+               {/* Feature Card 1 */}
+               <div className="absolute top-0 right-0 w-64 h-64 glass-card rounded-[2.5rem] shadow-2xl rotate-6 transition-all hover:rotate-0 hover:scale-105 duration-500 p-8 z-30 border border-white/20">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="p-3 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl text-white shadow-lg shadow-indigo-500/30"><BarChart3 size={28} /></div>
+                    <div>
+                      <h4 className="font-black text-primary text-lg">Statistika</h4>
+                      <p className="text-[10px] text-muted uppercase tracking-widest">Real vaqt tahlili</p>
+                    </div>
                   </div>
                   <div className="space-y-4">
-                    <div className="h-2 w-full bg-primary/20 rounded-full" />
-                    <div className="h-2 w-3/4 bg-primary/20 rounded-full" />
-                    <div className="h-2 w-1/2 bg-primary/20 rounded-full" />
+                    <div className="h-2 w-full bg-primary/10 rounded-full overflow-hidden">
+                       <div className="h-full bg-indigo-500 w-[75%] rounded-full" />
+                    </div>
+                    <div className="h-2 w-full bg-primary/10 rounded-full overflow-hidden">
+                       <div className="h-full bg-blue-500 w-[50%] rounded-full" />
+                    </div>
+                    <div className="h-2 w-full bg-primary/10 rounded-full overflow-hidden">
+                       <div className="h-full bg-purple-500 w-[90%] rounded-full" />
+                    </div>
+                  </div>
+                  <div className="mt-8 flex justify-between items-end">
+                     <div>
+                       <p className="text-3xl font-black text-primary">98%</p>
+                       <p className="text-[9px] text-muted uppercase tracking-widest">O'zlashtirish</p>
+                     </div>
+                     <div className="px-3 py-1 bg-green-500/10 text-green-500 rounded-lg text-[10px] font-black uppercase tracking-widest">+24%</div>
                   </div>
                </div>
                
-               <div className="absolute bottom-0 left-0 w-72 h-48 bg-white/40 dark:bg-white/5 backdrop-blur-3xl rounded-[3rem] border border-white/20 shadow-2xl -rotate-6 transition-transform hover:rotate-0 duration-700 p-8">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2 bg-blue-600 rounded-xl text-white shadow-lg"><Users size={24} /></div>
-                    <div className="h-4 w-24 bg-blue-600/10 rounded-full flex items-center justify-center"><span className="text-[10px] font-black text-blue-600">+12k Users</span></div>
+               {/* Feature Card 2 */}
+               <div className="absolute bottom-0 left-0 w-72 h-56 glass-card rounded-[2.5rem] shadow-2xl -rotate-3 transition-all hover:rotate-0 hover:scale-105 duration-500 p-8 z-20 border border-white/20">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl text-white shadow-lg shadow-blue-500/30"><Users size={24} /></div>
+                    <div className="bg-blue-500/10 px-3 py-1 rounded-lg border border-blue-500/10">
+                      <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Faol</span>
+                    </div>
                   </div>
-                  <div className="flex -space-x-3">
-                    {[1,2,3,4].map(i => <div key={i} className="w-10 h-10 rounded-full border-2 border-white bg-secondary/50" />)}
+                  <div className="flex -space-x-4 mb-4">
+                    {[1,2,3,4].map(i => <div key={i} className="w-12 h-12 rounded-full border-4 border-secondary bg-gray-200 dark:bg-gray-700 shadow-sm" />)}
+                    <div className="w-12 h-12 rounded-full border-4 border-secondary bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black shadow-sm">+12k</div>
                   </div>
+                  <p className="text-[10px] font-bold text-muted uppercase tracking-widest">O'quvchilar soni ortmoqda</p>
                </div>
 
-               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 p-6 glass rounded-[3rem] shadow-2xl border border-indigo-500/30 flex items-center justify-center animate-float">
-                  <div className="text-center">
-                    <div className="text-4xl font-black text-indigo-600 mb-2">99%</div>
-                    <div className="text-[10px] font-black uppercase text-muted tracking-widest text-secondary">Ishonchli</div>
-                  </div>
+               {/* Central Badge */}
+               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 glass rounded-full shadow-2xl border border-white/30 flex flex-col items-center justify-center animate-pulse z-10 backdrop-blur-3xl">
+                  <ShieldCheck size={40} className="text-indigo-500 mb-2" />
+                  <div className="text-2xl font-black text-primary">100%</div>
+                  <div className="text-[9px] font-black uppercase text-secondary tracking-widest">Ishonchli</div>
                </div>
             </div>
           </div>
@@ -777,8 +877,9 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="py-24 px-6 border-t border-primary bg-[#0A080F] text-white">
-        <div className="max-w-7xl mx-auto">
+      <footer className="py-24 px-6 border-t border-primary bg-[#0A080F] text-white overflow-hidden relative">
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 animate-shine" />
+        <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16 mb-20">
             {/* Column 1: Brand & Contacts */}
             <div className="space-y-8">
