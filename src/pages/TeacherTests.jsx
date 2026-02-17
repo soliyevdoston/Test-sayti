@@ -15,6 +15,7 @@ import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
 import DashboardLayout from "../components/DashboardLayout";
+import ConfirmationModal from "../components/ConfirmationModal";
 import { 
   teacherUploadTest, 
   parseTextApi,
@@ -52,6 +53,18 @@ export default function TeacherTests() {
   const [pasteText, setPasteText] = useState("");
   const [previewData, setPreviewData] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    type: "info"
+  });
+
+  const showConfirm = (message, onConfirm, type = "info", title = "Tasdiqlash") => {
+    setModalConfig({ isOpen: true, title, message, onConfirm, type });
+  };
 
   useEffect(() => {
     const name = localStorage.getItem("teacherName");
@@ -181,14 +194,20 @@ export default function TeacherTests() {
   };
 
   const removeTest = async (testId) => {
-    if (!window.confirm("Rostdan ham o'chirmoqchimisiz?")) return;
-    try {
-      await deleteTestApi(testId);
-      toast.info("Test o'chirildi");
-      loadTests(localStorage.getItem("teacherId"));
-    } catch {
-      toast.error("Xatolik");
-    }
+    showConfirm(
+      "Rostdan ham ushbu testni o'chirmoqchimisiz?",
+      async () => {
+        try {
+          await deleteTestApi(testId);
+          toast.info("Test o'chirildi");
+          loadTests(localStorage.getItem("teacherId"));
+        } catch {
+          toast.error("Xatolik");
+        }
+      },
+      "danger",
+      "Testni o'chirish"
+    );
   };
 
   const startTest = async (testId, testLogin) => {
@@ -221,10 +240,15 @@ export default function TeacherTests() {
   };
 
   const handleForceStop = (testLogin) => {
-    if (window.confirm("Barcha o'quvchilar uchun testni majburiy to'xtatmoqchimisiz?")) {
-      socket.emit("force-stop-test", testLogin);
-      toast.warning("Test majburiy to'xtatildi!");
-    }
+    showConfirm(
+      "Barcha o'quvchilar uchun testni majburiy to'xtatmoqchimisiz?",
+      () => {
+        socket.emit("force-stop-test", testLogin);
+        toast.warning("Test majburiy to'xtatildi!");
+      },
+      "danger",
+      "Testni to'xtatish"
+    );
   };
 
   const handleUpdateAccess = async (testId, accessType, groupId = null) => {
@@ -239,6 +263,10 @@ export default function TeacherTests() {
 
   return (
     <DashboardLayout role="teacher" userName={teacherName}>
+      <ConfirmationModal 
+        {...modalConfig} 
+        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))} 
+      />
       <section className="relative z-10 pt-12 pb-6 px-6 max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-primary pb-8 mb-12">
           <div>

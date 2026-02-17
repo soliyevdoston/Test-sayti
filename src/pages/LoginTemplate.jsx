@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import logo from "../assets/logo.svg";
 import { loginUser, studentIndividualLogin, requestRetake } from "../api/api";
+import ConfirmationModal from "../components/ConfirmationModal";
 
 export default function LoginTemplate({ role, loginPath, initialUsername = "", initialPassword = "" }) {
   const navigate = useNavigate();
@@ -12,6 +13,18 @@ export default function LoginTemplate({ role, loginPath, initialUsername = "", i
   const [fullName, setFullName] = useState("");
   const [isIndividual, setIsIndividual] = useState(false);
   const [loading, setLoading] = useState(false);
+  
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    type: "info"
+  });
+
+  const showConfirm = (message, onConfirm, type = "info", title = "Tasdiqlash") => {
+    setModalConfig({ isOpen: true, title, message, onConfirm, type });
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -60,33 +73,43 @@ export default function LoginTemplate({ role, loginPath, initialUsername = "", i
          const { alreadyTaken, teacherId, testId } = err.response.data || {};
          
          if (alreadyTaken) {
-            if (window.confirm(errorMsg + "\n\nQayta yechish uchun ustozga so'rov yuborasizmi?")) {
-               try {
-                 const studentId = localStorage.getItem("studentId");
-                 if (!studentId) {
-                   toast.error("So'rov yuborish uchun tizimga shaxsiy kabinet orqali kirgan bo'lishingiz kerak.");
-                   return setIsIndividual(true);
-                 }
-                 toast.info("So'rov yuborilmoqda...");
-                 const res = await requestRetake({ studentId, testId, teacherId });
-                 toast.success(res.data.msg || "So'rov yuborildi!");
-               } catch (e) {
-                 toast.error(e.response?.data?.msg || "So'rov yuborishda xatolik");
-               }
-            }
+            showConfirm(
+              errorMsg + "\n\nQayta yechish uchun ustozga so'rov yuborasizmi?",
+              async () => {
+                try {
+                  const studentId = localStorage.getItem("studentId");
+                  if (!studentId) {
+                    toast.error("So'rov yuborish uchun tizimga shaxsiy kabinet orqali kirgan bo'lishingiz kerak.");
+                    return setIsIndividual(true);
+                  }
+                  toast.info("So'rov yuborilmoqda...");
+                  const res = await requestRetake({ studentId, testId, teacherId });
+                  toast.success(res.data.msg || "So'rov yuborildi!");
+                } catch (e) {
+                  toast.error(e.response?.data?.msg || "So'rov yuborishda xatolik");
+                }
+              },
+              "info",
+              "Qayta yechish"
+            );
          } else {
             // Other 403 (Group restricted, etc.)
             toast.error(errorMsg);
             
             // If they are a guest with an existing studentId, maybe that's the problem
             if (role === "Student" && !isIndividual && localStorage.getItem("studentId")) {
-               if (window.confirm("Balki eski sessiya xalaqit berayotgan bo'lishi mumkin. Sessiyani tozalab qaytadan urinib ko'rasizmi?")) {
-                  localStorage.removeItem("studentId");
-                  localStorage.removeItem("fullName");
-                  localStorage.removeItem("teacherId");
-                  localStorage.removeItem("groupId");
-                  toast.info("Sessiya tozalandi. Qayta urinib ko'ring.");
-               }
+               showConfirm(
+                 "Balki eski sessiya xalaqit berayotgan bo'lishi mumkin. Sessiyani tozalab qaytadan urinib ko'rasizmi?",
+                 () => {
+                    localStorage.removeItem("studentId");
+                    localStorage.removeItem("fullName");
+                    localStorage.removeItem("teacherId");
+                    localStorage.removeItem("groupId");
+                    toast.info("Sessiya tozalandi. Qayta urinib ko'ring.");
+                 },
+                 "warning",
+                 "Sessiyani tozalash"
+               );
             }
          }
       } else {
@@ -102,6 +125,12 @@ export default function LoginTemplate({ role, loginPath, initialUsername = "", i
       {/* Glow background */}
       <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-indigo-600/10 dark:bg-indigo-600/30 rounded-full blur-3xl animate-blob pointer-events-none" />
       <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-blue-600/10 dark:bg-blue-600/30 rounded-full blur-3xl animate-blob animation-delay-2000 pointer-events-none" />
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal 
+        {...modalConfig} 
+        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))} 
+      />
 
       {/* Login Card */}
       <form

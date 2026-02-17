@@ -15,6 +15,7 @@ import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
 import DashboardLayout from "../components/DashboardLayout";
+import ConfirmationModal from "../components/ConfirmationModal";
 import { 
   getTeacherTests, 
   getTeacherStats,
@@ -35,6 +36,17 @@ export default function TeacherDashboard() {
     activeTestsCount: 0
   });
   const [retakeRequests, setRetakeRequests] = useState([]); // ✅
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    type: "info"
+  });
+
+  const showConfirm = (message, onConfirm, type = "info", title = "Tasdiqlash") => {
+    setModalConfig({ isOpen: true, title, message, onConfirm, type });
+  };
 
 
   useEffect(() => {
@@ -85,14 +97,23 @@ export default function TeacherDashboard() {
   };
 
   const handleForceStop = (testLogin) => {
-    if (window.confirm("Barcha o'quvchilar uchun testni majburiy to'xtatmoqchimisiz?")) {
-      socket.emit("force-stop-test", testLogin);
-      toast.warning("Test majburiy to'xtatildi!");
-    }
+    showConfirm(
+      "Barcha o'quvchilar uchun testni majburiy to'xtatmoqchimisiz?",
+      () => {
+        socket.emit("force-stop-test", testLogin);
+        toast.warning("Test majburiy to'xtatildi!");
+      },
+      "danger",
+      "Testni to'xtatish"
+    );
   };
 
   return (
     <DashboardLayout role="teacher" userName={teacherName}>
+      <ConfirmationModal 
+        {...modalConfig} 
+        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))} 
+      />
       <section className="relative z-10 pt-12 pb-6 px-6 max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-primary pb-8 mb-12">
           <div>

@@ -11,6 +11,8 @@ import { useNavigate } from "react-router-dom";
 import { io } from "socket.io-client"; // ✅
 import DashboardLayout from "../components/DashboardLayout";
 import ChatBox from "../components/ChatBox";
+import ConfirmationModal from "../components/ConfirmationModal";
+import PromptModal from "../components/PromptModal";
 
 import { 
   getTeacherGroups, 
@@ -37,6 +39,29 @@ export default function TeacherGroups() {
   const [newStudent, setNewStudent] = useState({ fullName: "", username: "", password: "" });
   const [activeChat, setActiveChat] = useState(null); // { studentId, fullName }
   const [retakeRequests, setRetakeRequests] = useState([]); // ✅ NEW
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    type: "info"
+  });
+
+  const showConfirm = (message, onConfirm, type = "info", title = "Tasdiqlash") => {
+    setModalConfig({ isOpen: true, title, message, onConfirm, type });
+  };
+
+  const [promptConfig, setPromptConfig] = useState({
+    isOpen: false,
+    title: "",
+    label: "",
+    placeholder: "",
+    onConfirm: () => {}
+  });
+
+  const showPrompt = (title, label, placeholder, onConfirm) => {
+    setPromptConfig({ isOpen: true, title, label, placeholder, onConfirm });
+  };
 
   useEffect(() => {
     const name = localStorage.getItem("teacherName");
@@ -72,30 +97,41 @@ export default function TeacherGroups() {
     }
   };
 
-  const handleAddGroup = async () => {
-    const name = prompt("Yangi guruh nomini kiriting:");
-    if (!name) return;
-    try {
-      await addTeacherGroup({ 
-        name, 
-        teacherId: localStorage.getItem("teacherId") 
-      });
-      toast.success("Guruh ochildi");
-      loadGroups();
-    } catch {
-      toast.error("Guruh ochishda xatolik");
-    }
+  const handleAddGroup = () => {
+    showPrompt(
+      "Yangi guruh",
+      "Guruh nomini kiriting",
+      "Masalan: 10-A",
+      async (name) => {
+        try {
+          await addTeacherGroup({ 
+            name, 
+            teacherId: localStorage.getItem("teacherId") 
+          });
+          toast.success("Guruh ochildi");
+          loadGroups();
+        } catch {
+          toast.error("Guruh ochishda xatolik");
+        }
+      }
+    );
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Rostdan ham ushbu guruhni o'chirmoqchimisiz?")) return;
-    try {
-      await deleteTeacherGroup(id);
-      toast.success("Guruh o'chirildi");
-      loadGroups();
-    } catch {
-      toast.error("Guruhni o'chirishda xatolik");
-    }
+    showConfirm(
+      "Rostdan ham ushbu guruhni o'chirmoqchimisiz?",
+      async () => {
+        try {
+          await deleteTeacherGroup(id);
+          toast.success("Guruh o'chirildi");
+          loadGroups();
+        } catch {
+          toast.error("Guruhni o'chirishda xatolik");
+        }
+      },
+      "danger",
+      "Guruhni o'chirish"
+    );
   };
 
   const openStudentModal = async (group) => {
@@ -137,15 +173,21 @@ export default function TeacherGroups() {
   };
 
   const handleDeleteStudent = async (id) => {
-    if (!window.confirm("O'quvchini o'chirishni tasdiqlaysizmi?")) return;
-    try {
-      await deleteStudentApi(id);
-      toast.info("O'chirildi");
-      fetchStudents(studentModal.group._id);
-      loadGroups(); // Update count
-    } catch {
-      toast.error("Xatolik");
-    }
+    showConfirm(
+      "O'quvchini o'chirishni tasdiqlaysizmi?",
+      async () => {
+        try {
+          await deleteStudentApi(id);
+          toast.info("O'chirildi");
+          fetchStudents(studentModal.group._id);
+          loadGroups(); // Update count
+        } catch {
+          toast.error("Xatolik");
+        }
+      },
+      "danger",
+      "O'quvchini o'chirish"
+    );
   };
 
   const fetchRetakeRequests = async (tid) => {
@@ -169,6 +211,14 @@ export default function TeacherGroups() {
 
   return (
     <DashboardLayout role="teacher" userName={teacherName}>
+      <ConfirmationModal 
+        {...modalConfig} 
+        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))} 
+      />
+      <PromptModal 
+        {...promptConfig}
+        onClose={() => setPromptConfig(prev => ({ ...prev, isOpen: false }))}
+      />
       <section className="relative z-10 pt-12 pb-6 px-6 max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-primary pb-8 mb-12">
           <div>

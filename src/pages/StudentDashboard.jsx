@@ -22,6 +22,7 @@ import logo from "../assets/logo.svg";
 import { submitTestApi, BASE_URL, getAvailableTests, loginUser, getMyResults, requestRetake } from "../api/api";
 import DashboardLayout from "../components/DashboardLayout";
 import ChatBox from "../components/ChatBox";
+import ConfirmationModal from "../components/ConfirmationModal";
 
 const socket = io(BASE_URL, {
   transports: ["polling", "websocket"],
@@ -41,6 +42,18 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
   const questionRefs = useRef({});
+
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    type: "info"
+  });
+
+  const showConfirm = (message, onConfirm, type = "info", title = "Tasdiqlash") => {
+    setModalConfig({ isOpen: true, title, message, onConfirm, type });
+  };
 
   // ================= INIT =================
   useEffect(() => {
@@ -173,8 +186,18 @@ export default function StudentDashboard() {
 
   const handleSubmit = async (isAuto = false) => {
     if (status === "finished") return;
-    if (!isAuto && !window.confirm("Haqiqatan ham testni yakunlaysizmi?"))
-      return;
+    if (!isAuto) {
+      return showConfirm(
+        "Haqiqatan ham testni yakunlaysizmi?",
+        () => executeSubmit(false),
+        "warning",
+        "Testni yakunlash"
+      );
+    }
+    executeSubmit(true);
+  };
+
+  const executeSubmit = async (isAuto = false) => {
     try {
       const payload = {
         testId: studentData.testId,
@@ -228,9 +251,12 @@ export default function StudentDashboard() {
       toast.error(errorMsg);
       
       if (err.response?.status === 403 && alreadyTaken) {
-         if (window.confirm("Qayta yechish uchun ustozga so'rov yuborasizmi?")) {
-            handleRequestRetake(testId || test._id, teacherId || test.teacherId);
-         }
+         showConfirm(
+           "Qayta yechish uchun ustozga so'rov yuborasizmi?",
+           () => handleRequestRetake(testId || test._id, teacherId || test.teacherId),
+           "info",
+           "Qayta yechish"
+         );
       }
     } finally {
       setLoading(false);
@@ -339,6 +365,10 @@ export default function StudentDashboard() {
   if (status === "selection") {
     return (
       <DashboardLayout role="student" userName={studentData?.name}>
+        <ConfirmationModal 
+          {...modalConfig} 
+          onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))} 
+        />
         <div className="max-w-5xl mx-auto px-4 md:px-4 md:px-6 pt-12">
           <div className="mb-12">
             <h2 className="text-2xl md:text-2xl md:text-4xl font-black tracking-tight text-primary mb-2 uppercase italic">
@@ -405,6 +435,10 @@ export default function StudentDashboard() {
   if (status === "waiting") {
     return (
       <div className="min-h-screen flex flex-col justify-center items-center bg-primary text-primary px-4 transition-colors duration-300">
+        <ConfirmationModal 
+          {...modalConfig} 
+          onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))} 
+        />
         <div className="bg-secondary/50 backdrop-blur-xl border border-primary rounded-2xl md:rounded-3xl shadow-2xl p-10 text-center max-w-md w-full">
           <div className="relative w-24 h-24 mx-auto mb-6">
             <div className="absolute inset-0 bg-indigo-500/30 rounded-full animate-ping"></div>
@@ -434,6 +468,10 @@ export default function StudentDashboard() {
   if (status === "finished" && result) {
     return (
       <div className="min-h-screen flex flex-col justify-center items-center bg-primary px-4 md:px-4 md:px-6 relative transition-colors duration-500 overflow-hidden">
+        <ConfirmationModal 
+          {...modalConfig} 
+          onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))} 
+        />
         {/* Animated Background Elements */}
         <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-[600px] h-[600px] bg-indigo-500/10 dark:bg-indigo-600/20 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-blue-500/10 dark:bg-blue-600/20 rounded-full blur-[100px] pointer-events-none" />

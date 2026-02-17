@@ -5,6 +5,7 @@ import { UserPlus, LogOut, Shield, Trash2, Activity, Globe, Zap, Users, Edit, Ke
 import logo from "../assets/logo.svg";
 import { createTeacher, getTeachers, deleteTeacher, updateTeacher } from "../api/api";
 import DashboardLayout from "../components/DashboardLayout";
+import ConfirmationModal from "../components/ConfirmationModal";
 
 const Footer = () => {
   return (
@@ -29,6 +30,18 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [teachers, setTeachers] = useState([]);
+
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    type: "info"
+  });
+
+  const showConfirm = (message, onConfirm, type = "info", title = "Tasdiqlash") => {
+    setModalConfig({ isOpen: true, title, message, onConfirm, type });
+  };
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -103,18 +116,28 @@ export default function AdminDashboard() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("O‘chirishni tasdiqlaysizmi?")) return;
-    try {
-      await deleteTeacher(id);
-      toast.success("O‘chirilgan");
-      fetchTeachers();
-    } catch {
-      toast.error("O‘chirishda xato");
-    }
+    showConfirm(
+      "O‘qituvchini o'chirishni tasdiqlaysizmi?",
+      async () => {
+        try {
+          await deleteTeacher(id);
+          toast.success("O‘chirilgan");
+          fetchTeachers();
+        } catch {
+          toast.error("O‘chirishda xato");
+        }
+      },
+      "danger",
+      "O'qituvchini o'chirish"
+    );
   };
 
   return (
     <DashboardLayout role="admin" userName="Admin">
+      <ConfirmationModal 
+        {...modalConfig} 
+        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))} 
+      />
       <div className="max-w-7xl mx-auto">
         <div className="mb-12">
           <h1 className="text-4xl font-black text-primary italic uppercase tracking-tighter mb-2">Admin <span className="text-indigo-500">Boshqaruvi</span></h1>

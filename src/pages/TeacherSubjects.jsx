@@ -9,6 +9,8 @@ import {
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
+import ConfirmationModal from "../components/ConfirmationModal";
+import PromptModal from "../components/PromptModal";
 
 import { 
   getTeacherSubjects, 
@@ -21,6 +23,30 @@ export default function TeacherSubjects() {
   const [teacherName, setTeacherName] = useState("");
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    type: "info"
+  });
+
+  const showConfirm = (message, onConfirm, type = "info", title = "Tasdiqlash") => {
+    setModalConfig({ isOpen: true, title, message, onConfirm, type });
+  };
+
+  const [promptConfig, setPromptConfig] = useState({
+    isOpen: false,
+    title: "",
+    label: "",
+    placeholder: "",
+    onConfirm: () => {}
+  });
+
+  const showPrompt = (title, label, placeholder, onConfirm) => {
+    setPromptConfig({ isOpen: true, title, label, placeholder, onConfirm });
+  };
 
   useEffect(() => {
     const name = localStorage.getItem("teacherName");
@@ -44,34 +70,53 @@ export default function TeacherSubjects() {
     }
   };
 
-  const handleAddSubject = async () => {
-    const name = prompt("Yangi fan nomini kiriting:");
-    if (!name) return;
-    try {
-      await addTeacherSubject({ 
-        name, 
-        teacherId: localStorage.getItem("teacherId") 
-      });
-      toast.success("Fan qo'shildi");
-      loadSubjects();
-    } catch {
-      toast.error("Fan qo'shishda xatolik");
-    }
+  const handleAddSubject = () => {
+    showPrompt(
+      "Yangi fan",
+      "Fan nomini kiriting",
+      "Masalan: Matematika",
+      async (name) => {
+        try {
+          await addTeacherSubject({ 
+            name, 
+            teacherId: localStorage.getItem("teacherId") 
+          });
+          toast.success("Fan qo'shildi");
+          loadSubjects();
+        } catch {
+          toast.error("Fan qo'shishda xatolik");
+        }
+      }
+    );
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Rostdan ham ushbu fanni o'chirmoqchimisiz?")) return;
-    try {
-      await deleteTeacherSubject(id);
-      toast.success("Fan o'chirildi");
-      loadSubjects();
-    } catch {
-      toast.error("Fan o'chirishda xatolik");
-    }
+    showConfirm(
+      "Rostdan ham ushbu fanni o'chirmoqchimisiz?",
+      async () => {
+        try {
+          await deleteTeacherSubject(id);
+          toast.success("Fan o'chirildi");
+          loadSubjects();
+        } catch {
+          toast.error("Fan o'chirishda xatolik");
+        }
+      },
+      "danger",
+      "Fanni o'chirish"
+    );
   };
 
   return (
     <DashboardLayout role="teacher" userName={teacherName}>
+      <ConfirmationModal 
+        {...modalConfig} 
+        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))} 
+      />
+      <PromptModal 
+        {...promptConfig}
+        onClose={() => setPromptConfig(prev => ({ ...prev, isOpen: false }))}
+      />
       <section className="relative z-10 pt-12 pb-6 px-6 max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-primary pb-8 mb-12">
           <div>
