@@ -210,7 +210,7 @@ const GuideSection = () => {
   const [activeTab, setActiveTab] = useState("teacher");
 
   return (
-    <section id="guide" className="py-32 px-6 bg-secondary/10">
+    <section id="guide" className="py-20 md:py-32 px-6 bg-secondary/10">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-20 space-y-4">
           <h2 className="text-4xl md:text-6xl font-black text-primary tracking-tighter uppercase italic">
@@ -379,7 +379,7 @@ export default function Home() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-48 pb-24 overflow-hidden">
+      <section className="relative pt-32 md:pt-48 pb-16 md:pb-24 overflow-hidden">
         {/* Decorative background elements */}
         <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-indigo-500/5 dark:bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none" />
         
@@ -520,7 +520,7 @@ export default function Home() {
       </section>
 
       {/* How it works */}
-      <section id="how-it-works" className="py-32 relative overflow-hidden">
+      <section id="how-it-works" className="py-20 md:py-32 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-6">
           <div className="mb-20 text-center space-y-4">
             <h2 className="text-4xl md:text-6xl font-black text-primary tracking-tighter uppercase italic">
@@ -592,7 +592,7 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-32 px-6">
+      <section id="features" className="py-20 md:py-32 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="mb-20">
             <h2 className="text-4xl md:text-6xl font-black mb-6 text-primary tracking-tighter uppercase italic">
@@ -629,7 +629,7 @@ export default function Home() {
       </section>
 
       {/* Testimonials Section */}
-      <section className="py-32 bg-secondary/20">
+      <section className="py-20 md:py-32 bg-secondary/20">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-2 gap-20 items-center">
             <div>
@@ -679,7 +679,7 @@ export default function Home() {
       <GuideSection />
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-32 px-6">
+      <section id="pricing" className="py-20 md:py-32 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="mb-20 text-center">
             <h2 className="text-4xl md:text-6xl font-black mb-6 text-primary tracking-tighter uppercase italic">
@@ -714,7 +714,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="faq" className="py-32 px-6 max-w-4xl mx-auto">
+      <section id="faq" className="py-20 md:py-32 px-6 max-w-4xl mx-auto">
         <div className="text-center mb-20">
           <h2 className="text-4xl font-black mb-6 text-primary tracking-tighter uppercase italic">Tez-tez beriladigan <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-blue-600 underline decoration-indigo-500/30 decoration-8 underline-offset-8">savollar</span></h2>
           <p className="text-secondary font-bold uppercase tracking-widest text-[10px]">Bilimingiz uchun kerakli javoblar</p>
@@ -747,7 +747,7 @@ export default function Home() {
       </section>
 
       {/* Roles Section */}
-      <section id="roles" className="py-32 px-6 scroll-mt-24 relative overflow-hidden">
+      <section id="roles" className="py-20 md:py-32 px-6 scroll-mt-24 relative overflow-hidden">
         <div className="absolute inset-0 bg-indigo-600/5 dark:bg-indigo-600/10 -skew-y-3 origin-center scale-110" />
         <div className="max-w-7xl mx-auto text-center relative z-10">
           <h2 className="text-4xl md:text-5xl font-black mb-16 text-primary uppercase tracking-tighter italic">Tizimga <span className="text-indigo-500">kirish</span></h2>

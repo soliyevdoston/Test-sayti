@@ -247,18 +247,34 @@ export default function TeacherGroups() {
             </div>
           ) : groups.length > 0 ? (
             groups.map((group, idx) => (
-              <div key={group._id || idx} className="premium-card p-10 flex flex-col md:flex-row gap-8 group hover:border-indigo-500/50 transition-all">
-                <div className="w-24 h-24 rounded-[2rem] bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-500 shrink-0 group-hover:scale-110 transition-transform">
+              <div key={group._id || idx} className="premium-card p-6 md:p-8 flex flex-col md:flex-row gap-6 md:gap-8 group hover:border-indigo-500/50 transition-all">
+                <div className="flex items-center justify-between md:hidden">
+                    <div className="flex items-center gap-4">
+                       <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-500 shrink-0">
+                         <FaUsers size={24} />
+                       </div>
+                       <div>
+                         <h3 className="text-xl font-black text-primary uppercase tracking-tighter italic">{group.name}</h3>
+                         <p className="text-[9px] font-bold text-muted uppercase tracking-widest mt-0.5 italic">Aktiv Guruh</p>
+                       </div>
+                    </div>
+                    {/* Mobile Actions */}
+                    <div className="flex gap-2">
+                       <button onClick={() => handleDelete(group._id)} className="w-8 h-8 bg-secondary border border-primary rounded-lg flex items-center justify-center text-red-500"><FaTrash size={12} /></button>
+                    </div>
+                </div>
+
+                <div className="hidden md:flex w-24 h-24 rounded-[2rem] bg-indigo-500/10 border border-indigo-500/20 items-center justify-center text-indigo-500 shrink-0 group-hover:scale-110 transition-transform">
                   <FaUsers size={40} />
                 </div>
+                
                 <div className="flex-1 space-y-6">
-                  <div className="flex justify-between items-start">
+                  <div className="hidden md:flex justify-between items-start">
                     <div>
                       <h3 className="text-2xl font-black text-primary uppercase tracking-tighter italic">{group.name}</h3>
                       <p className="text-[10px] font-bold text-muted uppercase tracking-widest mt-1 italic">Aktiv Guruh</p>
                     </div>
                     <div className="flex gap-2">
-                      <button className="w-10 h-10 bg-secondary border border-primary rounded-xl flex items-center justify-center text-primary hover:bg-primary transition-all"><FaPlus size={14} /></button>
                       <button 
                         onClick={() => handleDelete(group._id)}
                         className="w-10 h-10 bg-secondary border border-primary rounded-xl flex items-center justify-center text-red-500 hover:bg-red-500 hover:text-white transition-all"
@@ -268,22 +284,22 @@ export default function TeacherGroups() {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-2 gap-4 md:gap-6 bg-secondary/30 p-4 rounded-2xl border border-primary/50">
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-muted uppercase tracking-widest flex items-center gap-2"><FaUserGraduate size={10} /> O'quvchilar</p>
+                      <p className="text-[9px] font-black text-muted uppercase tracking-widest flex items-center gap-1.5"><FaUserGraduate size={10} /> O'quvchilar</p>
                       <p className="text-lg font-black text-primary">{group.pupilsCount || group.pupils || 0} ta</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-muted uppercase tracking-widest flex items-center gap-2"><FaCalendarAlt size={10} /> Kunlar</p>
-                      <p className="text-xs font-black text-primary italic">{group.days || "Belgilanmagan"}</p>
+                      <p className="text-[9px] font-black text-muted uppercase tracking-widest flex items-center gap-1.5"><FaCalendarAlt size={10} /> Kunlar</p>
+                      <p className="text-xs font-black text-primary italic truncate">{group.days || "Belgilanmagan"}</p>
                     </div>
                   </div>
 
-                  <div className="pt-4 flex items-center justify-between border-t border-primary/50">
-                     <div className="text-[10px] font-black text-indigo-600 bg-indigo-500/10 px-3 py-1.5 rounded-lg tracking-widest uppercase">{group.time || "Vaqt yo'q"}</div>
+                  <div className="pt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-t border-primary/50">
+                     <div className="text-[9px] font-black text-indigo-600 bg-indigo-500/10 px-3 py-1.5 rounded-lg tracking-widest uppercase w-full sm:w-auto text-center">{group.time || "Vaqt yo'q"}</div>
                      <button 
                        onClick={() => openStudentModal(group)}
-                       className="text-[10px] font-black uppercase tracking-widest text-primary hover:text-indigo-600 transition-colors"
+                       className="w-full sm:w-auto text-[9px] font-black uppercase tracking-widest text-white bg-indigo-600 px-4 py-2 rounded-xl shadow-lg shadow-indigo-600/20 hover:scale-[1.02] transition-all text-center"
                      >
                         Barcha o'quvchilar →
                      </button>

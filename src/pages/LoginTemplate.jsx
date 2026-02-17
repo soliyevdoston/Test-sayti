@@ -139,7 +139,7 @@ export default function LoginTemplate({ role, loginPath, initialUsername = "", i
           relative z-10 w-full max-w-md
           backdrop-blur-2xl bg-secondary/50
           border border-primary
-          rounded-[32px] p-10
+          rounded-[2rem] md:rounded-[32px] p-6 md:p-10
           shadow-2xl
         "
       >

@@ -479,29 +479,29 @@ export default function StudentDashboard() {
         {/* Card */}
         <div className="relative z-10 w-full max-w-lg bg-secondary/40 backdrop-blur-3xl border border-primary rounded-[2.5rem] shadow-2xl overflow-hidden animate-fade-in translate-y-0 hover:-translate-y-1 transition-transform duration-500">
           {/* Result Header */}
-          <div className="bg-gradient-to-br from-indigo-500 via-blue-600 to-indigo-800 p-12 text-center text-white relative">
-            <div className="absolute top-3 md:p-4 left-4 opacity-10"><Award size={80} /></div>
-            <h2 className="text-xs font-black uppercase tracking-[0.4em] mb-4 opacity-70">Sizning Natijangiz</h2>
-            <div className="text-8xl font-black mb-6 tracking-tighter">
-              {Math.round((result.score / result.maxScore) * 100)}<span className="text-3xl opacity-50">%</span>
+          <div className="bg-gradient-to-br from-indigo-500 via-blue-600 to-indigo-800 p-6 md:p-12 text-center text-white relative">
+            <div className="absolute top-3 md:p-4 left-4 opacity-10"><Award size={60} className="md:w-20 md:h-20" /></div>
+            <h2 className="text-[10px] md:text-xs font-black uppercase tracking-[0.4em] mb-4 opacity-70">Sizning Natijangiz</h2>
+            <div className="text-6xl md:text-8xl font-black mb-6 tracking-tighter">
+              {Math.round((result.score / result.maxScore) * 100)}<span className="text-2xl md:text-3xl opacity-50">%</span>
             </div>
-            <div className="inline-flex items-center gap-2 bg-white/10 px-4 md:px-4 md:px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest backdrop-blur-md border border-white/10">
+            <div className="inline-flex items-center gap-2 bg-white/10 px-4 md:px-6 py-2 rounded-full text-[10px] md:text-xs font-black uppercase tracking-widest backdrop-blur-md border border-white/10">
               <BarChart2 size={14} /> {result.score} / {result.maxScore} ball
             </div>
           </div>
 
           {/* Stats Badges */}
-          <div className="p-10 space-y-6">
-            <div className="grid grid-cols-2 gap-6">
-              <div className="flex flex-col items-center justify-center gap-3 bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-green-400 p-6 rounded-[2rem] border border-green-500/10 hover:bg-green-500/10 transition-all group">
-                <div className="p-2 bg-green-500/10 rounded-xl group-hover:scale-110 transition-transform"><CheckCircle size={24} /></div>
-                <span className="text-3xl font-black tracking-tight text-white">{result.correctCount}</span>
-                <span className="text-[10px] uppercase font-black tracking-[0.2em] text-white/70">To‘g‘ri</span>
+          <div className="p-6 md:p-10 space-y-6">
+            <div className="grid grid-cols-2 gap-4 md:gap-6">
+              <div className="flex flex-col items-center justify-center gap-2 md:gap-3 bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-green-400 p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-green-500/10 hover:bg-green-500/10 transition-all group">
+                <div className="p-2 bg-green-500/10 rounded-xl group-hover:scale-110 transition-transform"><CheckCircle size={20} className="md:w-6 md:h-6" /></div>
+                <span className="text-2xl md:text-3xl font-black tracking-tight text-white">{result.correctCount}</span>
+                <span className="text-[8px] md:text-[10px] uppercase font-black tracking-[0.2em] text-white/70">To‘g‘ri</span>
               </div>
-              <div className="flex flex-col items-center justify-center gap-3 bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400 p-6 rounded-[2rem] border border-red-500/10 hover:bg-red-500/10 transition-all group">
-                <div className="p-2 bg-red-500/10 rounded-xl group-hover:scale-110 transition-transform"><XCircle size={24} /></div>
-                <span className="text-3xl font-black tracking-tight text-white">{result.wrongCount}</span>
-                <span className="text-[10px] uppercase font-black tracking-[0.2em] text-white/70">Xato</span>
+              <div className="flex flex-col items-center justify-center gap-2 md:gap-3 bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400 p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-red-500/10 hover:bg-red-500/10 transition-all group">
+                <div className="p-2 bg-red-500/10 rounded-xl group-hover:scale-110 transition-transform"><XCircle size={20} className="md:w-6 md:h-6" /></div>
+                <span className="text-2xl md:text-3xl font-black tracking-tight text-white">{result.wrongCount}</span>
+                <span className="text-[8px] md:text-[10px] uppercase font-black tracking-[0.2em] text-white/70">Xato</span>
               </div>
             </div>
 
@@ -515,10 +515,10 @@ export default function StudentDashboard() {
           </div>
 
           {/* Bottom Panel */}
-          <div className="px-10 pb-10">
+          <div className="px-6 pb-6 md:px-10 md:pb-10">
             <button
               onClick={handleExit}
-              className="group w-full py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] text-white bg-gradient-to-r from-indigo-600 to-indigo-700 shadow-xl shadow-indigo-600/30 hover:shadow-indigo-600/50 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
+              className="group w-full py-4 md:py-5 rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-[0.2em] text-white bg-gradient-to-r from-indigo-600 to-indigo-700 shadow-xl shadow-indigo-600/30 hover:shadow-indigo-600/50 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
             >
               <LogOut size={16} className="group-hover:-translate-x-1 transition-transform" /> 
               {localStorage.getItem("studentId") ? "Kabinetga qaytish" : "Bosh sahifaga qaytish"}

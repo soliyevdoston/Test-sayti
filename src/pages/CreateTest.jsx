@@ -409,7 +409,7 @@ export default function CreateTest() {
       {showBulkModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-md bg-slate-950/60 animate-in fade-in duration-300">
           <div className="bg-slate-900 border border-white/10 w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-8 border-b border-white/5 flex items-center justify-between">
+            <div className="p-6 md:p-8 border-b border-white/5 flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-black text-white italic uppercase tracking-tight">Bulk <span className="text-indigo-500">Import</span></h2>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">#Savol matni va A) B) C) D) variantlar</p>
@@ -422,7 +422,7 @@ export default function CreateTest() {
               </button>
             </div>
             
-            <div className="p-8 flex-1 overflow-y-auto">
+            <div className="p-6 md:p-8 flex-1 overflow-y-auto">
               <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-2xl p-4 mb-6">
                 <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.15em] mb-2 flex items-center gap-2">
                   <Plus size={12} /> Format namunasi:
@@ -444,7 +444,7 @@ D) Qorli`}
               />
             </div>
             
-            <div className="p-8 bg-slate-950/50 border-t border-white/5 flex gap-4">
+            <div className="p-6 md:p-8 bg-slate-950/50 border-t border-white/5 flex gap-4">
               <button 
                 onClick={() => setShowBulkModal(false)}
                 className="flex-1 py-4 bg-white/5 text-slate-400 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-white/10 transition-all"

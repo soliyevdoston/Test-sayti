@@ -182,8 +182,8 @@ export default function TeacherResults() {
         <div className="grid gap-8">
           {tests.length > 0 ? (
             tests.map((test) => (
-              <div key={test._id} className="bg-secondary/40 backdrop-blur-xl border border-primary rounded-[2.5rem] overflow-hidden group hover:border-indigo-500/50 transition-all duration-500 hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-1">
-                <div className="p-10 flex flex-col lg:flex-row items-center justify-between gap-8">
+              <div key={test._id} className="bg-secondary/40 backdrop-blur-xl border border-primary rounded-[2rem] md:rounded-[2.5rem] overflow-hidden group hover:border-indigo-500/50 transition-all duration-500 hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-1">
+                <div className="p-6 md:p-10 flex flex-col lg:flex-row items-center justify-between gap-6 md:gap-8">
                   <div className="flex flex-col md:flex-row items-center gap-8 text-center md:text-left">
                     <div className="w-20 h-20 rounded-3xl bg-primary border-2 border-primary flex items-center justify-center text-indigo-500 font-black text-3xl shadow-2xl shadow-indigo-500/10 group-hover:rotate-6 transition-transform duration-500">
                       {test.title.charAt(0)}
@@ -220,7 +220,7 @@ export default function TeacherResults() {
                 </div>
 
                 {analyzedTestId === test._id && (
-                  <div className="px-10 pb-10 pt-4 animate-in fade-in slide-in-from-top-4 duration-700">
+                  <div className="px-5 pb-5 md:px-10 md:pb-10 pt-4 animate-in fade-in slide-in-from-top-4 duration-700">
                     <div className="bg-primary/50 border border-primary rounded-[2rem] overflow-hidden shadow-inner">
                       <div className="overflow-x-auto">
                         <table className="w-full text-left">
@@ -301,7 +301,7 @@ export default function TeacherResults() {
               <button onClick={() => setIsModalOpen(false)} className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 shadow-inner text-primary hover:bg-red-500 hover:text-white transition-all"><FaTimes size={20} /></button>
             </div>
 
-            <div className="p-10 overflow-y-auto custom-scrollbar">
+            <div className="p-6 md:p-10 overflow-y-auto custom-scrollbar">
               {loadingAnalysis ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>

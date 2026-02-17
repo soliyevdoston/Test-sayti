@@ -147,7 +147,7 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Create Teacher Section */}
           <div className="lg:col-span-1">
-            <div className="premium-card sticky top-28">
+            <div className="premium-card lg:sticky lg:top-28">
               <div className="flex items-center gap-3 mb-8">
                 <div className="p-3 bg-indigo-500/10 rounded-2xl text-indigo-500"><Users size={24} /></div>
                 <h2 className="text-xl font-black text-primary uppercase italic tracking-tighter">Yangi <span className="text-indigo-500">o'qituvchi</span></h2>

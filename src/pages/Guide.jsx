@@ -55,8 +55,8 @@ export default function Guide() {
           {/* Content Section */}
           <div className="space-y-12">
             {/* Intro */}
-            <div className="p-8 bg-indigo-500/5 border border-indigo-500/10 rounded-[2.5rem] flex items-center gap-6">
-              <div className="w-16 h-16 rounded-2xl bg-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+            <div className="p-6 md:p-8 bg-indigo-500/5 border border-indigo-500/10 rounded-[2rem] md:rounded-[2.5rem] flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
+              <div className="w-16 h-16 rounded-2xl bg-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 shrink-0">
                 <Zap size={32} />
               </div>
               <p className="text-sm md:text-base text-primary font-medium leading-relaxed italic">
@@ -64,7 +64,7 @@ export default function Guide() {
               </p>
             </div>
 
-            <div className="grid gap-10">
+            <div className="grid gap-6 md:gap-10">
               {/* Rule 1 */}
               <section className="premium-card group hover:border-indigo-500/50 transition-all">
                 <div className="flex items-center gap-4 mb-6">

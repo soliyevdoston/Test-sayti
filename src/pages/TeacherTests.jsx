@@ -495,90 +495,87 @@ export default function TeacherTests() {
           <div className="grid lg:grid-cols-2 gap-6">
             {tests.length > 0 ? (
               tests.map((t) => (
-                <div key={t._id} className="group relative p-6 rounded-3xl bg-secondary/50 border border-primary hover:border-indigo-500/50 transition-all">
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-primary border border-primary flex items-center justify-center text-indigo-500 font-black text-xl shadow-inner group-hover:scale-110 transition-transform">
+                <div key={t._id} className="group relative p-5 md:p-6 rounded-[2rem] bg-secondary/50 border border-primary hover:border-indigo-500/50 transition-all flex flex-col h-full">
+                  <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
+                    <div className="flex items-start gap-3 md:gap-4 w-full">
+                      <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-primary border border-primary flex items-center justify-center text-indigo-500 font-black text-lg md:text-xl shadow-inner shrink-0 mt-1">
                         {t.title.charAt(0)}
                       </div>
-                      <div>
-                        <h4 className="font-black text-primary uppercase tracking-tight">{t.title}</h4>
-                        <div className="flex flex-wrap gap-2 mt-1">
-                          <span className="text-[10px] font-black text-muted uppercase tracking-widest">Login: {t.testLogin}</span>
-                          <span className="text-[10px] font-black text-muted uppercase tracking-widest">•</span>
-                          <span className="text-[10px] font-black text-muted uppercase tracking-widest">Parol: {t.testPassword}</span>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-black text-primary uppercase tracking-tight text-sm md:text-base break-words leading-tight">{t.title}</h4>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          <span className="text-[9px] font-black text-muted uppercase tracking-widest bg-primary/50 px-2 py-1 rounded-lg border border-primary/50">Login: {t.testLogin}</span>
+                          <span className="text-[9px] font-black text-muted uppercase tracking-widest bg-primary/50 px-2 py-1 rounded-lg border border-primary/50">Parol: {t.testPassword}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2 mt-2">
                           {t.accessType === "group" ? (
-                            <span className="flex items-center gap-1 text-[10px] font-black text-indigo-500 uppercase tracking-widest">
+                            <span className="flex items-center gap-1 text-[9px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-500/10 px-2 py-1 rounded-lg border border-indigo-500/10">
                               <FaUsers size={10} /> Faqat Guruh
                             </span>
                           ) : (
-                            <span className="flex items-center gap-1 text-[10px] font-black text-green-500 uppercase tracking-widest">
+                            <span className="flex items-center gap-1 text-[9px] font-black text-green-500 uppercase tracking-widest bg-green-500/10 px-2 py-1 rounded-lg border border-green-500/10">
                               <FaGlobe size={10} /> Umumiy
                             </span>
                           )}
+                           <div className="px-2 py-1 bg-indigo-500/10 rounded-lg text-indigo-500 text-[9px] font-black uppercase tracking-widest flex items-center border border-indigo-500/10">
+                              {t.duration} Daq
+                           </div>
                         </div>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                       <div className="px-3 py-1 bg-indigo-500/10 rounded-lg text-indigo-500 text-[10px] font-black uppercase tracking-widest flex items-center">
-                          {t.duration} Daqiqa
-                       </div>
-                       
-                       {/* 🔥 Dynamik Access Control */}
-                       <div className="relative group/access">
-                          <button className="w-8 h-8 rounded-lg bg-secondary border border-primary flex items-center justify-center text-primary hover:border-indigo-500 transition-all">
-                             <FaCogs size={12} />
-                          </button>
-                          <div className="absolute right-0 top-full mt-2 w-48 bg-primary border border-primary rounded-xl shadow-2xl opacity-0 invisible group-hover/access:opacity-100 group-hover/access:visible transition-all z-20 overflow-hidden">
-                             <div className="p-2 border-b border-primary bg-secondary/30">
-                                <p className="text-[8px] font-black uppercase text-muted tracking-widest">Tizimni o'zgartirish</p>
-                             </div>
-                             <button 
-                               onClick={() => handleUpdateAccess(t._id, "public")}
-                               className={`w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-green-500/10 hover:text-green-500 transition-all ${t.accessType === 'public' ? 'text-green-500 bg-green-500/5' : 'text-muted'}`}
-                             >
-                                <FaGlobe /> Umumiyga O'tkazish
-                             </button>
-                             <div className="border-t border-primary">
-                                <p className="px-4 py-2 text-[8px] font-black uppercase text-muted tracking-widest bg-secondary/10">Guruhga yo'naltirish</p>
-                                {groups.map(g => (
-                                  <button 
-                                    key={g._id}
-                                    onClick={() => handleUpdateAccess(t._id, "group", g._id)}
-                                    className={`w-full text-left px-4 py-2 text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-indigo-500/10 hover:text-indigo-500 transition-all ${t.groupId === g._id ? 'text-indigo-500 bg-indigo-500/5' : 'text-muted'}`}
-                                  >
-                                    <FaUsers /> {g.name}
-                                  </button>
-                                ))}
-                             </div>
-                          </div>
-                       </div>
-                    </div>
+                    
+                    {/* 🔥 Dynamic Access Control - Mobile Optimized Position */}
+                     <div className="relative group/access self-end sm:self-start">
+                        <button className="w-8 h-8 rounded-xl bg-secondary border border-primary flex items-center justify-center text-primary hover:border-indigo-500 transition-all shadow-sm">
+                           <FaCogs size={14} />
+                        </button>
+                        <div className="absolute right-0 top-full mt-2 w-48 bg-primary border border-primary rounded-xl shadow-2xl opacity-0 invisible group-hover/access:opacity-100 group-hover/access:visible transition-all z-20 overflow-hidden">
+                           <div className="p-2 border-b border-primary bg-secondary/30">
+                              <p className="text-[8px] font-black uppercase text-muted tracking-widest">Tizimni o'zgartirish</p>
+                           </div>
+                           <button 
+                             onClick={() => handleUpdateAccess(t._id, "public")}
+                             className={`w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-green-500/10 hover:text-green-500 transition-all ${t.accessType === 'public' ? 'text-green-500 bg-green-500/5' : 'text-muted'}`}
+                           >
+                              <FaGlobe /> Umumiyga O'tkazish
+                           </button>
+                           <div className="border-t border-primary">
+                              <p className="px-4 py-2 text-[8px] font-black uppercase text-muted tracking-widest bg-secondary/10">Guruhga yo'naltirish</p>
+                              {groups.map(g => (
+                                <button 
+                                  key={g._id}
+                                  onClick={() => handleUpdateAccess(t._id, "group", g._id)}
+                                  className={`w-full text-left px-4 py-2 text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-indigo-500/10 hover:text-indigo-500 transition-all ${t.groupId === g._id ? 'text-indigo-500 bg-indigo-500/5' : 'text-muted'}`}
+                                >
+                                  <FaUsers /> {g.name}
+                                </button>
+                              ))}
+                           </div>
+                        </div>
+                     </div>
                   </div>
 
-                  <div className="flex gap-3">
+                  <div className="mt-auto flex flex-col sm:flex-row gap-3 pt-4 border-t border-primary/50">
                     {t.isStarted ? (
-                      <div className="flex-1 flex gap-2">
-                        <button
-                          onClick={() => stopTest(t._id, t.testLogin)}
-                          className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-500/20"
-                        >
-                          <FaStop /> TO'XTATISH
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => stopTest(t._id, t.testLogin)}
+                        className="w-full sm:flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-500/20"
+                      >
+                        <FaStop /> TO'XTATISH
+                      </button>
                     ) : (
                       <button
                         onClick={() => startTest(t._id, t.testLogin)}
-                        className="flex-1 py-3 bg-gradient-to-r from-indigo-500 to-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 hover:scale-105 transition-all shadow-lg shadow-indigo-500/20"
+                        className="w-full sm:flex-1 py-3 bg-gradient-to-r from-indigo-500 to-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-indigo-500/20"
                       >
-                        <FaPlay size={12} /> BOSHLASH
+                        <FaPlay size={10} /> BOSHLASH
                       </button>
                     )}
                     <button
                       onClick={() => removeTest(t._id)}
-                      className="w-12 h-12 bg-secondary border border-primary text-red-500 rounded-xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
+                      className="w-full sm:w-12 h-10 sm:h-auto bg-secondary border border-primary text-red-500 rounded-xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-sm"
                     >
-                      <FaTrash />
+                      <FaTrash size={14} />
                     </button>
                   </div>
                 </div>

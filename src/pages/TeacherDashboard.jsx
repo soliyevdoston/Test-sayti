@@ -114,13 +114,13 @@ export default function TeacherDashboard() {
         {...modalConfig} 
         onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))} 
       />
-      <section className="relative z-10 pt-12 pb-6 px-6 max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-primary pb-8 mb-12">
+      <section className="relative z-10 pt-6 md:pt-12 pb-4 md:pb-6 px-0 md:px-6 max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-primary pb-6 md:pb-8 mb-6 md:mb-12">
           <div>
-            <h2 className="text-4xl font-black tracking-tight text-primary mb-2 uppercase italic">
+            <h2 className="text-3xl md:text-4xl font-black tracking-tight text-primary mb-2 uppercase italic">
               Asosiy <span className="text-indigo-600 dark:text-indigo-400">Panel</span>
             </h2>
-            <p className="text-secondary font-medium uppercase tracking-widest text-xs opacity-70">
+            <p className="text-secondary font-medium uppercase tracking-widest text-[10px] md:text-xs opacity-70">
               Xush kelibsiz, {teacherName}! Bugungi ko'rsatkichlaringiz bilan tanishing.
             </p>
           </div>
@@ -137,21 +137,21 @@ export default function TeacherDashboard() {
 
         {/* ✅ RE-TAKE REQUESTS NOTIFICATION */}
         {retakeRequests.length > 0 && (
-          <div className="mb-12 animate-in slide-in-from-top-4 duration-700">
+          <div className="mb-8 md:mb-12 animate-in slide-in-from-top-4 duration-700">
              <div 
                onClick={() => navigate("/teacher/results")}
-               className="p-6 bg-yellow-500/10 border-2 border-dashed border-yellow-500/30 rounded-[2rem] flex items-center justify-between cursor-pointer hover:bg-yellow-500/20 transition-all group"
+               className="p-5 md:p-6 bg-yellow-500/10 border-2 border-dashed border-yellow-500/30 rounded-[1.5rem] md:rounded-[2rem] flex flex-col sm:flex-row items-center justify-between cursor-pointer hover:bg-yellow-500/20 transition-all group gap-4"
              >
-                <div className="flex items-center gap-6">
-                   <div className="w-16 h-16 rounded-2xl bg-yellow-500 flex items-center justify-center text-white shadow-lg shadow-yellow-500/20 group-hover:rotate-12 transition-transform">
-                      <FaBolt size={24} />
+                <div className="flex items-center gap-4 md:gap-6 w-full sm:w-auto">
+                   <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-yellow-500 flex items-center justify-center text-white shadow-lg shadow-yellow-500/20 group-hover:rotate-12 transition-transform shrink-0">
+                      <FaBolt size={20} className="md:text-2xl" />
                    </div>
                    <div>
-                      <h3 className="text-xl font-black text-primary uppercase italic tracking-tighter">Qayta yechish so'rovlari!</h3>
-                      <p className="text-[10px] text-muted font-bold uppercase tracking-widest mt-1">Sizda <span className="text-yellow-600 font-black">{retakeRequests.length} ta</span> yangi so'rov mavjud</p>
+                      <h3 className="text-lg md:text-xl font-black text-primary uppercase italic tracking-tighter">Qayta yechish so'rovlari!</h3>
+                      <p className="text-[9px] md:text-[10px] text-muted font-bold uppercase tracking-widest mt-1">Sizda <span className="text-yellow-600 font-black">{retakeRequests.length} ta</span> yangi so'rov mavjud</p>
                    </div>
                 </div>
-                <div className="flex items-center gap-3 px-6 py-3 bg-yellow-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-yellow-500/20">
+                <div className="flex items-center justify-center gap-3 px-6 py-3 bg-yellow-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-yellow-500/20 w-full sm:w-auto hover:bg-yellow-600 transition-colors">
                    Ko'rish <FaArrowRight />
                 </div>
              </div>
@@ -159,7 +159,7 @@ export default function TeacherDashboard() {
         )}
       </section>
 
-      <main className="relative z-10 px-6 max-w-7xl mx-auto space-y-12 pb-20">
+      <div className="relative z-10 px-0 md:px-6 max-w-7xl mx-auto space-y-8 md:space-y-12 pb-8">
         {/* Statistics Grid */}
         <section className="bento-grid">
           <div className="premium-card md:col-span-2 lg:col-span-1">
@@ -286,7 +286,7 @@ export default function TeacherDashboard() {
              navigate={navigate}
            />
         </section>
-      </main>
+      </div>
     </DashboardLayout>
   );
 }
