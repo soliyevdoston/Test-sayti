@@ -143,7 +143,7 @@ const FeatureHighlight = ({ title, desc, features, image, reversed, badge }) => 
       <div className="relative p-2 glass rounded-[3rem] shadow-2xl overflow-hidden aspect-[4/3] border border-primary/20">
         <img 
           src={image} 
-          alt={`osontestol.uz - ${title}`} 
+          alt={`OsonTestOl - ${title}`} 
           loading="lazy"
           className="w-full h-full object-cover rounded-[2.5rem] group-hover:scale-105 transition-transform duration-1000" 
         />
@@ -387,7 +387,7 @@ export default function Home() {
           {/* Left: Text Content */}
           <div className="text-left space-y-10">
             <h1 className="text-5xl md:text-7xl font-black tracking-tight text-primary leading-[1.1]">
-              Bilimlarni <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-blue-600 underline decoration-indigo-500/30 decoration-8 underline-offset-10">osontestol.uz</span> bilan loyihalang va baholang
+              Bilimlarni <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-blue-600 underline decoration-indigo-500/30 decoration-8 underline-offset-10">OsonTestOl</span> bilan loyihalang va baholang
             </h1>
             <p className="max-w-xl text-lg text-secondary font-medium leading-relaxed">
               Professional test platformasi: o'qituvchilar uchun qulay boshqaruv, o'quvchilar uchun shaffof va tezkor natijalar.
@@ -500,7 +500,7 @@ export default function Home() {
       <section className="py-20 border-y border-primary/10 bg-secondary/10">
         <div className="max-w-7xl mx-auto px-6 overflow-hidden relative">
           <div className="flex items-center justify-center gap-16 opacity-40 grayscale hover:grayscale-0 transition-all duration-1000">
-            <span className="text-2xl font-black uppercase tracking-tighter whitespace-nowrap italic text-secondary">osontestol.uz</span>
+            <span className="text-2xl font-black uppercase tracking-tighter whitespace-nowrap italic text-secondary">OsonTestOl</span>
             <span className="text-2xl font-black uppercase tracking-tighter whitespace-nowrap italic text-secondary">Elite Education</span>
             <span className="text-2xl font-black uppercase tracking-tighter whitespace-nowrap italic text-secondary">Pro Academy</span>
             <span className="text-2xl font-black uppercase tracking-tighter whitespace-nowrap italic text-secondary">Digital School</span>
@@ -722,7 +722,7 @@ export default function Home() {
         <FAQItem
           index={1}
           q="Platformada test yaratish uchun nimalar kerak?"
-          a="osontestol.uz platformasida test yaratish uchun sizga faqatgina tayyor savollar to'plami (Word yoki matn ko'rinishida) kerak bo'ladi. Tizimimiz Word (.docx) fayllarini avtomatik tahlil qilib, soniyalar ichida testga aylantiradi."
+          a="OsonTestOl platformasida test yaratish uchun sizga faqatgina tayyor savollar to'plami (Word yoki matn ko'rinishida) kerak bo'ladi. Tizimimiz Word (.docx) fayllarini avtomatik tahlil qilib, soniyalar ichida testga aylantiradi."
         />
         <FAQItem
           index={2}
@@ -742,7 +742,7 @@ export default function Home() {
         <FAQItem
           index={5}
           q="Platformani mobil qurilmalarda ishlatsa bo'ladimi?"
-          a="Albatta! osontestol.uz platformasi to'liq moslashuvchan (responsive) qilib yaratilgan. U kompyuter, planshet va smartfonlarda birdek mukammal ishlaydi."
+          a="Albatta! OsonTestOl platformasi to'liq moslashuvchan (responsive) qilib yaratilgan. U kompyuter, planshet va smartfonlarda birdek mukammal ishlaydi."
         />
       </section>
 
@@ -846,7 +846,7 @@ export default function Home() {
           </div>
           
           <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] font-black uppercase tracking-widest text-gray-500">
-            <p>© {new Date().getFullYear()} osontestol.uz Platformasi. Barcha huquqlar himoyalangan.</p>
+            <p>© {new Date().getFullYear()} OsonTestOl Platformasi. Barcha huquqlar himoyalangan.</p>
             <p>Developed by <a href="https://soliyev.uz" target="_blank" rel="noopener noreferrer" className="text-indigo-500 underline">Soliyev.uz</a></p>
           </div>
         </div>

@@ -59,7 +59,7 @@ export default function Register() {
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-indigo-500/20">
               T
             </div>
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400">osontestol.uz</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400">OsonTestOl</p>
             <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase italic">Ro'yxatdan o'tish</h1>
           </div>
 

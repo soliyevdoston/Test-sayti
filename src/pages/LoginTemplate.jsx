@@ -85,7 +85,7 @@ export default function LoginTemplate({ role, loginPath, initialUsername = "", i
         </h2>
 
         <p className="text-center text-muted text-xs font-bold uppercase tracking-widest mb-6 opacity-70">
-          osontestol.uz Platformasi
+          OsonTestOl Platformasi
         </p>
 
         {role === "Student" && (

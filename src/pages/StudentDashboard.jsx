@@ -451,7 +451,7 @@ export default function StudentDashboard() {
                   O'qu<span className="text-indigo-600 dark:text-indigo-400">vchi</span> Paneli
                 </h2>
                 <p className="text-secondary font-medium uppercase tracking-widest text-xs opacity-70">
-                  osontestol.uz · Bilimlaringizni sinab ko'ring
+                  OsonTestOl · Bilimlaringizni sinab ko'ring
                 </p>
               </div>
            </div>

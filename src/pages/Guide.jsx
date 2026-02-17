@@ -37,7 +37,7 @@ export default function Guide() {
               <Zap size={32} />
             </div>
             <p className="text-sm md:text-base text-primary font-medium leading-relaxed italic">
-              "osontestol.uz" platformasida testlarni Word faylidan yoki matndan yuklashda bizning professional parser savollarni avtomatik tahlil qiladi. Tizim aniq ishlashi uchun quyidagi qoidalarga amal qiling."
+              "OsonTestOl" platformasida testlarni Word faylidan yoki matndan yuklashda bizning professional parser savollarni avtomatik tahlil qiladi. Tizim aniq ishlashi uchun quyidagi qoidalarga amal qiling."
             </p>
           </div>
 
