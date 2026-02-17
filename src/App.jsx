@@ -1,4 +1,4 @@
-import { HashRouter as Router, Routes, Route } from "react-router-dom";
+import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -22,6 +22,7 @@ import Profile from "./pages/Profile.jsx";
 import Register from "./pages/Register.jsx";
 import AvailableTests from "./pages/AvailableTests.jsx";
 import CreateTest from "./pages/CreateTest.jsx";
+import Guide from "./pages/Guide.jsx";
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/guide" element={<Guide />} />
           
           {/* Admin Routes */}
           <Route path="/admin/login" element={<AdminLogin />} />
@@ -55,6 +57,9 @@ function App() {
           <Route path="/student/dashboard" element={<StudentDashboard />} />
           <Route path="/student/tests" element={<AvailableTests />} />
           <Route path="/student/settings" element={<Profile />} />
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         
         <ThemeToggle />
