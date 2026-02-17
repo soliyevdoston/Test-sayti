@@ -20,7 +20,8 @@ import {
   addStudentApi,
   deleteStudentApi,
   getRetakeRequests, // ✅
-  handleRetakeRequest // ✅
+  handleRetakeRequest, // ✅
+  BASE_URL // ✅
 } from "../api/api";
 
 const socket = io(BASE_URL, { transports: ["polling", "websocket"] }); // ✅
