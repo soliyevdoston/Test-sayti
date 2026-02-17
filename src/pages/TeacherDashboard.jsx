@@ -252,7 +252,7 @@ export default function TeacherDashboard() {
         </section>
 
         {/* Quick Access Grid */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
            <QuickNavCard 
              title="Natijalar" 
              desc="Test natijalarini ko'rish" 

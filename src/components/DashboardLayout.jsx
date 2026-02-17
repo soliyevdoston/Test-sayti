@@ -18,7 +18,8 @@ import {
   ClipboardList,
   ShoppingBag,
   Zap,
-  BarChart3
+  BarChart3,
+  Home // Added Home icon
 } from "lucide-react";
 import logo from "../assets/logo.svg";
 
@@ -37,7 +38,7 @@ const SidebarItem = ({ icon: Icon, label, path, active, onClick }) => (
   </button>
 );
 
-export default function DashboardLayout({ children, role = "student", userName = "Foydalanuvchi" }) {
+export default function DashboardLayout({ children, role = "student", userName = "Foydalanuvchi", showBottomNav = true }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -121,12 +122,6 @@ export default function DashboardLayout({ children, role = "student", userName =
         {/* Topbar */}
         <header className="sticky top-0 z-40 glass border-b border-primary p-4 lg:px-8 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="lg:hidden p-2 rounded-xl bg-secondary text-primary"
-            >
-              {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
             <div className="hidden md:flex items-center gap-2 bg-secondary/80 border border-primary px-4 py-2 rounded-2xl w-64 lg:w-96 focus-within:border-indigo-500/50 transition-all">
               <Search size={18} className="text-muted" />
               <input
@@ -155,7 +150,7 @@ export default function DashboardLayout({ children, role = "student", userName =
         </header>
 
         {/* Page Content */}
-        <main className="p-4 lg:p-8 flex-grow relative">
+        <main className="p-4 lg:p-8 flex-grow relative pb-24 lg:pb-8">
           {/* Subtle background glow */}
           <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-[600px] h-[600px] bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none" />
           <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-indigo-500/5 dark:bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none" />
@@ -203,6 +198,60 @@ export default function DashboardLayout({ children, role = "student", userName =
               <span>Chiqish</span>
             </button>
           </aside>
+        </div>
+      )}
+
+      
+      {/* Mobile Bottom Navigation */}
+      {showBottomNav && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-lg border-t border-primary lg:hidden safe-area-bottom">
+          <div className="flex items-center justify-around p-2">
+            {/* Home */}
+            <button 
+              onClick={() => navigate("/")}
+              className={`flex flex-col items-center p-2 rounded-xl transition-all ${location.pathname === "/" ? "text-indigo-600" : "text-muted"}`}
+            >
+              <Home size={24} className={location.pathname === "/" ? "fill-current" : ""} />
+              <span className="text-[10px] font-bold mt-1">Asosiy</span>
+            </button>
+
+            {/* Tests/Dashboard specific based on role */}
+            <button 
+               onClick={() => navigate(role === 'teacher' ? '/teacher/tests' : '/student/tests')}
+               className={`flex flex-col items-center p-2 rounded-xl transition-all ${location.pathname.includes('tests') ? "text-indigo-600" : "text-muted"}`}
+            >
+              <ClipboardList size={24} />
+              <span className="text-[10px] font-bold mt-1">Testlar</span>
+            </button>
+
+             {/* Menu Trigger */}
+             <div className="relative -top-5">
+              <button 
+                onClick={() => setIsSidebarOpen(true)}
+                className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30"
+              >
+                <Menu size={24} />
+              </button>
+            </div>
+
+            {/* Results/Stats */}
+            <button 
+               onClick={() => navigate(role === 'teacher' ? '/teacher/results' : '/student/dashboard')}
+               className={`flex flex-col items-center p-2 rounded-xl transition-all ${location.pathname.includes('results') ? "text-indigo-600" : "text-muted"}`}
+            >
+              <BarChart3 size={24} />
+              <span className="text-[10px] font-bold mt-1">Natijalar</span>
+            </button>
+
+            {/* Profile */}
+            <button 
+               onClick={() => navigate(`/${role}/settings`)}
+               className={`flex flex-col items-center p-2 rounded-xl transition-all ${location.pathname.includes('settings') ? "text-indigo-600" : "text-muted"}`}
+            >
+              <User size={24} />
+              <span className="text-[10px] font-bold mt-1">Profil</span>
+            </button>
+          </div>
         </div>
       )}
     </div>

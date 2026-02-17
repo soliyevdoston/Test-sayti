@@ -533,7 +533,7 @@ export default function StudentDashboard() {
   // ================= TEST STARTED =================
   if (status === "started" && testData) {
     return (
-      <DashboardLayout role="student" userName={studentData.name}>
+      <DashboardLayout role="student" userName={studentData.name} showBottomNav={false}>
 
         {/* Student Stats Header */}
         <section className="max-w-7xl mx-auto px-4 md:px-4 md:px-6 pt-12">
@@ -548,7 +548,7 @@ export default function StudentDashboard() {
               </div>
            </div>
 
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
+           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-12">
                <div className="bg-secondary/30 backdrop-blur-xl border border-primary p-6 rounded-[2rem] flex flex-col items-center justify-center text-center hover:bg-secondary transition-all group">
                 <div className="p-3 bg-indigo-500/10 rounded-xl mb-3 text-indigo-500 group-hover:scale-110 transition-transform"><CheckCircle size={20} /></div>
                 <span className="text-2xl font-black text-primary">24</span>

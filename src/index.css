@@ -17,6 +17,10 @@
   .glass-card {
     @apply backdrop-blur-2xl bg-white/5 dark:bg-black/40 border border-white/10 dark:border-white/5;
   }
+  
+  .responsive-p {
+     @apply px-4 sm:px-6 lg:px-8; 
+  }
 
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-blue-500 to-indigo-600;
