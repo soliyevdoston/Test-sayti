@@ -41,6 +41,7 @@ export default function StudentDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
+  const [selectedResult, setSelectedResult] = useState(null); // ✅ For detailed analysis
   const questionRefs = useRef({});
 
   const [modalConfig, setModalConfig] = useState({
@@ -515,7 +516,13 @@ export default function StudentDashboard() {
           </div>
 
           {/* Bottom Panel */}
-          <div className="px-6 pb-6 md:px-10 md:pb-10">
+          <div className="px-6 pb-6 md:px-10 md:pb-10 flex flex-col gap-4">
+            <button
+              onClick={() => setSelectedResult(result)}
+              className="w-full py-4 rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-[0.2em] text-indigo-600 bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500 hover:text-white transition-all flex items-center justify-center gap-3"
+            >
+              <FileText size={16} /> Batafsil Tahlil
+            </button>
             <button
               onClick={handleExit}
               className="group w-full py-4 md:py-5 rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-[0.2em] text-white bg-gradient-to-r from-indigo-600 to-indigo-700 shadow-xl shadow-indigo-600/30 hover:shadow-indigo-600/50 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
@@ -525,6 +532,50 @@ export default function StudentDashboard() {
             </button>
           </div>
         </div>
+
+        {/* ✅ DETAILED ANALYSIS MODAL */}
+        {selectedResult && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setSelectedResult(null)} />
+            <div className="relative w-full max-w-4xl bg-primary border border-primary rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
+              <div className="p-8 border-b border-primary flex items-center justify-between bg-secondary/30">
+                <h3 className="text-2xl font-black text-primary uppercase italic tracking-tighter">Test <span className="text-indigo-500">Tahlili</span></h3>
+                <button onClick={() => setSelectedResult(null)} className="p-3 hover:bg-red-500/10 text-red-500 rounded-2xl transition-all">
+                   <X size={24} />
+                </button>
+              </div>
+              <div className="p-8 overflow-y-auto space-y-6">
+                {(selectedResult.studentAnswers || selectedResult.answers || []).map((ans, idx) => (
+                  <div key={idx} className={`p-6 rounded-3xl border-2 ${ans.isCorrect ? 'border-green-500/20 bg-green-500/5' : 'border-red-500/20 bg-red-500/5'}`}>
+                    <div className="flex justify-between items-start mb-4 gap-4">
+                       <h4 className="font-bold text-primary text-lg flex gap-3">
+                          <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 font-black text-xs ${ans.isCorrect ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+                            {idx + 1}
+                          </span>
+                          {ans.questionText || `Savol #${idx+1}`}
+                       </h4>
+                       <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${ans.isCorrect ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
+                          {ans.isCorrect ? "To'g'ri" : "Xato"}
+                       </span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                       <div className="p-4 bg-primary/40 rounded-2xl border border-primary">
+                          <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-1">Sizning javobingiz:</p>
+                          <p className={`text-sm font-bold ${ans.isCorrect ? 'text-green-500' : 'text-red-500'}`}>{ans.selectedOption || "Belgilanmagan"}</p>
+                       </div>
+                       {!ans.isCorrect && (
+                         <div className="p-4 bg-green-500/10 rounded-2xl border border-green-500/20">
+                            <p className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-1">To'g'ri javob:</p>
+                            <p className="text-sm font-bold text-green-600">{ans.correctOption}</p>
+                         </div>
+                       )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
         {renderGlobalChat()}
       </div>
     );
@@ -537,16 +588,25 @@ export default function StudentDashboard() {
 
         {/* Student Stats Header */}
         <section className="max-w-7xl mx-auto px-4 md:px-4 md:px-6 pt-12">
-           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-primary pb-8 mb-12">
-              <div>
-                <h2 className="text-2xl md:text-2xl md:text-4xl font-black tracking-tight text-primary mb-2 uppercase italic">
-                  O'qu<span className="text-indigo-600 dark:text-indigo-400">vchi</span> Paneli
-                </h2>
-                <p className="text-secondary font-medium uppercase tracking-widest text-xs opacity-70">
-                  OsonTestOl · Bilimlaringizni sinab ko'ring
-                </p>
-              </div>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-primary pb-8 mb-12">
+        <div className="flex-1">
+          <h2 className="text-2xl md:text-2xl md:text-4xl font-black tracking-tight text-primary mb-2 uppercase italic">
+            O'qu<span className="text-indigo-600 dark:text-indigo-400">vchi</span> Paneli
+          </h2>
+          <p className="text-secondary font-medium uppercase tracking-widest text-xs opacity-70">
+            OsonTestOl · Bilimlaringizni sinab ko'ring
+          </p>
+        </div>
+
+        {/* ✅ LIVE COUNTDOWN TIMER */}
+        <div className="flex items-center gap-4 bg-indigo-600 px-6 py-4 rounded-3xl shadow-xl shadow-indigo-600/20 animate-pulse">
+           <Clock className="text-white" size={24} />
+           <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-white/70">Qolgan vaqt</p>
+              <p className="text-2xl font-black text-white leading-none">{formatTime(timeLeft)}</p>
            </div>
+        </div>
+      </div>
 
            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-12">
                <div className="bg-secondary/30 backdrop-blur-xl border border-primary p-6 rounded-[2rem] flex flex-col items-center justify-center text-center hover:bg-secondary transition-all group">
@@ -594,8 +654,16 @@ export default function StudentDashboard() {
                         </p>
                       </div>
                     </div>
-                     <div className="h-1.5 w-24 bg-primary rounded-full overflow-hidden">
-                       <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${(res.totalScore / res.maxScore) * 100}%` }} />
+                    <div className="flex items-center gap-4">
+                      <div className="hidden md:block h-1.5 w-24 bg-primary rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${(res.totalScore / res.maxScore) * 100}%` }} />
+                      </div>
+                      <button 
+                        onClick={() => setSelectedResult(res)}
+                        className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
+                      >
+                         <FileText size={16} />
+                      </button>
                     </div>
                 </div>
               )) : (

@@ -25,8 +25,10 @@ import {
   getTeacherGroups,
   startTestApi, 
   stopTestApi,
-  updateTestAccess, // ✅
+  updateTestAccess,
   deleteTestApi, 
+  duplicateTestApi, // ✅
+  updateTestApi, // ✅
   BASE_URL
 } from "../api/api";
 
@@ -53,6 +55,7 @@ export default function TeacherTests() {
   const [pasteText, setPasteText] = useState("");
   const [previewData, setPreviewData] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [editModal, setEditModal] = useState({ open: false, test: null }); // ✅
 
   const [modalConfig, setModalConfig] = useState({
     isOpen: false,
@@ -258,6 +261,34 @@ export default function TeacherTests() {
       loadTests(localStorage.getItem("teacherId"));
     } catch {
       toast.error("Xatolik yuz berdi");
+    }
+  };
+
+  const handleDuplicate = async (testId) => {
+    try {
+      setLoading(true);
+      await duplicateTestApi(testId);
+      toast.success("Test nusxalandi");
+      loadTests(localStorage.getItem("teacherId"));
+    } catch {
+      toast.error("Nusxalashda xatolik");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateTest = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      await updateTestApi(editModal.test._id, editModal.test);
+      toast.success("O'zgarishlar saqlandi");
+      setEditModal({ open: false, test: null });
+      loadTests(localStorage.getItem("teacherId"));
+    } catch {
+      toast.error("Yangilashda xatolik");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -572,6 +603,18 @@ export default function TeacherTests() {
                       </button>
                     )}
                     <button
+                      onClick={() => setEditModal({ open: true, test: t })}
+                      className="w-full sm:w-12 h-10 sm:h-auto bg-secondary border border-primary text-indigo-500 rounded-xl flex items-center justify-center hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
+                    >
+                      <FaCogs size={14} />
+                    </button>
+                    <button
+                      onClick={() => handleDuplicate(t._id)}
+                      className="w-full sm:w-12 h-10 sm:h-auto bg-secondary border border-primary text-green-500 rounded-xl flex items-center justify-center hover:bg-green-500 hover:text-white transition-all shadow-sm"
+                    >
+                      <FaPlus size={14} />
+                    </button>
+                    <button
                       onClick={() => removeTest(t._id)}
                       className="w-full sm:w-12 h-10 sm:h-auto bg-secondary border border-primary text-red-500 rounded-xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-sm"
                     >
@@ -588,6 +631,113 @@ export default function TeacherTests() {
           </div>
         </div>
       </main>
+
+      {/* Edit Test Modal */}
+      {editModal.open && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setEditModal({ open: false, test: null })}
+          ></div>
+          <div className="relative w-full max-w-2xl bg-primary border border-primary rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 p-8 md:p-12">
+            <h3 className="text-2xl font-black text-primary uppercase italic tracking-tighter mb-8">
+              Testni <span className="text-indigo-500">Tahrirlash</span>
+            </h3>
+            
+            <form onSubmit={handleUpdateTest} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted ml-2">Test Nomi</label>
+                  <input
+                    required
+                    className="w-full p-4 rounded-2xl bg-secondary border border-primary focus:border-indigo-500 transition-all outline-none font-bold text-primary shadow-sm"
+                    value={editModal.test.title}
+                    onChange={(e) => setEditModal({ ...editModal, test: { ...editModal.test, title: e.target.value } })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted ml-2">Vaqt (Daqiqa)</label>
+                  <input
+                    required
+                    type="number"
+                    className="w-full p-4 rounded-2xl bg-secondary border border-primary focus:border-indigo-500 transition-all outline-none font-bold text-primary shadow-sm"
+                    value={editModal.test.duration}
+                    onChange={(e) => setEditModal({ ...editModal, test: { ...editModal.test, duration: e.target.value } })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted ml-2">Login</label>
+                  <input
+                    required
+                    className="w-full p-4 rounded-2xl bg-secondary border border-primary focus:border-indigo-500 transition-all outline-none font-bold text-primary shadow-sm"
+                    value={editModal.test.testLogin}
+                    onChange={(e) => setEditModal({ ...editModal, test: { ...editModal.test, testLogin: e.target.value } })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted ml-2">Parol</label>
+                  <input
+                    required
+                    className="w-full p-4 rounded-2xl bg-secondary border border-primary focus:border-indigo-500 transition-all outline-none font-bold text-primary shadow-sm"
+                    value={editModal.test.testPassword}
+                    onChange={(e) => setEditModal({ ...editModal, test: { ...editModal.test, testPassword: e.target.value } })}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3 bg-indigo-500/5 p-6 rounded-3xl border border-indigo-500/10">
+                <label className="text-[10px] font-black uppercase tracking-widest text-indigo-600 block ml-2">Kirish ruxsati</label>
+                <div className="flex gap-2">
+                  <button 
+                    type="button"
+                    onClick={() => setEditModal({ ...editModal, test: { ...editModal.test, accessType: "public", groupId: "" } })}
+                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${editModal.test.accessType === 'public' ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20' : 'bg-secondary text-muted border-primary hover:text-primary'}`}
+                  >
+                    Umumiy
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setEditModal({ ...editModal, test: { ...editModal.test, accessType: "group" } })}
+                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${editModal.test.accessType === 'group' ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20' : 'bg-secondary text-muted border-primary hover:text-primary'}`}
+                  >
+                    Guruhga
+                  </button>
+                </div>
+                {editModal.test.accessType === "group" && (
+                  <select 
+                    required
+                    value={editModal.test.groupId || ""}
+                    onChange={(e) => setEditModal({ ...editModal, test: { ...editModal.test, groupId: e.target.value } })}
+                    className="w-full mt-4 p-3.5 rounded-xl bg-secondary border border-primary focus:border-indigo-500 transition-all outline-none font-bold text-primary shadow-sm text-xs"
+                  >
+                    <option value="">Guruhni tanlang...</option>
+                    {groups.map(g => (
+                      <option key={g._id} value={g._id}>{g.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <button 
+                  type="button"
+                  onClick={() => setEditModal({ open: false, test: null })}
+                  className="flex-1 py-4 bg-secondary text-muted border border-primary rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-500/10 hover:text-red-500 transition-all"
+                >
+                  Bekor Qilish
+                </button>
+                <button 
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-indigo-600/30 hover:scale-[1.02] transition-all"
+                >
+                  {loading ? "Saqlanmoqda..." : "Saqlash"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

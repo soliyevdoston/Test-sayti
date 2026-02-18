@@ -23,6 +23,7 @@ import Register from "./pages/Register.jsx";
 import AvailableTests from "./pages/AvailableTests.jsx";
 import CreateTest from "./pages/CreateTest.jsx";
 import Guide from "./pages/Guide.jsx";
+import TeacherChats from "./pages/TeacherChats.jsx";
 
 function App() {
   return (
@@ -48,6 +49,7 @@ function App() {
           <Route path="/teacher/results" element={<TeacherResults />} />
           <Route path="/teacher/subjects" element={<TeacherSubjects />} />
           <Route path="/teacher/groups" element={<TeacherGroups />} />
+          <Route path="/teacher/chats" element={<TeacherChats />} />
           <Route path="/teacher/shop" element={<TeacherShop />} />
           <Route path="/teacher/resources" element={<TeacherResources />} />
           <Route path="/teacher/settings" element={<Profile />} />

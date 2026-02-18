@@ -168,7 +168,7 @@ export default function TeacherGroups() {
       fetchStudents(studentModal.group._id);
       loadGroups(); // Update count
     } catch (err) {
-      toast.error(err.message || "Xatolik");
+      toast.error(err.response?.data?.msg || err.message || "Xatolik");
     }
   };
 

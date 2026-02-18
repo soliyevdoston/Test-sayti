@@ -148,13 +148,16 @@ export const handleRetakeRequest = (data) => api.post("/teacher/handle-retake", 
 export const addStudentApi = (data) => api.post("/teacher/add-student", data);
 export const deleteStudentApi = (id) => api.delete(`/teacher/delete-student/${id}`);
 
+export const duplicateTestApi = (id) => api.post(`/teacher/duplicate-test/${id}`);
+export const updateTestApi = (id, data) => api.put(`/teacher/update-test/${id}`, data);
+
 // Manual Test Creation
 export const createManualTestApi = (data) => api.post("/teacher/create-manual-test", data);
 
-// Chat System
-export const getChatHistory = (teacherId, studentId) => 
-  api.get(`/chat/history/${teacherId}/${studentId}`);
-export const sendChatMessage = (data) => api.post("/chat/send", data);
+// Chat
+export const getChatHistoryApi = (teacherId, studentId) => api.get(`/chat/history/${teacherId}/${studentId}`);
+export const getChatListApi = (teacherId) => api.get(`/chat/list/${teacherId}`);
+export const sendMessageApi = (data) => api.post("/chat/send", data);
  
 /* ===================== STUDENT API ===================== */
 

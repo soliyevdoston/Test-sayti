@@ -19,6 +19,7 @@ import {
   ShoppingBag,
   Zap,
   BarChart3,
+  MessageSquare, // Added
   Home // Added Home icon
 } from "lucide-react";
 import logo from "../assets/logo.svg";
@@ -54,6 +55,7 @@ export default function DashboardLayout({ children, role = "student", userName =
       { icon: BookOpen, label: "Fanlar (Tez orada)", path: "/teacher/dashboard" },
       { icon: ClipboardList, label: "Testlar", path: "/teacher/tests" },
       { icon: Users, label: "Guruhlar", path: "/teacher/groups" },
+      { icon: MessageSquare, label: "Chatlar", path: "/teacher/chats" },
       { icon: BarChart3, label: "Natijalar", path: "/teacher/results" },
       { icon: ShoppingBag, label: "Do'kon", path: "/teacher/shop" },
       { icon: Zap, label: "Resurslar", path: "/teacher/resources" },
