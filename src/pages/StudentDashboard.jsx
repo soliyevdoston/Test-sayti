@@ -41,7 +41,8 @@ export default function StudentDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
-  const [selectedResult, setSelectedResult] = useState(null); // ✅ For detailed analysis
+  const [selectedResult, setSelectedResult] = useState(null);
+  const [isGuest, setIsGuest] = useState(true); // ✅ Track if guest or authenticated
   const questionRefs = useRef({});
 
   const [modalConfig, setModalConfig] = useState({
@@ -70,14 +71,26 @@ export default function StudentDashboard() {
       const teacherId = localStorage.getItem("teacherId");
       const groupId = localStorage.getItem("groupId");
 
-      if (studentId && !location.state?.testData && !localStorage.getItem("active_test_session")) {
+      if (studentId) {
+        setIsGuest(false);
         const name = localStorage.getItem("fullName");
         setStudentData({ name, studentId });
+        
+        // If we results saved, show finished
+        if (savedResult) {
+           setResult(JSON.parse(savedResult));
+           setStatus("finished");
+           return;
+        }
+
+        // Authenticated users go to selection (stats + dashboard)
         loadAvailableTests(teacherId, groupId);
         fetchHistory(studentId);
         setStatus("selection");
         return;
       }
+
+      setIsGuest(true);
 
       let activeSession = location.state?.testData;
       if (!activeSession) {
@@ -295,6 +308,15 @@ export default function StudentDashboard() {
     }
   };
 
+  const getStats = () => {
+    if (!history.length) return { total: 0, avg: 0, best: 0 };
+    const total = history.length;
+    const scores = history.map(h => (h.totalScore / h.maxScore) * 100);
+    const avg = Math.round(scores.reduce((a, b) => a + b, 0) / total);
+    const best = Math.round(Math.max(...scores));
+    return { total, avg, best };
+  };
+
   const handleExit = () => {
     socket.disconnect();
     const isCabinet = !!localStorage.getItem("studentId");
@@ -362,77 +384,142 @@ export default function StudentDashboard() {
     );
   };
 
-  // ================= SELECTION =================
+  // ================= SELECTION (CABINET) =================
   if (status === "selection") {
+    const stats = getStats();
     return (
       <DashboardLayout role="student" userName={studentData?.name}>
         <ConfirmationModal 
           {...modalConfig} 
           onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))} 
         />
-        <div className="max-w-5xl mx-auto px-4 md:px-4 md:px-6 pt-12">
-          <div className="mb-12">
-            <h2 className="text-2xl md:text-2xl md:text-4xl font-black tracking-tight text-primary mb-2 uppercase italic">
-              Mavjud <span className="text-indigo-600 dark:text-indigo-400">Testlar</span>
-            </h2>
-            <p className="text-secondary font-medium uppercase tracking-widest text-xs opacity-70">
-              O'qituvchingiz tomonidan tayyorlangan testlar ro'yxati
-            </p>
-          </div>
-
-          <div className="mb-8 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
-            <input 
-              type="text"
-              placeholder="Test nomini qidirish..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-secondary/50 border border-primary rounded-2xl pl-12 pr-4 py-4 outline-none focus:border-indigo-500 transition-all font-bold text-primary shadow-sm"
-            />
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            {availableTests.filter(t => t.title.toLowerCase().includes(searchTerm.toLowerCase())).length > 0 ? (
-              availableTests.filter(t => t.title.toLowerCase().includes(searchTerm.toLowerCase())).map((t) => (
-                <div key={t.testLogin} className="bg-secondary/50 border border-primary p-5 md:p-8 rounded-[2rem] group relative overflow-hidden hover:border-indigo-500/50 transition-all">
-                  <div className="flex justify-between items-start mb-6">
-                    <h3 className="text-lg md:text-lg md:text-xl font-black text-primary uppercase tracking-tight">{t.title}</h3>
-                    {t.isStarted ? (
-                       <span className="px-3 py-1 rounded-full bg-green-500/10 text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest border border-green-500/20">Faol</span>
-                    ) : (
-                       <span className="px-3 py-1 rounded-full bg-red-500/10 text-[10px] font-black text-red-600 dark:text-red-400 uppercase tracking-widest border border-red-500/20">Kutilmoqda</span>
-                    )}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-12">
+          
+          {/* 1. WELCOME & STATS SECTION */}
+          {!isGuest && (
+            <section className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+               <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+                  <div>
+                    <h2 className="text-3xl md:text-5xl font-black tracking-tight text-primary uppercase italic">
+                      Mening <span className="text-indigo-600">Statistikam</span>
+                    </h2>
+                    <p className="text-muted font-bold uppercase tracking-widest text-[10px] mt-2 italic opacity-60">Shaxsiy natijalar tahlili</p>
                   </div>
-                  <p className="text-sm text-secondary mb-8 line-clamp-2">{t.description || "Tavsif mavjud emas"}</p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-[10px] font-black uppercase text-muted tracking-widest">
-                      <Clock size={14} className="text-indigo-500" />
-                      {t.duration} daqiqa
-                    </div>
-                    <button 
-                      onClick={() => handleJoinTest(t)}
-                      className={`px-4 md:px-4 md:px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                        t.isStarted 
-                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 hover:scale-105 active:scale-95" 
-                        : "bg-primary/50 text-muted cursor-not-allowed opacity-50"
-                      }`}
-                    >
-                      Testga Kirish
-                    </button>
+               </div>
+
+               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  {/* Total Tests */}
+                  <div className="group bg-secondary/30 backdrop-blur-xl border border-primary p-8 rounded-[2.5rem] hover:border-indigo-500/50 transition-all duration-500">
+                     <div className="flex items-center justify-between mb-4">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform">
+                           <History size={24} />
+                        </div>
+                        <TrendingUp size={20} className="text-green-500/50" />
+                     </div>
+                     <p className="text-4xl font-black text-primary mb-1 tracking-tighter">{stats.total}</p>
+                     <p className="text-[10px] font-black uppercase tracking-widest text-muted">Jami topshirilgan</p>
                   </div>
-                </div>
-              ))
-            ) : (
-               <div className="col-span-full py-24 text-center border-2 border-dashed border-primary rounded-[2.5rem] opacity-40">
-                <p className="text-muted font-black uppercase tracking-widest italic">Hozirda mavjud testlar yo'q</p>
+
+                  {/* Average Score */}
+                  <div className="group bg-secondary/30 backdrop-blur-xl border border-primary p-8 rounded-[2.5rem] hover:border-indigo-500/50 transition-all duration-500">
+                     <div className="flex items-center justify-between mb-4">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
+                           <BarChart2 size={24} />
+                        </div>
+                        <div className="text-[10px] font-black text-blue-500 bg-blue-500/10 px-2 py-1 rounded-lg">AVG</div>
+                     </div>
+                     <p className="text-4xl font-black text-primary mb-1 tracking-tighter">{stats.avg}%</p>
+                     <p className="text-[10px] font-black uppercase tracking-widest text-muted">O'rtacha o'zlashtirish</p>
+                  </div>
+
+                  {/* Best Score */}
+                  <div className="group bg-secondary/30 backdrop-blur-xl border border-primary p-8 rounded-[2.5rem] hover:border-indigo-500/50 transition-all duration-500 font-['Outfit']">
+                     <div className="flex items-center justify-between mb-4">
+                        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                           <Award size={24} />
+                        </div>
+                        <CheckCircle size={20} className="text-amber-500/50" />
+                     </div>
+                     <p className="text-4xl font-black text-primary mb-1 tracking-tighter">{stats.best}%</p>
+                     <p className="text-[10px] font-black uppercase tracking-widest text-muted">Eng yuqori natija</p>
+                  </div>
+               </div>
+            </section>
+          )}
+
+          {/* 2. AVAILABLE TESTS SECTION */}
+          <section className="animate-in fade-in slide-in-from-bottom-8 duration-1000">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+              <div>
+                <h2 className="text-2xl md:text-3xl font-black tracking-tight text-primary uppercase italic">
+                  Mavjud <span className="text-indigo-600">Testlar</span>
+                </h2>
+                <p className="text-muted font-bold uppercase tracking-widest text-[10px] mt-1 italic opacity-60">Yechish uchun testni tanlang</p>
               </div>
-            )}
-          </div>
+              <div className="flex items-center gap-3 bg-secondary/50 border border-primary px-5 py-3 rounded-2xl md:w-80 group focus-within:border-indigo-500/50 transition-all">
+                <Search size={18} className="text-muted group-focus-within:text-indigo-500" />
+                <input
+                  type="text"
+                  placeholder="Testni qidirish..."
+                  className="bg-transparent border-none outline-none text-xs font-bold w-full text-primary placeholder:opacity-30"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+              {availableTests.filter(t => t.title.toLowerCase().includes(searchTerm.toLowerCase())).length > 0 ? (
+                availableTests.filter(t => t.title.toLowerCase().includes(searchTerm.toLowerCase())).map((t, tidx) => (
+                  <div key={t._id} className="group bg-secondary/20 backdrop-blur-md border border-primary p-8 rounded-[2.5rem] hover:bg-secondary/40 hover:border-indigo-500/50 transition-all duration-500 relative overflow-hidden animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: `${tidx * 100}ms` }}>
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-700" />
+                    <div className="flex items-start justify-between mb-6 relative z-10">
+                      <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center text-indigo-500 shadow-xl shadow-indigo-500/5 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500">
+                        <FileText size={28} />
+                      </div>
+                      {t.isStarted ? (
+                        <span className="px-3 py-1 rounded-full bg-green-500/10 text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest border border-green-500/20">Faol</span>
+                      ) : (
+                        <span className="px-3 py-1 rounded-full bg-red-500/10 text-[10px] font-black text-red-600 dark:text-red-400 uppercase tracking-widest border border-red-500/20">Kutilmoqda</span>
+                      )}
+                    </div>
+                    <h3 className="text-xl font-black text-primary uppercase tracking-tight mb-3 line-clamp-1">{t.title}</h3>
+                    <p className="text-sm text-secondary mb-8 line-clamp-2 min-h-[40px] opacity-70">{t.description || "Ushbu test uchun tavsif yozilmagan."}</p>
+                    <div className="flex items-center justify-between pt-6 border-t border-primary/10">
+                      <div className="flex items-center gap-2 text-[10px] font-black uppercase text-muted tracking-widest">
+                        <Clock size={14} className="text-indigo-500" />
+                        {t.duration} daqiqa
+                      </div>
+                      <button 
+                        onClick={() => handleJoinTest(t)}
+                        className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                          t.isStarted 
+                          ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 hover:scale-105 active:scale-95" 
+                          : "bg-primary/50 text-muted cursor-not-allowed opacity-50"
+                        }`}
+                      >
+                        Kirish
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-full py-24 text-center border-2 border-dashed border-primary rounded-[2.5rem] opacity-40">
+                  <p className="text-muted font-black uppercase tracking-widest italic">Hozirda mavjud testlar yo'q</p>
+                </div>
+              )}
+            </div>
+          </section>
         </div>
+        <ConfirmationModal 
+          {...modalConfig} 
+          onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))} 
+        />
         {renderGlobalChat()}
       </DashboardLayout>
     );
   }
+
   if (status === "waiting") {
     return (
       <div className="min-h-screen flex flex-col justify-center items-center bg-primary text-primary px-4 transition-colors duration-300">
@@ -576,6 +663,10 @@ export default function StudentDashboard() {
             </div>
           </div>
         )}
+        <ConfirmationModal 
+          {...modalConfig} 
+          onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))} 
+        />
         {renderGlobalChat()}
       </div>
     );
@@ -583,208 +674,147 @@ export default function StudentDashboard() {
 
   // ================= TEST STARTED =================
   if (status === "started" && testData) {
+    const answeredCount = answers.length;
     return (
       <DashboardLayout role="student" userName={studentData.name} showBottomNav={false}>
+        <ConfirmationModal 
+          {...modalConfig} 
+          onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))} 
+        />
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 pb-40 relative">
+          
+          {/* Header Stick Stats */}
+          <div className="sticky top-0 z-40 bg-primary/80 backdrop-blur-xl border border-primary p-6 rounded-3xl mb-12 flex justify-between items-center shadow-xl">
+             <div className="flex flex-col">
+               <h2 className="text-xl font-black text-primary italic uppercase tracking-tighter truncate max-w-[200px] md:max-w-md">{testData.title}</h2>
+               <div className="flex items-center gap-2 mt-1">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-[8px] font-black uppercase tracking-widest text-muted">Jonli Jarayon · {answeredCount}/{testData.questions.length} yechildi</span>
+               </div>
+             </div>
 
-        {/* Student Stats Header */}
-        <section className="max-w-7xl mx-auto px-4 md:px-4 md:px-6 pt-12">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-primary pb-8 mb-12">
-        <div className="flex-1">
-          <h2 className="text-2xl md:text-2xl md:text-4xl font-black tracking-tight text-primary mb-2 uppercase italic">
-            O'qu<span className="text-indigo-600 dark:text-indigo-400">vchi</span> Paneli
-          </h2>
-          <p className="text-secondary font-medium uppercase tracking-widest text-xs opacity-70">
-            OsonTestOl · Bilimlaringizni sinab ko'ring
-          </p>
-        </div>
+             <div className="flex items-center gap-4 bg-indigo-600 px-6 py-3 rounded-2xl shadow-lg shadow-indigo-600/30">
+                <Clock className="text-white/80" size={18} />
+                <span className="text-xl font-black text-white font-mono leading-none">{formatTime(timeLeft)}</span>
+             </div>
+          </div>
 
-        {/* ✅ LIVE COUNTDOWN TIMER */}
-        <div className="flex items-center gap-4 bg-indigo-600 px-6 py-4 rounded-3xl shadow-xl shadow-indigo-600/20 animate-pulse">
-           <Clock className="text-white" size={24} />
-           <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-white/70">Qolgan vaqt</p>
-              <p className="text-2xl font-black text-white leading-none">{formatTime(timeLeft)}</p>
-           </div>
-        </div>
-      </div>
-
-           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-12">
-               <div className="bg-secondary/30 backdrop-blur-xl border border-primary p-6 rounded-[2rem] flex flex-col items-center justify-center text-center hover:bg-secondary transition-all group">
-                <div className="p-3 bg-indigo-500/10 rounded-xl mb-3 text-indigo-500 group-hover:scale-110 transition-transform"><CheckCircle size={20} /></div>
-                <span className="text-2xl font-black text-primary">24</span>
-                <span className="text-[10px] font-bold text-muted uppercase tracking-widest">Topshirilgan (Tez orada)</span>
-              </div>
-              <div className="bg-secondary/30 backdrop-blur-xl border border-primary p-6 rounded-[2rem] flex flex-col items-center justify-center text-center hover:bg-secondary transition-all group">
-                <div className="p-3 bg-indigo-500/10 rounded-xl mb-3 text-indigo-500 group-hover:scale-110 transition-transform"><Award size={20} /></div>
-                <span className="text-2xl font-black text-primary">85%</span>
-                <span className="text-[10px] font-bold text-muted uppercase tracking-widest">O'rtacha Ball (Tez orada)</span>
-              </div>
-               <div className="bg-secondary/30 backdrop-blur-xl border border-primary p-6 rounded-[2rem] flex flex-col items-center justify-center text-center hover:bg-secondary transition-all group">
-                <div className="p-3 bg-green-500/10 rounded-xl mb-3 text-green-500 group-hover:scale-110 transition-transform"><TrendingUp size={20} /></div>
-                <span className="text-2xl font-black text-primary">12</span>
-                <span className="text-[10px] font-bold text-muted uppercase tracking-widest">Yutuqlar (Tez orada)</span>
-              </div>
-              <div className="bg-secondary/30 backdrop-blur-xl border border-primary p-6 rounded-[2rem] flex flex-col items-center justify-center text-center hover:bg-secondary transition-all group">
-                <div className="p-3 bg-indigo-500/10 rounded-xl mb-3 text-indigo-500 group-hover:scale-110 transition-transform"><Clock size={20} /></div>
-                <span className="text-2xl font-black text-primary">145m</span>
-                <span className="text-[10px] font-bold text-muted uppercase tracking-widest">O'quv Vaqti (Tez orada)</span>
-              </div>
-           </div>
-        </section>
-
-        {/* Previous Results Section (Simplified Mock) */}
-         <section className="max-w-3xl mx-auto px-4 md:px-4 md:px-6 mb-20">
-            <h3 className="text-lg md:text-lg md:text-xl font-black text-primary uppercase tracking-tighter italic mb-6 flex items-center gap-3">
-               <History className="text-indigo-500" /> Mening Natijalarim
-            </h3>
-           <div className="space-y-4">
-              {history.length > 0 ? history.map((res, i) => (
-                 <div key={i} className="p-6 bg-secondary/40 backdrop-blur-xl border border-primary rounded-2xl md:rounded-3xl flex justify-between items-center group hover:border-indigo-500/50 transition-all">
-                    <div className="flex items-center gap-3 md:p-4">
-                       <div className="w-10 h-10 rounded-xl bg-primary border border-primary flex items-center justify-center text-indigo-500 font-black">
-                          {Math.round((res.totalScore / res.maxScore) * 100)}%
-                       </div>
-                      <div>
-                        <h4 className="font-bold text-primary text-sm">
-                           {res.testId?.title || "O'chirilgan test"} 
-                           {res.attempt > 1 && <span className="text-indigo-600 ml-2">({res.attempt}-urinish)</span>}
-                        </h4>
-                        <p className="text-[10px] text-muted font-bold tracking-widest uppercase">
-                           {new Date(res.submittedAt).toLocaleDateString()} · {res.totalScore}/{res.maxScore} ball
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="hidden md:block h-1.5 w-24 bg-primary rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${(res.totalScore / res.maxScore) * 100}%` }} />
-                      </div>
-                      <button 
-                        onClick={() => setSelectedResult(res)}
-                        className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
-                      >
-                         <FileText size={16} />
-                      </button>
-                    </div>
-                </div>
-              )) : (
-                 <p className="text-muted text-sm italic py-4">Sizda hali natijalar mavjud emas</p>
-              )}
-           </div>
-        </section>
-
-        <div className="max-w-3xl mx-auto space-y-6">
+          {/* Reading Material if exists */}
           {testData.readingText && (
-             <div className="bg-secondary/30 backdrop-blur-xl border border-primary rounded-2xl md:rounded-3xl p-5 md:p-8 shadow-xl mb-8">
-               <h2 className="font-black mb-4 flex items-center gap-3 border-b border-primary pb-4 text-primary italic uppercase tracking-widest text-sm">
-                 <FileText className="text-indigo-600 dark:text-indigo-400" /> Matnni diqqat bilan o'qing
-               </h2>
-              <div className="text-primary/90 leading-relaxed font-serif text-lg bg-primary/20 p-6 rounded-2xl border border-primary/10">
-                {testData.readingText}
-              </div>
-            </div>
+             <div className="bg-secondary/30 backdrop-blur-xl border border-primary rounded-[2.5rem] p-8 mb-12 shadow-inner">
+               <h4 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 mb-6 italic">
+                  <FileText size={16} /> Matn bilan tanishib chiqing
+               </h4>
+               <div className="text-lg leading-relaxed font-serif text-primary/80 bg-primary/10 p-8 rounded-3xl border border-primary/10">
+                 {testData.readingText}
+               </div>
+             </div>
           )}
 
-          {testData.questions.map((q, index) => {
-            const selected = answers.find(
-              (a) => a.questionId === q.id
-            )?.selectedText;
-            return (
-              <div
-                key={q.id}
-                ref={(el) => (questionRefs.current[q.id] = el)}
-                className="bg-secondary/50 backdrop-blur-xl border border-primary p-5 md:p-8 rounded-2xl md:rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300"
-              >
-                 <div className="flex justify-between mb-8 items-start gap-3 md:p-4">
-                   <h3 className="flex gap-3 md:p-4 text-primary font-bold text-lg md:text-lg md:text-xl leading-snug">
-                     <span className="bg-indigo-600 text-white min-w-[36px] h-36px p-2 flex justify-center items-center rounded-2xl font-black shadow-lg shadow-indigo-600/20">
-                       {index + 1}
-                     </span>
-                    {q.text}
-                  </h3>
-                  <span className="text-[10px] font-black bg-secondary border border-primary text-muted px-3 py-1.5 rounded-xl uppercase tracking-widest">
-                    {q.points} ball
-                  </span>
-                </div>
-
-                <div className="space-y-4 pl-0 md:pl-12">
-                  {q.options.map((opt, i) => (
-                    <label
-                      key={i}
-                       className={`flex items-center gap-3 md:p-4 p-3 md:p-4 rounded-2xl border-2 cursor-pointer transition-all duration-300 relative group overflow-hidden ${
-                         selected === opt.text
-                           ? "border-indigo-600 bg-indigo-500/5 dark:bg-indigo-500/10 shadow-lg shadow-indigo-500/5"
-                           : "border-primary bg-primary/50 hover:border-indigo-600/50 hover:bg-secondary"
-                       }`}
-                    >
-                       {selected === opt.text && (
-                         <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-indigo-600" />
-                       )}
-                      <input
-                        type="radio"
-                        className="sr-only"
-                        name={`q-${q.id}`}
-                        checked={selected === opt.text}
-                        onChange={() => handleSelect(q.id, opt.text)}
-                      />
-                       <div
-                         className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
-                           selected === opt.text
-                             ? "border-indigo-600 bg-indigo-600"
-                             : "border-secondary group-hover:border-indigo-600/50"
-                         }`}
-                       >
-                        {selected === opt.text && <div className="w-2.5 h-2.5 bg-white rounded-full animate-in zoom-in duration-300"></div>}
-                      </div>
-                       <span
-                         className={`text-lg font-medium transition-colors ${
-                           selected === opt.text
-                             ? "text-primary dark:text-indigo-400"
-                             : "text-secondary"
-                         }`}
-                       >
-                        {opt.text}
+          {/* Test Questions */}
+          <div className="space-y-8">
+            {testData.questions.map((q, index) => {
+              const selected = answers.find((a) => a.questionId === q.id)?.selectedText;
+              return (
+                <div
+                  key={q.id}
+                  ref={(el) => (questionRefs.current[q.id] = el)}
+                  className={`bg-secondary/20 backdrop-blur-md border p-8 rounded-[2.5rem] transition-all duration-500 group ${selected ? 'border-indigo-500/30 ring-1 ring-indigo-500/10' : 'border-primary'}`}
+                >
+                  <div className="flex justify-between items-start mb-8 gap-4">
+                    <h3 className="font-bold text-primary text-lg md:text-xl leading-snug flex gap-4">
+                      <span className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 font-black text-sm transition-all shadow-md ${selected ? 'bg-indigo-600 text-white' : 'bg-primary text-indigo-500 border border-primary'}`}>
+                        {index + 1}
                       </span>
-                    </label>
-                  ))}
+                      {q.text}
+                    </h3>
+                    <span className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-primary/40 text-muted border border-primary whitespace-nowrap italic">
+                      {q.points} ball
+                    </span>
+                  </div>
+
+                  <div className="space-y-4 pl-0 md:pl-14">
+                    {q.options.map((opt, i) => (
+                      <label
+                        key={i}
+                        className={`group flex items-center gap-4 p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300 relative overflow-hidden ${
+                          selected === opt.text
+                            ? "border-indigo-600 bg-indigo-500/5 shadow-md"
+                            : "border-primary bg-primary/30 hover:border-indigo-500/40 hover:bg-secondary/50"
+                        }`}
+                      >
+                        {selected === opt.text && (
+                          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-indigo-600" />
+                        )}
+                        <input
+                          type="radio"
+                          className="sr-only"
+                          name={`q-${q.id}`}
+                          checked={selected === opt.text}
+                          onChange={() => handleSelect(q.id, opt.text)}
+                        />
+                        <div
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                            selected === opt.text
+                              ? "border-indigo-600 bg-indigo-600"
+                              : "border-secondary group-hover:border-indigo-500"
+                          }`}
+                        >
+                          {selected === opt.text && <div className="w-2.5 h-2.5 bg-white rounded-full animate-in zoom-in duration-300"></div>}
+                        </div>
+                        <span className={`text-lg transition-colors font-medium ${selected === opt.text ? "text-primary italic" : "text-muted"}`}>
+                          {opt.text}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
-        {/* Footer Navigation */}
-        <div className="fixed bottom-0 left-0 w-full z-30 pb-6 pt-4 px-4 md:px-4 md:px-6 bg-primary/80 backdrop-blur-2xl border-t border-primary shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
-          <div className="max-w-3xl mx-auto flex flex-col gap-5">
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide py-1">
-              {testData.questions.map((q, index) => {
-                const isAnswered = answers.some((a) => a.questionId === q.id);
-                return (
-                  <button
-                    key={q.id}
-                    onClick={() => scrollToQuestion(q.id)}
-                     className={`min-w-[44px] h-11 rounded-1.5xl text-sm font-black border-2 transition-all duration-300 flex items-center justify-center ${
-                       isAnswered
-                         ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20"
-                         : "bg-secondary text-muted border-primary hover:border-indigo-600/50 hover:text-primary"
-                     }`}
-                  >
-                    {index + 1}
-                  </button>
-                );
-              })}
-            </div>
-             <button
-               onClick={() => handleSubmit(false)}
-               className="w-full bg-gradient-to-r from-indigo-600 to-indigo-800 py-4 rounded-2xl font-black text-white flex items-center justify-center gap-3 shadow-xl shadow-indigo-600/20 hover:scale-[1.01] active:scale-95 transition-all text-lg uppercase tracking-wider"
-             >
-               <CheckCircle size={22} /> Testni Yakunlash
-             </button>
-          </div>
+        {/* Global Floating Submit & Tracker */}
+        <div className="fixed bottom-0 left-0 right-0 p-6 md:px-10 z-[50] pointer-events-none">
+           <div className="max-w-4xl mx-auto flex flex-col gap-4 pointer-events-auto">
+              {/* Question Tracker Pills */}
+              <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide py-2 px-1">
+                 {testData.questions.map((q, idx) => {
+                    const isAnswered = answers.some(a => a.questionId === q.id);
+                    return (
+                       <button
+                          key={q.id}
+                          onClick={() => scrollToQuestion(q.id)}
+                          className={`min-w-[44px] h-11 rounded-1.5xl text-sm font-black border-2 transition-all duration-300 flex items-center justify-center ${
+                             isAnswered 
+                             ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/30" 
+                             : "bg-secondary/90 backdrop-blur-md text-muted border-primary hover:border-indigo-500"
+                          }`}
+                       >
+                          {idx + 1}
+                       </button>
+                    )
+                 })}
+              </div>
+
+              {/* Finish Button */}
+              <button
+                onClick={() => handleSubmit(false)}
+                className="w-full bg-gradient-to-r from-indigo-600 to-indigo-800 py-6 rounded-[2rem] font-black text-white text-lg uppercase tracking-[0.2em] shadow-2xl shadow-indigo-600/40 hover:scale-[1.01] active:scale-[0.98] transition-all flex items-center justify-center gap-4 italic group"
+              >
+                <CheckCircle size={28} className="group-hover:rotate-12 transition-transform" />
+                Sinfdan chiqish va Yakunlash
+              </button>
+           </div>
         </div>
         {renderGlobalChat()}
       </DashboardLayout>
     );
   }
 
-  return null;
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-primary">
+       <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-600 rounded-full animate-spin" />
+    </div>
+  );
 }
