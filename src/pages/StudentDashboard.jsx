@@ -510,6 +510,54 @@ export default function StudentDashboard() {
               )}
             </div>
           </section>
+
+          {/* 3. HISTORY SECTION (Authenticated Only) */}
+          {!isGuest && (
+            <section className="animate-in fade-in slide-in-from-bottom-10 duration-1000">
+              <div className="flex items-center gap-3 mb-8">
+                <h2 className="text-2xl font-black text-primary uppercase italic">Mening <span className="text-indigo-600">Natijalarim</span></h2>
+                <div className="h-px bg-primary/10 flex-1 ml-4" />
+              </div>
+
+              <div className="space-y-4">
+                {history.length > 0 ? (
+                  history.map((res, i) => (
+                    <div key={res._id || i} className="group bg-secondary/10 backdrop-blur-md border border-primary p-6 rounded-[2rem] hover:bg-secondary/30 transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm">
+                      <div className="flex items-center gap-5">
+                        <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 flex flex-col items-center justify-center text-indigo-500 shadow-inner group-hover:scale-110 transition-transform">
+                          <span className="text-lg font-black leading-none">{Math.round((res.totalScore / (res.maxScore || 1)) * 100)}%</span>
+                          <span className="text-[8px] font-black uppercase mt-1 opacity-50">Ball</span>
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-primary group-hover:text-indigo-500 transition-colors uppercase italic">{res.testId?.title || "O'chirilgan test"}</h4>
+                          <div className="flex items-center gap-3 mt-1 text-[10px] font-black uppercase tracking-widest text-muted italic">
+                             <span>{new Date(res.submittedAt).toLocaleDateString()}</span>
+                             <span className="w-1 h-1 rounded-full bg-primary" />
+                             <span>{res.totalScore}/{res.maxScore} ball</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="hidden lg:block h-2 w-32 bg-primary/20 rounded-full overflow-hidden">
+                           <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(res.totalScore / (res.maxScore || 1)) * 100}%` }} />
+                        </div>
+                        <button 
+                          onClick={() => setSelectedResult(res)}
+                          className="px-6 py-3 rounded-xl bg-indigo-500/10 text-indigo-500 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all shadow-sm border border-indigo-500/20"
+                        >
+                          Tahlil (Analysis)
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-12 text-center border-2 border-dashed border-primary rounded-[2rem] opacity-30">
+                    <p className="font-black uppercase tracking-widest text-xs italic">Hali test topshirilmagan</p>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
         </div>
         <ConfirmationModal 
           {...modalConfig} 
@@ -675,27 +723,28 @@ export default function StudentDashboard() {
   // ================= TEST STARTED =================
   if (status === "started" && testData) {
     const answeredCount = answers.length;
-    return (
-      <DashboardLayout role="student" userName={studentData.name} showBottomNav={false}>
+    
+    const TestContent = (
+      <div className="relative">
         <ConfirmationModal 
           {...modalConfig} 
           onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))} 
         />
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 pb-40 relative">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 relative">
           
-          {/* Header Stick Stats */}
-          <div className="sticky top-0 z-40 bg-primary/80 backdrop-blur-xl border border-primary p-6 rounded-3xl mb-12 flex justify-between items-center shadow-xl">
+          {/* Header Sticky Stats - Fixed top during scroll */}
+          <div className="sticky top-0 z-40 bg-primary/95 backdrop-blur-2xl border border-primary p-6 rounded-3xl mb-12 flex justify-between items-center shadow-2xl transition-all">
              <div className="flex flex-col">
-               <h2 className="text-xl font-black text-primary italic uppercase tracking-tighter truncate max-w-[200px] md:max-w-md">{testData.title}</h2>
+               <h2 className="text-xl font-black text-primary italic uppercase tracking-tighter truncate max-w-[150px] md:max-w-md">{testData.title}</h2>
                <div className="flex items-center gap-2 mt-1">
                   <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                   <span className="text-[8px] font-black uppercase tracking-widest text-muted">Jonli Jarayon · {answeredCount}/{testData.questions.length} yechildi</span>
                </div>
              </div>
 
-             <div className="flex items-center gap-4 bg-indigo-600 px-6 py-3 rounded-2xl shadow-lg shadow-indigo-600/30">
+             <div className="flex items-center gap-4 bg-indigo-600 px-5 md:px-6 py-3 rounded-2xl shadow-xl shadow-indigo-600/30 border border-white/10">
                 <Clock className="text-white/80" size={18} />
-                <span className="text-xl font-black text-white font-mono leading-none">{formatTime(timeLeft)}</span>
+                <span className="text-xl md:text-2xl font-black text-white font-mono leading-none tracking-tighter">{formatTime(timeLeft)}</span>
              </div>
           </div>
 
@@ -719,10 +768,10 @@ export default function StudentDashboard() {
                 <div
                   key={q.id}
                   ref={(el) => (questionRefs.current[q.id] = el)}
-                  className={`bg-secondary/20 backdrop-blur-md border p-8 rounded-[2.5rem] transition-all duration-500 group ${selected ? 'border-indigo-500/30 ring-1 ring-indigo-500/10' : 'border-primary'}`}
+                  className={`bg-secondary/20 backdrop-blur-md border p-8 rounded-[2.5rem] transition-all duration-500 group ${selected ? 'border-indigo-500/30 ring-1 ring-indigo-500/10 shadow-lg shadow-indigo-500/5' : 'border-primary'}`}
                 >
                   <div className="flex justify-between items-start mb-8 gap-4">
-                    <h3 className="font-bold text-primary text-lg md:text-xl leading-snug flex gap-4">
+                    <h3 className="font-bold text-primary text-xl leading-snug flex gap-4">
                       <span className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 font-black text-sm transition-all shadow-md ${selected ? 'bg-indigo-600 text-white' : 'bg-primary text-indigo-500 border border-primary'}`}>
                         {index + 1}
                       </span>
@@ -762,7 +811,7 @@ export default function StudentDashboard() {
                         >
                           {selected === opt.text && <div className="w-2.5 h-2.5 bg-white rounded-full animate-in zoom-in duration-300"></div>}
                         </div>
-                        <span className={`text-lg transition-colors font-medium ${selected === opt.text ? "text-primary italic" : "text-muted"}`}>
+                        <span className={`text-lg transition-colors font-medium ${selected === opt.text ? "text-primary italic font-bold" : "text-muted"}`}>
                           {opt.text}
                         </span>
                       </label>
@@ -772,42 +821,55 @@ export default function StudentDashboard() {
               );
             })}
           </div>
-        </div>
 
-        {/* Global Floating Submit & Tracker */}
-        <div className="fixed bottom-0 left-0 right-0 p-6 md:px-10 z-[50] pointer-events-none">
-           <div className="max-w-4xl mx-auto flex flex-col gap-4 pointer-events-auto">
-              {/* Question Tracker Pills */}
-              <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide py-2 px-1">
-                 {testData.questions.map((q, idx) => {
-                    const isAnswered = answers.some(a => a.questionId === q.id);
-                    return (
-                       <button
-                          key={q.id}
-                          onClick={() => scrollToQuestion(q.id)}
-                          className={`min-w-[44px] h-11 rounded-1.5xl text-sm font-black border-2 transition-all duration-300 flex items-center justify-center ${
-                             isAnswered 
-                             ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/30" 
-                             : "bg-secondary/90 backdrop-blur-md text-muted border-primary hover:border-indigo-500"
-                          }`}
-                       >
-                          {idx + 1}
-                       </button>
-                    )
-                 })}
-              </div>
+          {/* ✅ FOOTER (Scrollable, was fixed) */}
+          <div className="mt-16 space-y-6">
+             <div className="p-8 bg-secondary/30 backdrop-blur-xl border border-primary rounded-[2.5rem] shadow-xl">
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted mb-6 italic">Savollar Navigatori</h4>
+                <div className="flex flex-wrap gap-3">
+                   {testData.questions.map((q, idx) => {
+                      const isAnswered = answers.some(a => a.questionId === q.id);
+                      return (
+                         <button
+                            key={q.id}
+                            onClick={() => scrollToQuestion(q.id)}
+                            className={`w-12 h-12 rounded-2xl text-sm font-black border-2 transition-all duration-300 flex items-center justify-center shadow-sm ${
+                               isAnswered 
+                               ? "bg-indigo-600 text-white border-indigo-600 shadow-indigo-600/20" 
+                               : "bg-primary text-muted border-primary hover:border-indigo-500"
+                            }`}
+                         >
+                            {idx + 1}
+                         </button>
+                      )
+                   })}
+                </div>
+             </div>
 
-              {/* Finish Button */}
-              <button
+             <button
                 onClick={() => handleSubmit(false)}
-                className="w-full bg-gradient-to-r from-indigo-600 to-indigo-800 py-6 rounded-[2rem] font-black text-white text-lg uppercase tracking-[0.2em] shadow-2xl shadow-indigo-600/40 hover:scale-[1.01] active:scale-[0.98] transition-all flex items-center justify-center gap-4 italic group"
+                className="w-full bg-gradient-to-r from-indigo-600 to-indigo-800 py-6 rounded-[2.5rem] font-black text-white text-lg uppercase tracking-[0.2em] shadow-2xl shadow-indigo-600/40 hover:scale-[1.01] active:scale-[0.98] transition-all flex items-center justify-center gap-4 italic group"
               >
                 <CheckCircle size={28} className="group-hover:rotate-12 transition-transform" />
-                Sinfdan chiqish va Yakunlash
+                Sinfdan chiqish va Testni Yakunlash
               </button>
-           </div>
+          </div>
         </div>
         {renderGlobalChat()}
+      </div>
+    );
+
+    if (isGuest) {
+      return (
+        <div className="min-h-screen bg-primary transition-colors duration-500">
+          {TestContent}
+        </div>
+      );
+    }
+
+    return (
+      <DashboardLayout role="student" userName={studentData.name} showBottomNav={false}>
+        {TestContent}
       </DashboardLayout>
     );
   }
