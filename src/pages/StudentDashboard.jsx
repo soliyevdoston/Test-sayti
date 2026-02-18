@@ -732,8 +732,8 @@ export default function StudentDashboard() {
         />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 relative">
           
-          {/* Header Sticky Stats - Fixed top during scroll */}
-          <div className="sticky top-0 z-40 bg-primary/95 backdrop-blur-2xl border border-primary p-6 rounded-3xl mb-12 flex justify-between items-center shadow-2xl transition-all">
+          {/* Header Stats - Not sticky anymore */}
+          <div className="bg-primary/50 border border-primary p-6 rounded-3xl mb-12 flex justify-between items-center shadow-sm">
              <div className="flex flex-col">
                <h2 className="text-xl font-black text-primary italic uppercase tracking-tighter truncate max-w-[150px] md:max-w-md">{testData.title}</h2>
                <div className="flex items-center gap-2 mt-1">
@@ -742,7 +742,7 @@ export default function StudentDashboard() {
                </div>
              </div>
 
-             <div className="flex items-center gap-4 bg-indigo-600 px-5 md:px-6 py-3 rounded-2xl shadow-xl shadow-indigo-600/30 border border-white/10">
+             <div className="flex items-center gap-4 bg-indigo-600 px-5 md:px-6 py-3 rounded-2xl shadow-lg shadow-indigo-600/20 border border-white/10">
                 <Clock className="text-white/80" size={18} />
                 <span className="text-xl md:text-2xl font-black text-white font-mono leading-none tracking-tighter">{formatTime(timeLeft)}</span>
              </div>
@@ -750,7 +750,7 @@ export default function StudentDashboard() {
 
           {/* Reading Material if exists */}
           {testData.readingText && (
-             <div className="bg-secondary/30 backdrop-blur-xl border border-primary rounded-[2.5rem] p-8 mb-12 shadow-inner">
+             <div className="bg-secondary/30 border border-primary rounded-[2.5rem] p-8 mb-12 shadow-inner">
                <h4 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 mb-6 italic">
                   <FileText size={16} /> Matn bilan tanishib chiqing
                </h4>
@@ -768,7 +768,7 @@ export default function StudentDashboard() {
                 <div
                   key={q.id}
                   ref={(el) => (questionRefs.current[q.id] = el)}
-                  className={`bg-secondary/20 backdrop-blur-md border p-8 rounded-[2.5rem] transition-all duration-500 group ${selected ? 'border-indigo-500/30 ring-1 ring-indigo-500/10 shadow-lg shadow-indigo-500/5' : 'border-primary'}`}
+                  className={`bg-secondary/10 border p-8 rounded-[2.5rem] transition-all duration-500 group ${selected ? 'border-indigo-500/30' : 'border-primary'}`}
                 >
                   <div className="flex justify-between items-start mb-8 gap-4">
                     <h3 className="font-bold text-primary text-xl leading-snug flex gap-4">
@@ -784,7 +784,7 @@ export default function StudentDashboard() {
 
                   <div className="space-y-4 pl-0 md:pl-14">
                     {q.options.map((opt, i) => (
-                      <label
+                      <label 
                         key={i}
                         className={`group flex items-center gap-4 p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300 relative overflow-hidden ${
                           selected === opt.text
@@ -822,9 +822,9 @@ export default function StudentDashboard() {
             })}
           </div>
 
-          {/* ✅ FOOTER (Scrollable, was fixed) */}
-          <div className="mt-16 space-y-6">
-             <div className="p-8 bg-secondary/30 backdrop-blur-xl border border-primary rounded-[2.5rem] shadow-xl">
+          {/* ✅ FOOTER (Scrollable, naturally at bottom) */}
+          <div className="mt-16 space-y-6 pb-12">
+             <div className="p-8 bg-secondary/20 border border-primary rounded-[2.5rem] shadow-sm">
                 <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted mb-6 italic">Savollar Navigatori</h4>
                 <div className="flex flex-wrap gap-3">
                    {testData.questions.map((q, idx) => {
@@ -848,7 +848,7 @@ export default function StudentDashboard() {
 
              <button
                 onClick={() => handleSubmit(false)}
-                className="w-full bg-gradient-to-r from-indigo-600 to-indigo-800 py-6 rounded-[2.5rem] font-black text-white text-lg uppercase tracking-[0.2em] shadow-2xl shadow-indigo-600/40 hover:scale-[1.01] active:scale-[0.98] transition-all flex items-center justify-center gap-4 italic group"
+                className="w-full bg-gradient-to-r from-indigo-600 to-indigo-800 py-6 rounded-[2.5rem] font-black text-white text-lg uppercase tracking-[0.2em] shadow-xl shadow-indigo-600/30 hover:scale-[1.01] active:scale-[0.98] transition-all flex items-center justify-center gap-4 italic group"
               >
                 <CheckCircle size={28} className="group-hover:rotate-12 transition-transform" />
                 Sinfdan chiqish va Testni Yakunlash
