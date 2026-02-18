@@ -613,7 +613,7 @@ export default function StudentDashboard() {
         <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-blue-500/10 dark:bg-blue-600/20 rounded-full blur-[100px] pointer-events-none" />
 
         {/* Card */}
-        <div className="relative z-10 w-full max-w-lg bg-secondary/40 backdrop-blur-3xl border border-primary rounded-[2.5rem] shadow-2xl overflow-hidden animate-fade-in translate-y-0 hover:-translate-y-1 transition-transform duration-500">
+        <div className="relative z-10 w-full max-w-lg bg-secondary border border-primary rounded-[2.5rem] shadow-2xl overflow-hidden animate-fade-in translate-y-0 hover:-translate-y-1 transition-transform duration-500">
           {/* Result Header */}
           <div className="bg-gradient-to-br from-indigo-500 via-blue-600 to-indigo-800 p-6 md:p-12 text-center text-white relative">
             <div className="absolute top-3 md:p-4 left-4 opacity-10"><Award size={60} className="md:w-20 md:h-20" /></div>
@@ -673,7 +673,7 @@ export default function StudentDashboard() {
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setSelectedResult(null)} />
             <div className="relative w-full max-w-4xl bg-primary border border-primary rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
-              <div className="p-8 border-b border-primary flex items-center justify-between bg-secondary/30">
+              <div className="p-8 border-b border-primary flex items-center justify-between bg-secondary">
                 <h3 className="text-2xl font-black text-primary uppercase italic tracking-tighter">Test <span className="text-indigo-500">Tahlili</span></h3>
                 <button onClick={() => setSelectedResult(null)} className="p-3 hover:bg-red-500/10 text-red-500 rounded-2xl transition-all">
                    <X size={24} />
@@ -681,7 +681,7 @@ export default function StudentDashboard() {
               </div>
               <div className="p-8 overflow-y-auto space-y-6">
                 {(selectedResult.studentAnswers || selectedResult.answers || []).map((ans, idx) => (
-                  <div key={idx} className={`p-6 rounded-3xl border-2 ${ans.isCorrect ? 'border-green-500/20 bg-green-500/5' : 'border-red-500/20 bg-red-500/5'}`}>
+                  <div key={idx} className={`p-6 rounded-3xl border-2 ${ans.isCorrect ? 'border-green-500/20 bg-green-500/10' : 'border-red-500/20 bg-red-500/10'}`}>
                     <div className="flex justify-between items-start mb-4 gap-4">
                        <h4 className="font-bold text-primary text-lg flex gap-3">
                           <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 font-black text-xs ${ans.isCorrect ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
@@ -694,7 +694,7 @@ export default function StudentDashboard() {
                        </span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                       <div className="p-4 bg-primary/40 rounded-2xl border border-primary">
+                       <div className="p-4 bg-primary rounded-2xl border border-primary">
                           <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-1">Sizning javobingiz:</p>
                           <p className={`text-sm font-bold ${ans.isCorrect ? 'text-green-500' : 'text-red-500'}`}>{ans.selectedOption || "Belgilanmagan"}</p>
                        </div>

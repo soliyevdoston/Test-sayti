@@ -418,7 +418,7 @@ export default function TeacherTests() {
             </div>
 
             {/* 🔥 Visibility Control */}
-            <div className="col-span-full grid md:grid-cols-2 gap-6 bg-indigo-500/5 p-6 rounded-3xl border border-indigo-500/10">
+            <div className="col-span-full grid md:grid-cols-2 gap-6 bg-primary p-6 rounded-3xl border border-primary">
               <div className="space-y-3">
                 <label className="text-[10px] font-black uppercase tracking-widest text-indigo-600 block ml-2">Kirish ruxsati</label>
                 <div className="flex gap-2">
@@ -485,7 +485,7 @@ export default function TeacherTests() {
 
           {/* Preview Results */}
           {previewData && (
-            <div className="mt-12 p-8 border-2 border-indigo-500/20 rounded-[2.5rem] bg-indigo-500/5 animate-in slide-in-from-top duration-500">
+            <div className="mt-12 p-8 border-2 border-primary rounded-[2.5rem] bg-secondary animate-in slide-in-from-top duration-500">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center text-white"><FaCheckCircle size={20} /></div>
@@ -526,7 +526,7 @@ export default function TeacherTests() {
           <div className="grid lg:grid-cols-2 gap-6">
             {tests.length > 0 ? (
               tests.map((t) => (
-                <div key={t._id} className="group relative p-5 md:p-6 rounded-[2rem] bg-secondary/50 border border-primary hover:border-indigo-500/50 transition-all flex flex-col h-full">
+                <div key={t._id} className="group relative p-5 md:p-6 rounded-[2rem] bg-secondary border border-primary hover:border-indigo-500/50 transition-all flex flex-col h-full shadow-sm">
                   <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
                     <div className="flex items-start gap-3 md:gap-4 w-full">
                       <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-primary border border-primary flex items-center justify-center text-indigo-500 font-black text-lg md:text-xl shadow-inner shrink-0 mt-1">
@@ -685,7 +685,7 @@ export default function TeacherTests() {
                 </div>
               </div>
 
-              <div className="space-y-3 bg-indigo-500/5 p-6 rounded-3xl border border-indigo-500/10">
+              <div className="space-y-3 bg-secondary p-6 rounded-3xl border border-primary">
                 <label className="text-[10px] font-black uppercase tracking-widest text-indigo-600 block ml-2">Kirish ruxsati</label>
                 <div className="flex gap-2">
                   <button 

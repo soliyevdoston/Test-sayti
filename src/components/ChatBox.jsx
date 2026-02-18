@@ -70,9 +70,9 @@ export default function ChatBox({ teacherId, studentId, role }) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-secondary/30 rounded-[2rem] border border-primary overflow-hidden">
+    <div className="flex flex-col h-full bg-secondary rounded-[2rem] border border-primary overflow-hidden shadow-2xl">
       {/* Header */}
-      <div className="p-4 border-b border-primary bg-primary/20 flex items-center gap-3">
+      <div className="p-4 border-b border-primary bg-primary flex items-center gap-3">
         <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-500">
           <MessageSquare size={16} />
         </div>
@@ -113,7 +113,7 @@ export default function ChatBox({ teacherId, studentId, role }) {
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSend} className="p-4 bg-primary/20 border-t border-primary flex gap-2">
+      <form onSubmit={handleSend} className="p-4 bg-primary border-t border-primary flex gap-2">
         <input 
           placeholder="Xabar yozing..."
           value={newMessage}
