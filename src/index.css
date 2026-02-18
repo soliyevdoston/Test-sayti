@@ -1,7 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100;300;400;500;700;900&display=swap');
 @import "tailwindcss";
 
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,36 +10,12 @@
     animation: scroll 30s linear infinite;
   }
   
-  /* Semantic Colors - Manual Definition to avoid Theme collisions */
-  .text-primary { color: var(--text-primary); }
-  .text-secondary { color: var(--text-secondary); }
-  .text-muted { color: var(--text-muted); }
-  .text-accent { color: var(--accent-color); }
-
-  .bg-primary { background-color: var(--bg-primary); }
-  .bg-secondary { background-color: var(--bg-secondary); }
-  .bg-accent { background-color: var(--bg-accent); }
-  
-  .border-primary { border-color: var(--border-primary); }
-  .border-secondary { border-color: var(--border-secondary); }
-
-  /* Glass Utils */
   .glass {
-    @apply bg-white dark:bg-slate-900 border;
-    border-color: var(--border-primary);
+    @apply backdrop-blur-xl bg-white/10 dark:bg-black/20 border border-white/20 dark:border-white/10;
   }
   
   .glass-card {
-    @apply bg-white dark:bg-slate-900 border;
-    border-color: var(--border-primary);
-  }
-
-  .bg-solid-primary {
-    background-color: var(--bg-primary) !important;
-  }
-
-  .bg-solid-secondary {
-    background-color: var(--bg-secondary) !important;
+    @apply backdrop-blur-2xl bg-white/5 dark:bg-black/40 border border-white/10 dark:border-white/5;
   }
   
   .responsive-p {
@@ -152,45 +127,4 @@ body {
 
 .premium-card:hover::before {
   opacity: 1;
-}
-
-@layer utilities {
-  .animation-delay-2000 {
-    animation-delay: 2s;
-  }
-  .animation-delay-4000 {
-    animation-delay: 4s;
-  }
-}
-
-@keyframes blob {
-  0% { transform: translate(0px, 0px) scale(1); }
-  33% { transform: translate(30px, -50px) scale(1.1); }
-  66% { transform: translate(-20px, 20px) scale(0.9); }
-  100% { transform: translate(0px, 0px) scale(1); }
-}
-
-.animate-blob {
-  animation: blob 7s infinite;
-}
-
-@keyframes tilt {
-  0%, 50%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(1deg); }
-  75% { transform: rotate(-1deg); }
-}
-
-.animate-tilt {
-  animation: tilt 10s infinite linear;
-}
-
-@keyframes shine {
-  0% { background-position: 200% center; }
-  100% { background-position: -200% center; }
-}
-
-.animate-shine {
-  background: linear-gradient(to right, transparent, rgba(255,255,255,0.2) 50%, transparent);
-  background-size: 200% auto;
-  animation: shine 3s linear infinite;
 }
