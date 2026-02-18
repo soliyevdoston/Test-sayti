@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Send, User, Trash2, MessageSquare } from "lucide-react";
-import { getChatHistory, sendChatMessage, BASE_URL } from "../api/api";
+import { getChatHistoryApi, sendMessageApi, BASE_URL } from "../api/api";
 import { io } from "socket.io-client";
 
 const socket = io(BASE_URL, {
@@ -36,7 +36,7 @@ export default function ChatBox({ teacherId, studentId, role }) {
   const fetchHistory = async () => {
     try {
       setLoading(true);
-      const { data } = await getChatHistory(teacherId, studentId);
+      const { data } = await getChatHistoryApi(teacherId, studentId);
       setMessages(data);
     } catch (err) {
       console.error("Chat history error:", err);
@@ -57,7 +57,7 @@ export default function ChatBox({ teacherId, studentId, role }) {
     };
 
     try {
-      const { data } = await sendChatMessage(messageData);
+      const { data } = await sendMessageApi(messageData);
       socket.emit("send-message", {
         roomId: `chat_${teacherId}_${studentId}`,
         message: data
