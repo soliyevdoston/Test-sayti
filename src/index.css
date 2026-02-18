@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100;300;400;500;700;900&display=swap');
 @import "tailwindcss";
 
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,12 +11,28 @@
     animation: scroll 30s linear infinite;
   }
   
+  /* Semantic Colors - Manual Definition to avoid Theme collisions */
+  .text-primary { color: var(--text-primary); }
+  .text-secondary { color: var(--text-secondary); }
+  .text-muted { color: var(--text-muted); }
+  .text-accent { color: var(--accent-color); }
+
+  .bg-primary { background-color: var(--bg-primary); }
+  .bg-secondary { background-color: var(--bg-secondary); }
+  .bg-accent { background-color: var(--bg-accent); }
+  
+  .border-primary { border-color: var(--border-primary); }
+  .border-secondary { border-color: var(--border-secondary); }
+
+  /* Glass Utils */
   .glass {
-    @apply bg-white dark:bg-slate-900 border border-primary;
+    @apply bg-white dark:bg-slate-900 border;
+    border-color: var(--border-primary);
   }
   
   .glass-card {
-    @apply bg-white dark:bg-slate-900 border border-primary;
+    @apply bg-white dark:bg-slate-900 border;
+    border-color: var(--border-primary);
   }
 
   .bg-solid-primary {
