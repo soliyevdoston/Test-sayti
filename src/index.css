@@ -11,11 +11,19 @@
   }
   
   .glass {
-    @apply backdrop-blur-xl bg-white/10 dark:bg-black/20 border border-white/20 dark:border-white/10;
+    @apply bg-white dark:bg-slate-900 border border-primary;
   }
   
   .glass-card {
-    @apply backdrop-blur-2xl bg-white/5 dark:bg-black/40 border border-white/10 dark:border-white/5;
+    @apply bg-white dark:bg-slate-900 border border-primary;
+  }
+
+  .bg-solid-primary {
+    background-color: var(--bg-primary) !important;
+  }
+
+  .bg-solid-secondary {
+    background-color: var(--bg-secondary) !important;
   }
   
   .responsive-p {

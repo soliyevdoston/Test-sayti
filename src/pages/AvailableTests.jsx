@@ -87,7 +87,7 @@ export default function AvailableTests() {
         </div>
 
         {/* Pagination/Bottom Info */}
-        <div className="mt-12 flex flex-col md:flex-row justify-between items-center gap-6 p-8 bg-white/50 border border-primary rounded-[2.5rem] backdrop-blur-xl">
+        <div className="mt-12 flex flex-col md:flex-row justify-between items-center gap-6 p-8 bg-white border border-primary rounded-[2.5rem]">
            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-center md:text-left text-gray-500 max-w-2xl leading-relaxed">
              Mualliflik huquqi © 2025 O'zR FA V.I. Romanovskiy nomidagi Matematika instituti va Testchi jamoasi tomonidan ishlab chiqilgan. Barcha huquqlar himoyalangan.
            </div>

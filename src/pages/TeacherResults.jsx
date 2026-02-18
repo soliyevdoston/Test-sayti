@@ -196,10 +196,10 @@ export default function TeacherResults() {
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-xs font-bold text-muted uppercase tracking-[0.2em]">
-                        <span className="flex items-center gap-2 px-3 py-1.5 bg-primary/40 rounded-xl border border-primary/50">
+                        <span className="flex items-center gap-2 px-3 py-1.5 bg-solid-primary rounded-xl border border-primary/50">
                           <FaBolt className="text-indigo-500" /> {test._id.slice(-8)}
                         </span>
-                        <span className="flex items-center gap-2 px-3 py-1.5 bg-primary/40 rounded-xl border border-primary/50">
+                        <span className="flex items-center gap-2 px-3 py-1.5 bg-solid-primary rounded-xl border border-primary/50">
                           <FaChartBar size={14} className="text-indigo-500" /> {test.duration} Daqiqa
                         </span>
                       </div>
@@ -224,7 +224,7 @@ export default function TeacherResults() {
                     <div className="bg-primary/50 border border-primary rounded-[2rem] overflow-hidden shadow-inner">
                       <div className="overflow-x-auto">
                         <table className="w-full text-left">
-                          <thead className="bg-secondary/50 uppercase text-[10px] font-black tracking-widest text-muted/60 border-b border-primary/50">
+                          <thead className="bg-solid-secondary uppercase text-[10px] font-black tracking-widest text-muted/60 border-b border-primary/50">
                             <tr>
                               <th className="py-6 px-8">№</th>
                               <th className="py-6 px-8">Ism Familiya</th>
@@ -290,7 +290,7 @@ export default function TeacherResults() {
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4 animate-fade-in">
           <div className="bg-slate-900 w-full max-w-4xl rounded-[3rem] shadow-2xl max-h-[90vh] flex flex-col overflow-hidden border border-white/10">
-            <div className="p-8 border-b border-primary flex justify-between items-center bg-secondary/50">
+            <div className="p-8 border-b border-primary flex justify-between items-center bg-solid-secondary">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/20"><FaChartBar size={24} /></div>
                 <div>

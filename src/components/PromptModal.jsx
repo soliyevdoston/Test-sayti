@@ -33,7 +33,7 @@ export default function PromptModal({
       <div 
         className="
           relative w-full max-w-md
-          bg-secondary/60 backdrop-blur-2xl
+          bg-solid-secondary
           border border-primary
           rounded-[32px] overflow-hidden
           shadow-2xl animate-in zoom-in-95 duration-300
@@ -67,7 +67,7 @@ export default function PromptModal({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={placeholder}
-            className="w-full bg-primary/20 border border-primary rounded-2xl p-4 outline-none focus:border-indigo-500 text-primary font-bold mb-8 transition-all"
+            className="w-full bg-solid-primary border border-primary rounded-2xl p-4 outline-none focus:border-indigo-500 text-primary font-bold mb-8 transition-all"
           />
 
           {/* Actions */}

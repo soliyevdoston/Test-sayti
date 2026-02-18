@@ -485,7 +485,7 @@ export default function TeacherTests() {
 
           {/* Preview Results */}
           {previewData && (
-            <div className="mt-12 p-8 border-2 border-primary rounded-[2.5rem] bg-secondary animate-in slide-in-from-top duration-500">
+            <div className="mt-12 p-8 border-2 border-primary rounded-[2.5rem] bg-solid-secondary animate-in slide-in-from-top duration-500">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center text-white"><FaCheckCircle size={20} /></div>
@@ -526,7 +526,7 @@ export default function TeacherTests() {
           <div className="grid lg:grid-cols-2 gap-6">
             {tests.length > 0 ? (
               tests.map((t) => (
-                <div key={t._id} className="group relative p-5 md:p-6 rounded-[2rem] bg-secondary border border-primary hover:border-indigo-500/50 transition-all flex flex-col h-full shadow-sm">
+                <div key={t._id} className="group relative p-5 md:p-6 rounded-[2rem] bg-solid-secondary border border-primary hover:border-indigo-500/50 transition-all flex flex-col h-full shadow-sm">
                   <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
                     <div className="flex items-start gap-3 md:gap-4 w-full">
                       <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-primary border border-primary flex items-center justify-center text-indigo-500 font-black text-lg md:text-xl shadow-inner shrink-0 mt-1">
@@ -560,7 +560,7 @@ export default function TeacherTests() {
                         <button className="w-8 h-8 rounded-xl bg-secondary border border-primary flex items-center justify-center text-primary hover:border-indigo-500 transition-all shadow-sm">
                            <FaCogs size={14} />
                         </button>
-                        <div className="absolute right-0 top-full mt-2 w-48 bg-primary border border-primary rounded-xl shadow-2xl opacity-0 invisible group-hover/access:opacity-100 group-hover/access:visible transition-all z-20 overflow-hidden">
+                        <div className="absolute right-0 top-full mt-2 w-48 bg-solid-primary border border-primary rounded-xl shadow-2xl opacity-0 invisible group-hover/access:opacity-100 group-hover/access:visible transition-all z-20 overflow-hidden">
                            <div className="p-2 border-b border-primary bg-secondary/30">
                               <p className="text-[8px] font-black uppercase text-muted tracking-widest">Tizimni o'zgartirish</p>
                            </div>
@@ -639,7 +639,7 @@ export default function TeacherTests() {
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setEditModal({ open: false, test: null })}
           ></div>
-          <div className="relative w-full max-w-2xl bg-primary border border-primary rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 p-8 md:p-12">
+          <div className="relative w-full max-w-2xl bg-solid-primary border border-primary rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 p-8 md:p-12">
             <h3 className="text-2xl font-black text-primary uppercase italic tracking-tighter mb-8">
               Testni <span className="text-indigo-500">Tahrirlash</span>
             </h3>
@@ -685,7 +685,7 @@ export default function TeacherTests() {
                 </div>
               </div>
 
-              <div className="space-y-3 bg-secondary p-6 rounded-3xl border border-primary">
+              <div className="space-y-3 bg-solid-secondary p-6 rounded-3xl border border-primary">
                 <label className="text-[10px] font-black uppercase tracking-widest text-indigo-600 block ml-2">Kirish ruxsati</label>
                 <div className="flex gap-2">
                   <button 

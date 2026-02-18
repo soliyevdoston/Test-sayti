@@ -421,7 +421,7 @@ export default function TeacherGroups() {
                 ) : students.length > 0 ? (
                   <div className="space-y-3">
                     {students.map((s, idx) => (
-                      <div key={s._id} className="flex flex-col gap-2 p-4 rounded-2xl bg-secondary/50 border border-primary group hover:border-indigo-500/30 transition-all">
+                      <div key={s._id} className="flex flex-col gap-2 p-4 rounded-2xl bg-solid-secondary border border-primary group hover:border-indigo-500/30 transition-all">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-xl bg-primary border border-primary flex items-center justify-center text-xs font-black text-indigo-500">

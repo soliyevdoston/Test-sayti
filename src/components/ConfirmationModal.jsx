@@ -57,7 +57,7 @@ export default function ConfirmationModal({
       <div 
         className="
           relative w-full max-w-md
-          bg-secondary/60 backdrop-blur-2xl
+          bg-solid-secondary
           border border-primary
           rounded-[32px] overflow-hidden
           shadow-2xl animate-in zoom-in-95 duration-300

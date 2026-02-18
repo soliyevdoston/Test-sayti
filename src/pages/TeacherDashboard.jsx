@@ -215,7 +215,7 @@ export default function TeacherDashboard() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {tests.filter(t => t.isStarted).length > 0 ? (
               tests.filter(t => t.isStarted).map(t => (
-                <div key={t._id} className="bg-secondary/50 border border-primary p-6 rounded-3xl group relative overflow-hidden">
+                <div key={t._id} className="bg-solid-secondary border border-primary p-6 rounded-3xl group relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-3">
                     <span className="flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>

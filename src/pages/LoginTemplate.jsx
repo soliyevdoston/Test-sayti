@@ -137,7 +137,7 @@ export default function LoginTemplate({ role, loginPath, initialUsername = "", i
         onSubmit={handleLogin}
         className="
           relative z-10 w-full max-w-md
-          backdrop-blur-2xl bg-secondary/50
+          bg-solid-secondary
           border border-primary
           rounded-[2rem] md:rounded-[32px] p-6 md:p-10
           shadow-2xl
@@ -160,7 +160,7 @@ export default function LoginTemplate({ role, loginPath, initialUsername = "", i
         </p>
 
         {role === "Student" && (
-          <div className="flex bg-primary/30 p-1 rounded-2xl mb-8 border border-primary/20">
+          <div className="flex bg-solid-primary p-1 rounded-2xl mb-8 border border-primary/20">
             <button 
               type="button"
               onClick={() => setIsIndividual(false)}

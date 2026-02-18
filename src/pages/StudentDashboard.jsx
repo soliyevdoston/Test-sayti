@@ -522,7 +522,7 @@ export default function StudentDashboard() {
               <div className="space-y-4">
                 {history.length > 0 ? (
                   history.map((res, i) => (
-                    <div key={res._id || i} className="group bg-secondary/10 backdrop-blur-md border border-primary p-6 rounded-[2rem] hover:bg-secondary/30 transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm">
+                    <div key={res._id || i} className="group bg-solid-secondary border border-primary p-6 rounded-[2rem] hover:bg-secondary/5 transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm">
                       <div className="flex items-center gap-5">
                         <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 flex flex-col items-center justify-center text-indigo-500 shadow-inner group-hover:scale-110 transition-transform">
                           <span className="text-lg font-black leading-none">{Math.round((res.totalScore / (res.maxScore || 1)) * 100)}%</span>
@@ -538,7 +538,7 @@ export default function StudentDashboard() {
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
-                        <div className="hidden lg:block h-2 w-32 bg-primary/20 rounded-full overflow-hidden">
+                        <div className="hidden lg:block h-2 w-32 bg-solid-primary rounded-full overflow-hidden">
                            <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(res.totalScore / (res.maxScore || 1)) * 100}%` }} />
                         </div>
                         <button 
@@ -575,7 +575,7 @@ export default function StudentDashboard() {
           {...modalConfig} 
           onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))} 
         />
-        <div className="bg-secondary/50 backdrop-blur-xl border border-primary rounded-2xl md:rounded-3xl shadow-2xl p-10 text-center max-w-md w-full">
+        <div className="bg-solid-secondary border border-primary rounded-2xl md:rounded-3xl shadow-2xl p-10 text-center max-w-md w-full">
           <div className="relative w-24 h-24 mx-auto mb-6">
             <div className="absolute inset-0 bg-indigo-500/30 rounded-full animate-ping"></div>
             <div className="relative bg-secondary text-indigo-600 dark:text-indigo-400 p-5 rounded-full shadow-lg flex items-center justify-center h-full w-full">
@@ -587,7 +587,7 @@ export default function StudentDashboard() {
             {studentData?.name}, o‘qituvchi Start tugmasini bosishi bilan test
             avtomatik boshlanadi.
           </p>
-          <div className="bg-secondary/80 border border-primary rounded-xl p-3 md:p-4 text-primary text-sm font-mono">
+          <div className="bg-solid-primary border border-primary rounded-xl p-3 md:p-4 text-primary text-sm font-mono">
             Fan: <span className="text-indigo-600 dark:text-indigo-400 font-bold">{testData?.title}</span> <br />
             Vaqt: <span className="text-indigo-600 dark:text-indigo-400 font-bold">{testData?.duration}</span> daqiqa
           </div>
@@ -613,7 +613,7 @@ export default function StudentDashboard() {
         <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-blue-500/10 dark:bg-blue-600/20 rounded-full blur-[100px] pointer-events-none" />
 
         {/* Card */}
-        <div className="relative z-10 w-full max-w-lg bg-secondary border border-primary rounded-[2.5rem] shadow-2xl overflow-hidden animate-fade-in translate-y-0 hover:-translate-y-1 transition-transform duration-500">
+        <div className="relative z-10 w-full max-w-lg bg-solid-secondary border border-primary rounded-[2.5rem] shadow-2xl overflow-hidden animate-fade-in translate-y-0 hover:-translate-y-1 transition-transform duration-500">
           {/* Result Header */}
           <div className="bg-gradient-to-br from-indigo-500 via-blue-600 to-indigo-800 p-6 md:p-12 text-center text-white relative">
             <div className="absolute top-3 md:p-4 left-4 opacity-10"><Award size={60} className="md:w-20 md:h-20" /></div>
@@ -672,8 +672,8 @@ export default function StudentDashboard() {
         {selectedResult && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setSelectedResult(null)} />
-            <div className="relative w-full max-w-4xl bg-primary border border-primary rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
-              <div className="p-8 border-b border-primary flex items-center justify-between bg-secondary">
+            <div className="relative w-full max-w-4xl bg-solid-primary border border-primary rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
+              <div className="p-8 border-b border-primary flex items-center justify-between bg-solid-secondary">
                 <h3 className="text-2xl font-black text-primary uppercase italic tracking-tighter">Test <span className="text-indigo-500">Tahlili</span></h3>
                 <button onClick={() => setSelectedResult(null)} className="p-3 hover:bg-red-500/10 text-red-500 rounded-2xl transition-all">
                    <X size={24} />
@@ -789,7 +789,7 @@ export default function StudentDashboard() {
                         className={`group flex items-center gap-4 p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300 relative overflow-hidden ${
                           selected === opt.text
                             ? "border-indigo-600 bg-indigo-500/5 shadow-md"
-                            : "border-primary bg-primary/30 hover:border-indigo-500/40 hover:bg-secondary/50"
+                            : "border-primary bg-solid-primary hover:border-indigo-500/40 hover:bg-secondary/5"
                         }`}
                       >
                         {selected === opt.text && (
@@ -824,7 +824,7 @@ export default function StudentDashboard() {
 
           {/* ✅ FOOTER (Scrollable, naturally at bottom) */}
           <div className="mt-16 space-y-6 pb-12">
-             <div className="p-8 bg-secondary/20 border border-primary rounded-[2.5rem] shadow-sm">
+             <div className="p-8 bg-solid-secondary border border-primary rounded-[2.5rem] shadow-sm">
                 <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted mb-6 italic">Savollar Navigatori</h4>
                 <div className="flex flex-wrap gap-3">
                    {testData.questions.map((q, idx) => {
