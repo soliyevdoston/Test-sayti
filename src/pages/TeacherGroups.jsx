@@ -429,7 +429,16 @@ export default function TeacherGroups() {
                             </div>
                             <div>
                               <p className="text-sm font-black text-primary uppercase tracking-tight">{s.fullName}</p>
-                              <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Username: {s.username}</p>
+                              <div className="flex flex-wrap items-center gap-3 mt-0.5">
+                                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-500/10 rounded-md border border-indigo-500/20">
+                                   <span className="text-[8px] font-black text-indigo-500 uppercase tracking-widest">Login:</span>
+                                   <span className="text-[10px] font-bold text-primary">{s.username}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-500/10 rounded-md border border-amber-500/20">
+                                   <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Parol:</span>
+                                   <span className="text-[10px] font-bold text-primary">{s.password}</span>
+                                </div>
+                              </div>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">

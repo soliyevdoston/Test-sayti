@@ -256,7 +256,7 @@ export default function StudentDashboard() {
       });
       localStorage.setItem("active_test_session", JSON.stringify(data));
       setTimeLeft(data.duration * 60);
-      setStatus("waiting");
+      setStatus(data.isStarted ? "started" : "waiting");
       socket.emit("join-test-room", data.testLogin);
     } catch (err) {
       const { msg, alreadyTaken, teacherId, testId } = err.response?.data || {};
