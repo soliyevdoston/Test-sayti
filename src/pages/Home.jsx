@@ -30,7 +30,11 @@ import {
   Languages,
   Key,
   Menu,
-  X
+  X,
+  Mail,
+  Phone,
+  MessageCircle,
+  Loader2
 } from "lucide-react";
 import logo from "../assets/logo.svg";
 
@@ -326,6 +330,199 @@ const GuideSection = () => {
   );
 };
 
+// ─── Telegram Bot Config ───────────────────────────────────────────────────
+const TG_BOT_TOKEN = "8542512239:AAGU79I8KkdinR1V7xIAi2jmd-12-TEkUVg";
+const TG_CHAT_ID   = "8389397224";
+
+const ContactSection = () => {
+  const [form, setForm] = useState({ name: "", phone: "", email: "" });
+  const [status, setStatus] = useState("idle"); // idle | loading | success | error
+
+  const contacts = [
+    {
+      icon: MessageCircle,
+      label: "Telegram",
+      value: "@Dostonbek_Solijonov",
+      href: "https://t.me/Dostonbek_Solijonov",
+      color: "from-sky-500 to-blue-600",
+    },
+    {
+      icon: Phone,
+      label: "Telefon",
+      value: "+998 91 660 56 06",
+      href: "tel:+998916605606",
+      color: "from-indigo-500 to-violet-600",
+    },
+    {
+      icon: Mail,
+      label: "Gmail",
+      value: "dostonbeksolijonov.uz@gmail.com",
+      href: "mailto:dostonbeksolijonov.uz@gmail.com",
+      color: "from-pink-500 to-rose-600",
+    },
+  ];
+
+  const handleChange = (e) =>
+    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.phone.trim()) return;
+    setStatus("loading");
+    const text =
+      `🔔 *Yangi kirish so'rovi!*\n\n` +
+      `👤 *Ism:* ${form.name}\n` +
+      `📱 *Telefon/TG:* ${form.phone}\n` +
+      `📧 *Email:* ${form.email || "—"}\n\n` +
+      `🕐 ${new Date().toLocaleString("uz-UZ")}`;
+    try {
+      const res = await fetch(
+        `https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: TG_CHAT_ID,
+            text,
+            parse_mode: "Markdown",
+          }),
+        }
+      );
+      if (!res.ok) throw new Error();
+      setStatus("success");
+      setForm({ name: "", phone: "", email: "" });
+      setTimeout(() => setStatus("idle"), 5000);
+    } catch {
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 4000);
+    }
+  };
+
+  return (
+    <section id="contact" className="py-24 md:py-32 px-6 relative overflow-hidden">
+      {/* Background glow */}
+      <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-indigo-600/10 dark:bg-indigo-600/20 blur-[120px] rounded-full pointer-events-none" />
+
+      <div className="max-w-6xl mx-auto relative z-10">
+        {/* Header */}
+        <div className="text-center mb-16 space-y-3">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/5 border border-indigo-500/10">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Bepul Kirish</span>
+          </div>
+          <h2 className="text-4xl md:text-6xl font-black text-primary tracking-tighter uppercase italic">
+            Login va parol <span className="text-indigo-500">so'rash</span>
+          </h2>
+          <p className="text-secondary font-medium max-w-xl mx-auto">
+            Platformadan foydalanish uchun quyidagi formani to'ldiring — biz siz bilan tez orada bog'lanamiz va kirish ma'lumotlarini yuboramiz.
+          </p>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-12 items-start">
+          {/* Left: Contact Cards */}
+          <div className="space-y-5">
+            <p className="text-xs font-black uppercase tracking-widest text-muted mb-6">Yoki to'g'ridan bevosita yozing:</p>
+            {contacts.map((c) => (
+              <a
+                key={c.label}
+                href={c.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-5 p-5 premium-card hover:border-indigo-500/40 group transition-all"
+              >
+                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${c.color} flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform flex-shrink-0`}>
+                  <c.icon size={22} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted">{c.label}</p>
+                  <p className="text-base font-bold text-primary group-hover:text-indigo-500 transition-colors">{c.value}</p>
+                </div>
+                <ArrowRight size={16} className="ml-auto text-muted group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
+              </a>
+            ))}
+          </div>
+
+          {/* Right: Form */}
+          <div className="premium-card p-8 md:p-10">
+            <h3 className="text-2xl font-black text-primary tracking-tighter uppercase italic mb-8">
+              So'rov yuborish
+            </h3>
+
+            {status === "success" ? (
+              <div className="flex flex-col items-center justify-center py-12 space-y-4 text-center">
+                <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center">
+                  <Check size={32} className="text-green-500" strokeWidth={3} />
+                </div>
+                <h4 className="text-xl font-black text-primary">So'rov Yuborildi!</h4>
+                <p className="text-secondary text-sm">Tez orada siz bilan bog'lanamiz va login ma'lumotlarini yuboramiz.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Name */}
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-muted mb-2">Ism va Familiya *</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={form.name}
+                    onChange={handleChange}
+                    placeholder="Ali Valiyev"
+                    required
+                    className="w-full p-4 rounded-2xl bg-primary border border-primary focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all text-primary placeholder:text-muted/40"
+                  />
+                </div>
+
+                {/* Phone / TG */}
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-muted mb-2">Telefon yoki Telegram *</label>
+                  <input
+                    type="text"
+                    name="phone"
+                    value={form.phone}
+                    onChange={handleChange}
+                    placeholder="+998 90 123 45 67 yoki @username"
+                    required
+                    className="w-full p-4 rounded-2xl bg-primary border border-primary focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all text-primary placeholder:text-muted/40"
+                  />
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-muted mb-2">Email (ixtiyoriy)</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={form.email}
+                    onChange={handleChange}
+                    placeholder="email@gmail.com"
+                    className="w-full p-4 rounded-2xl bg-primary border border-primary focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all text-primary placeholder:text-muted/40"
+                  />
+                </div>
+
+                {status === "error" && (
+                  <p className="text-red-500 text-xs font-bold text-center">Xatolik yuz berdi. Qayta urinib ko'ring yoki to'g'ridan Telegram orqali yozing.</p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={status === "loading"}
+                  className="w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-xl shadow-indigo-600/25 hover:shadow-indigo-600/40 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {status === "loading" ? (
+                    <><Loader2 size={16} className="animate-spin" /> Yuborilmoqda...</>
+                  ) : (
+                    <><Send size={16} /> So'rov Yuborish</>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 export default function Home() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
@@ -363,7 +560,7 @@ export default function Home() {
             <a href="/#/guide" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Qo'llanma</a>
             <a href="#pricing" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Tariflar</a>
             <a href="#faq" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Savollar</a>
-            <a href="#roles" className="hover:text-indigo-600 transition-colors uppercase tracking-widest text-indigo-500 font-black">Kirish</a>
+            <a href="#contact" className="hover:text-indigo-600 transition-colors uppercase tracking-widest text-indigo-500 font-black">Murojaat</a>
           </div>
           <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 glass rounded-xl cursor-not-allowed">
@@ -397,7 +594,7 @@ export default function Home() {
               <a href="/#/guide" onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-bold uppercase tracking-widest hover:text-indigo-500">Qo'llanma</a>
               <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-bold uppercase tracking-widest hover:text-indigo-500">Tariflar</a>
               <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-bold uppercase tracking-widest hover:text-indigo-500">Savollar</a>
-              <a href="#roles" onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-black uppercase tracking-widest text-indigo-500">Kirish</a>
+              <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-black uppercase tracking-widest text-indigo-500">Murojaat</a>
               <div className="pt-4 border-t border-primary/10">
                 <button 
                   onClick={() => {
@@ -431,16 +628,16 @@ export default function Home() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
                 </span>
-                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Yangi avlod platformasi</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Zamonaviy ta'lim platformasi</span>
             </div>
 
             <h1 className="text-4xl md:text-7xl lg:text-8xl font-black tracking-tighter text-primary leading-[1.1] animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
               Bilimni <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 animate-shine">OsonTestOl</span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 animate-shine">O'lchab Ko'ring</span>
             </h1>
             
             <p className="max-w-lg text-lg md:text-xl text-secondary font-medium leading-relaxed animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
-              Professional test platformasi: <span className="text-primary font-bold">o'qituvchilar uchun</span> qulay boshqaruv, <span className="text-primary font-bold">o'quvchilar uchun</span> shaffof va tezkor natijalar.
+              Zamonaviy test platformasi — <span className="text-primary font-bold">o'qituvchiga</span> vaqt tejaydi, <span className="text-primary font-bold">o'quvchiga</span> aniq va tezkor natija beradi.
             </p>
 
             <div className="flex flex-wrap items-center gap-6 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
@@ -545,24 +742,24 @@ export default function Home() {
       <section className="py-24 px-6 relative overflow-hidden bg-primary/30">
         <div className="max-w-7xl mx-auto relative px-4 sm:px-6 lg:px-8">
           <FeatureHighlight
-            title="Masofaviy Bilim Baholash EkOTizimi"
-            desc="Ta'lim jarayonini chegaralardan ozod qiling. Dunyoning istalgan nuqtasidan, har qanday zamonaviy qurilma yordamida akademik nazoratni yuqori darajada amalga oshiring."
+            title="Istalgan Joydan, Istalgan Vaqtda"
+            desc="Test jarayonini joyga bog'lamasdan o'tkazing. Har qanday qurilma — telefon, planshet yoki kompyuter orqali uzilishlarsiz kirish va to'liq nazorat."
             features={[
-              "Universal Erkinlik - Brauzerga ega istalgan smartfon yoki kompyuterda uzilishlarsiz ishlash.",
-              "Sinxron Nazorat - Test topshirish jarayonini real vaqt rejimida monitor qilish va boshqarish imkoniyati.",
-              "Instant-Validatsiya - Yakuniy natijalarni o'quvchi tomonidan yakunlash tugmasi bosilgan soniyadayoq taqdim etish."
+              "Qurilmasiz Erkinlik - Brauzerga ega istalgan smartfon yoki kompyuterda uzilishlarsiz ishlash.",
+              "Real Vaqt Nazorati - Test jarayonini jonli rejimda kuzatish va boshqarish.",
+              "Tezkor Natija - O'quvchi testni yakunlagan zahoti ball va tahlil darhol taqdim etiladi."
             ]}
             image="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&q=80&w=2070"
             badge={<ShieldCheck size={32} className="text-indigo-500" />}
           />
 
           <FeatureHighlight
-            title="Intellektual Talabalar Boshqaruvi"
-            desc="Qog'ozbozlik va tartibsiz jadvallar davri o'tdi. O'z o'quv markazingiz yoki maktabingizni raqamli boshqaruv platformasi orqali tizimlashtiring va jarayonlarni avtomatlashtiring."
+            title="Barcha O'quvchilar Bir Tizimda"
+            desc="Chalkash jadvallar va qog'oz ro'yxatidan voz keching. Guruhlar, o'quvchilar va fanlarni bitta qulay raqamli muhitda boshqaring."
             features={[
-              "Yagona Raqamli Arxiv - Barcha talabalar kontaktlari va o'zlashtirish tarixi yaxlit xavfsiz tizimda.",
-              "Dinamik Segmentatsiya - Fanlar, o'qituvchilar va qabul vaqtlariga ko'ra oson guruhlash va saralash.",
-              "Shaxsiy Progress-Kartochka - Har bir foydalanuvchi uchun alohida dinamik statistik sahifa va monitoring."
+              "Yagona Ma'lumotlar Bazasi - Barcha o'quvchi ma'lumotlari va natijalar xavfsiz tizimda saqlanadi.",
+              "Oson Guruhlash - Fanlarga, o'qituvchilarga yoki sanalarga ko'ra tez saralash.",
+              "Shaxsiy Progress - Har bir o'quvchi uchun alohida statistika va rivojlanish grafigi."
             ]}
             image="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&q=80&w=2071"
             reversed
@@ -570,24 +767,24 @@ export default function Home() {
           />
 
           <FeatureHighlight
-            title="Vizual Ma'lumotlar va Strategik Analitika"
-            desc="Oddiy natijalarni chuqur tushunchalarga (insights) aylantiring. O'quvchining potensialini aniqlash uchun murakkab algoritmlar va ma'lumotlar tahlilidan foydalaning."
+            title="Chuqur Tahlil va Aniq Ko'rsatkichlar"
+            desc="Natijalarni shunchaki ko'rsatmasdan, ularni tushuntiring. Qaysi mavzuda zaiflik bor, qaysi o'quvchi o'sishda — barchasi vizual va tushunimli shaklda."
             features={[
-              "Mavzuli Diagnostika - Qaysi mavzu yoki paragrafda oqsoqlik borligini ko'rsatuvchi vizual 'Heatmap' tahlillari.",
-              "Akademik Progressiya - Vaqt o'tishi bilan bilim darajasining ko'tarilish yoki pasayish dinamikasini kuzatish.",
-              "Eksport-Tayyor Hisobotlar - Ota-onalar va rahbariyat uchun bir marta bosishda tayyor bo'ladigan professional PDF hujjatlar."
+              "Mavzular Bo'yicha Tahlil - Har bir mavzudagi xatolar alohida ko'rsatiladi va bartaraf etishga yordam beradi.",
+              "Dinamika Grafigi - Vaqt o'tishi bilan o'quvchi natijalarining o'zgarishini kuzating.",
+              "PDF Hisobotlar - Bir tugma bilan tayyor, professional hujjatni yuklab oling."
             ]}
             image="https://images.unsplash.com/photo-1551288049-bbdac8a28a1e?auto=format&fit=crop&q=80&w=2070"
             badge={<BarChart3 size={32} className="text-green-500" />}
           />
 
           <FeatureHighlight
-            title="Sun'iy Intellekt va Optik Tanib Olish (OCR)"
-            desc="Tekshirish jarayonidagi inson omili va xatolarini nolga tushiring. Kamerangiz yordamida javoblar varaqasini skanerlang va natijani 'Aqlli' tizimga bir zumda topshiring."
+            title="Word Fayldan Testga — Bir Zumda"
+            desc="Murakkab import vositalari kerak emas. Odatdagi Word hujjatingizni yuklang — tizim savollarni avtomatik tanib olади va test tayyorlаydi."
             features={[
-              "Milli-Sekundlar Tezligi - Bir necha o'nlab varaqalarni bir daqiqadan kamroq vaqt ichida tahlil qilish va baholash.",
-              "Nol Xatolik Korreksiyasi - Inson ko'zi ilg'amas belgilarni ham aniqlovchi neyron tarmoqlar algoritmi.",
-              "Avto-Sinxronizatsiya - Skanerlangan ma'lumotlarni to'g'ridan-to'g'ri umumiy reyting jadvali va profilga kiritish."
+              "Aqlli O'qish - Turli formatlardagi Word hujjatlarini to'g'ri tahlil qiladi.",
+              "Xato Kamroq - Inson aralashuvisiz, tezda va aniq natijalar.",
+              "Avto-Sinxronizatsiya - Yuklangan test darhol o'quvchilar uchun mavjud bo'ladi."
             ]}
             image="https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&q=80&w=2070"
             reversed
@@ -597,14 +794,15 @@ export default function Home() {
       </section>
 
       {/* Trust Section */}
-      <section className="py-20 border-y border-primary/10 bg-secondary/10">
+      <section className="py-16 border-y border-primary/10 bg-secondary/10">
         <div className="max-w-7xl mx-auto px-6 overflow-hidden relative">
-          <div className="flex items-center justify-center gap-16 opacity-40 grayscale hover:grayscale-0 transition-all duration-1000">
-            <span className="text-2xl font-black uppercase tracking-tighter whitespace-nowrap italic text-secondary">OsonTestOl</span>
-            <span className="text-2xl font-black uppercase tracking-tighter whitespace-nowrap italic text-secondary">Elite Education</span>
-            <span className="text-2xl font-black uppercase tracking-tighter whitespace-nowrap italic text-secondary">Pro Academy</span>
-            <span className="text-2xl font-black uppercase tracking-tighter whitespace-nowrap italic text-secondary">Digital School</span>
-            <span className="text-2xl font-black uppercase tracking-tighter whitespace-nowrap italic text-secondary">Global Learning</span>
+          <p className="text-center text-[10px] font-black uppercase tracking-widest text-muted mb-8 opacity-60">Minglab o'qituvchilar va o'quvchilar tomonidan ishonilgan</p>
+          <div className="flex items-center justify-center gap-12 flex-wrap opacity-50">
+            <div className="flex items-center gap-2"><ShieldCheck size={18} className="text-indigo-500" /><span className="text-sm font-black uppercase tracking-tight text-secondary">Xavfsiz</span></div>
+            <div className="flex items-center gap-2"><Zap size={18} className="text-indigo-500" /><span className="text-sm font-black uppercase tracking-tight text-secondary">Tezkor</span></div>
+            <div className="flex items-center gap-2"><BarChart3 size={18} className="text-indigo-500" /><span className="text-sm font-black uppercase tracking-tight text-secondary">Aniq Tahlil</span></div>
+            <div className="flex items-center gap-2"><Users size={18} className="text-indigo-500" /><span className="text-sm font-black uppercase tracking-tight text-secondary">Ko'p Foydalanuvchi</span></div>
+            <div className="flex items-center gap-2"><Globe size={18} className="text-indigo-500" /><span className="text-sm font-black uppercase tracking-tight text-secondary">Istalgan Qurilma</span></div>
           </div>
         </div>
       </section>
@@ -696,32 +894,32 @@ export default function Home() {
         <div className="max-w-7xl mx-auto">
           <div className="mb-20">
             <h2 className="text-4xl md:text-6xl font-black mb-6 text-primary tracking-tighter uppercase italic">
-              Nima uchun <br /> <span className="text-indigo-500">bizni tanlashadi?</span>
+              Nima uchun <br /> <span className="text-indigo-500">boshqacha?</span>
             </h2>
-            <p className="text-muted font-bold uppercase tracking-widest text-xs">Kelajak ta'limi texnologiyalari bilan</p>
+            <p className="text-muted font-bold uppercase tracking-widest text-xs">Oddiy, tez va samarali — ta'lim uchun yaratilgan</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <FeatureCard
               icon={Rocket}
-              title="Tezkor Import"
-              desc="Word (.docx) fayllaringizni bir necha soniya ichida to'liq test tizimiga aylantiring. Hech qanday murakkab formalar kerak emas."
+              title="Bir Daqiqada Tayyor"
+              desc="Word faylingizni yuklang — tizim savollarni o'zi tahlil qiladi va testni bir zumda yaratadi. Hech qanday qo'shimcha sozlama shart emas."
               className="md:col-span-2"
             />
             <FeatureCard
               icon={BarChart3}
-              title="Chuqur Tahlil"
-              desc="O'quvchilarning xatolari ustida ishlash uchun batafsil tahlillar."
+              title="Xato Qaerda?"
+              desc="Qaysi savol qiyin, qaysi mavzuda zaiflik bor — barchasi aniq ko'rsatiladi."
             />
             <FeatureCard
               icon={ShieldCheck}
-              title="Xavfsiz Tizim"
-              desc="Suhbatlar va testlar shifrlangan holatda saqlanadi. Anti-cheat tizimi orqali adolatli natijalarni ta'minlaymiz."
+              title="To'liq Xavfsizlik"
+              desc="Barcha natijalar shifrlangan. Anti-cheat tizimi orqali har bir test adolatli o'tkaziladi."
             />
             <FeatureCard
               icon={Zap}
-              title="AI Integration"
-              desc="Sun'iy intellekt orqali test savollarini avtomatik yaratish va tahlil qilish imkoniyati."
+              title="Aqlli Yordamchi"
+              desc="Murakkab matnlardan ham savollarni ajratib oladi. Kamroq ish, ko'proq natija."
               className="md:col-span-2"
             />
           </div>
@@ -733,12 +931,12 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-2 gap-20 items-center">
             <div>
-              <h2 className="text-4xl md:text-5xl font-black mb-8 text-primary leading-tight">Biz haqimizda <br /> nima deyishadi?</h2>
+              <h2 className="text-4xl md:text-5xl font-black mb-8 text-primary leading-tight">Foydalanganlar <br /> nima deydi?</h2>
               <div className="flex gap-1 mb-8">
                 {[1,2,3,4,5].map(i => <Star key={i} size={20} className="fill-indigo-500 text-indigo-500" />)}
               </div>
               <p className="text-xl text-secondary leading-relaxed italic">
-                "TestOnlinee bizning maktabimizda test o'tkazish madaniyatini butunlay o'zgartirdi. O'qituvchilar endi test tayyorlashga soatlab vaqt sarflashmaydi."
+                "Bu platforma bilan test tayyorlash jarayoni butunlay o'zgardi. O'qituvchilar endi soatlab vaqt sarflamaydi — Word faylni yuklab, testni bir zumda boshlaydi."
               </p>
               <div className="mt-8 flex items-center gap-4">
                 <div className="w-12 h-12 rounded-full bg-indigo-500/20 border border-indigo-500/20" />
@@ -751,12 +949,12 @@ export default function Home() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-4">
                 <div className="p-6 bg-secondary/50 border border-primary rounded-3xl h-48 flex items-center justify-center text-center">
-                  <p className="text-sm font-bold opacity-40 uppercase tracking-widest italic">Excellent Solution</p>
+                  <p className="text-sm font-bold opacity-40 uppercase tracking-widest italic">Ishonchli & Xavfsiz</p>
                 </div>
                   <div className="p-6 bg-indigo-600 text-white rounded-3xl h-64 flex flex-col justify-end">
                   <Award size={32} className="mb-4" />
-                  <p className="font-bold text-lg">Yilning eng yaxshi ta'lim startapi</p>
-                  <p className="text-xs opacity-70">EduAwards 2024</p>
+                  <p className="font-bold text-lg">O'qituvchilar uchun eng qulay yechim</p>
+                  <p className="text-xs opacity-70">Platforma afzalliklari</p>
                 </div>
               </div>
               <div className="space-y-4 pt-12">
@@ -764,11 +962,12 @@ export default function Home() {
                    <div className="flex gap-1">
                     {[1,2,3,4,5].map(i => <Star key={i} size={12} className="fill-indigo-500 text-indigo-500" />)}
                   </div>
-                  <p className="text-sm font-medium">"O'quvchilarim natijalarni darhol ko'rishayotganidan xursand."</p>
-                  <p className="text-xs font-black uppercase text-muted">A. Karimov</p>
+                  <p className="text-sm font-medium">"O'quvchilarim natijalarni darhol ko'rishayotganidan juda mamnun."
+                  </p>
+                  <p className="text-xs font-black uppercase text-muted">A. Karimov · O'qituvchi</p>
                 </div>
                 <div className="p-6 bg-secondary/50 border border-primary rounded-3xl h-48 flex items-center justify-center">
-                   <p className="text-sm font-bold opacity-40 uppercase tracking-widest italic">Premium Support</p>
+                   <p className="text-sm font-bold opacity-40 uppercase tracking-widest italic">24/7 Yordam</p>
                 </div>
               </div>
             </div>
@@ -785,7 +984,7 @@ export default function Home() {
             <h2 className="text-4xl md:text-6xl font-black mb-6 text-primary tracking-tighter uppercase italic">
               Platforma <span className="text-indigo-500">rejalari</span>
             </h2>
-            <p className="text-muted font-bold uppercase tracking-widest text-xs">Ehtiyojingizga qarab o'zingizga mos rejaning tanlang</p>
+            <p className="text-muted font-bold uppercase tracking-widest text-xs">Ehtiyojingizga mos rejani tanlang</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <PricingCard
@@ -816,35 +1015,37 @@ export default function Home() {
 
       <section id="faq" className="py-20 md:py-32 px-6 max-w-4xl mx-auto">
         <div className="text-center mb-20">
-          <h2 className="text-4xl font-black mb-6 text-primary tracking-tighter uppercase italic">Tez-tez beriladigan <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-blue-600 underline decoration-indigo-500/30 decoration-8 underline-offset-8">savollar</span></h2>
-          <p className="text-secondary font-bold uppercase tracking-widest text-[10px]">Bilimingiz uchun kerakli javoblar</p>
+          <h2 className="text-4xl font-black mb-6 text-primary tracking-tighter uppercase italic">Ko'p so'raladigan <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-blue-600 underline decoration-indigo-500/30 decoration-8 underline-offset-8">savollar</span></h2>
+          <p className="text-secondary font-bold uppercase tracking-widest text-[10px]">Savol bormi? Biz javob tayyorladik</p>
         </div>
         <FAQItem
           index={1}
-          q="Platformada test yaratish uchun nimalar kerak?"
-          a="OsonTestOl platformasida test yaratish uchun sizga faqatgina tayyor savollar to'plami (Word yoki matn ko'rinishida) kerak bo'ladi. Tizimimiz Word (.docx) fayllarini avtomatik tahlil qilib, soniyalar ichida testga aylantiradi."
+          q="Test yaratish uchun nimalar kerak?"
+          a="Faqat tayyor savollar to'plami (Word yoki matn ko'rinishida) kerak. Tizim Word (.docx) fayllarini avtomatik tahlil qilib, soniyalar ichida testga aylantiradi."
         />
         <FAQItem
           index={2}
-          q="O'quvchilar platformadan foydalanishi uchun pul to'lashlari kerakmi?"
-          a="Yo'q, o'quvchilar uchun platformadan foydalanish va test topshirish mutlaqo bepul. Ularga faqat o'qituvchi tomonidan taqdim etilgan test kodi yoki havola kerak bo'ladi."
+          q="O'quvchilar uchun platforma bepulmi?"
+          a="Ha, o'quvchilar uchun platforma mutlaqo bepul. Ularga faqat o'qituvchi bergan test kodi yoki havola kerak bo'ladi."
         />
         <FAQItem
           index={3}
-          q="Sun'iy intellekt (AI) tizimi qanday yordam beradi?"
-          a="AI tizimi siz yuklagan murakkab matnlardan savollarni ajratib olish, savollarning qiyinlik darajasini aniqlash va xatolar ustida avtomatik tahlil yuritishda yordam beradi."
+          q="Aqlli tizim qanday yordam beradi?"
+          a="Tizim siz yuklagan murakkab matnlardan savollarni ajratib oladi, savollarning qiyinlik darajasini aniqlaydi va xatolar ustida avtomatik tahlil beradi."
         />
         <FAQItem
           index={4}
-          q="Natijalar xavfsizligi va shaffofligi qanday ta'minlanadi?"
-          a="Har bir test topshirish jarayoni anti-cheat tizimi orqali nazorat qilinadi. Natijalar shifrlangan bazada saqlanadi va ularni faqat test yaratuvchisi (o'qituvchi yoki admin) ko'ra oladi."
+          q="Natijalar xavfsiz va shaffofmi?"
+          a="Ha. Har bir test topshirish jarayoni anti-cheat tizimi orqali nazorat qilinadi. Natijalar shifrlangan bazada saqlanadi va faqat test yaratuvchisi ko'ra oladi."
         />
         <FAQItem
           index={5}
-          q="Platformani mobil qurilmalarda ishlatsa bo'ladimi?"
-          a="Albatta! OsonTestOl platformasi to'liq moslashuvchan (responsive) qilib yaratilgan. U kompyuter, planshet va smartfonlarda birdek mukammal ishlaydi."
+          q="Telefondan ham foydalansa bo'ladimi?"
+          a="Albatta! Platforma to'liq moslashuvchan (responsive) qilib yaratilgan. Kompyuter, planshet va smartfonlarda birdek mukammal ishlaydi."
         />
       </section>
+
+      <ContactSection />
 
       {/* Roles Section */}
       <section id="roles" className="py-20 md:py-32 px-6 scroll-mt-24 relative overflow-hidden">
@@ -892,7 +1093,7 @@ export default function Home() {
               <ul className="space-y-6 text-sm font-medium text-gray-400">
                 <li className="flex items-start gap-3">
                   <Send size={18} className="text-indigo-500 mt-1" />
-                  <span>dostonbek@soliyev.uz</span>
+                  <span>dostonbeksolijonov.uz@gmail.com</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <Zap size={18} className="text-indigo-500 mt-1" />
@@ -900,9 +1101,7 @@ export default function Home() {
                 </li>
                 <li className="flex items-start gap-3">
                   <Globe size={18} className="text-indigo-500 mt-1" />
-                  <span className="leading-relaxed text-xs">
-                    O'zbekiston, Farg'ona viloyati
-                  </span>
+                  <span className="leading-relaxed text-xs">@Dostonbek_Solijonov</span>
                 </li>
               </ul>
             </div>
