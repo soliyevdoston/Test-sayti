@@ -12,6 +12,8 @@ import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { io } from "socket.io-client"; // ✅
 import DashboardLayout from "../components/DashboardLayout";
+import RichTextMath from "../components/RichTextMath";
+import { exportResultsByFormat } from "../utils/academicTools";
 import { 
   getTeacherTests, 
   getResultsApi, 
@@ -20,6 +22,7 @@ import {
   handleRetakeRequest, // ✅
   BASE_URL
 } from "../api/api";
+import { isTeacherProActive } from "../utils/teacherAccessTools";
 
 const socket = io(BASE_URL, { transports: ["polling", "websocket"] }); // ✅
 
@@ -33,17 +36,22 @@ export default function TeacherResults() {
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [teacherName, setTeacherName] = useState("");
   const [retakeRequests, setRetakeRequests] = useState([]);
-  const [loadingRequests, setLoadingRequests] = useState(false);
 
   useEffect(() => {
     const name = localStorage.getItem("teacherName");
     const id = localStorage.getItem("teacherId");
-    if (!name || !id) navigate("/teacher/login");
-    else {
-      setTeacherName(name);
-      loadTests(id);
-      fetchRetakeRequests(id);
+    if (!name || !id) {
+      navigate("/teacher/login");
+      return undefined;
     }
+    if (!isTeacherProActive(id)) {
+      toast.info("Natijalar bo'limi faqat Pro tarifda ishlaydi.");
+      navigate("/teacher/subscription");
+      return undefined;
+    }
+    setTeacherName(name);
+    loadTests(id);
+    fetchRetakeRequests(id);
 
     // 🔥 REAL-TIME RETAKE REQUESTS
     socket.on("new-retake-request", ({ teacherId, request }) => {
@@ -98,13 +106,10 @@ export default function TeacherResults() {
 
   const fetchRetakeRequests = async (tid) => {
     try {
-      setLoadingRequests(true);
       const { data } = await getRetakeRequests(tid);
       setRetakeRequests(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingRequests(false);
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -113,8 +118,32 @@ export default function TeacherResults() {
       await handleRetakeRequest({ requestId, status });
       toast.success(status === "approved" ? "Ruxsat berildi" : "Rad etildi");
       fetchRetakeRequests(localStorage.getItem("teacherId"));
-    } catch (err) {
+    } catch {
       toast.error("Amalni bajarishda xatolik");
+    }
+  };
+
+  const analyzedTest = tests.find((test) => String(test._id) === String(analyzedTestId));
+
+  const handleExportResults = (format) => {
+    if (!resultsData.length || !analyzedTest) {
+      toast.warning("Avval test natijalarini oching");
+      return;
+    }
+    try {
+      exportResultsByFormat({
+        test: analyzedTest,
+        rows: resultsData,
+        format,
+        title: `${analyzedTest.title} natijalari`,
+      });
+      toast.success(
+        format === "pdf"
+          ? "Print oynasi ochildi. PDF saqlashni tanlang."
+          : `Natijalar ${format.toUpperCase()} formatida yuklandi`
+      );
+    } catch (err) {
+      toast.error(err.message || "Eksportda xatolik");
     }
   };
 
@@ -130,9 +159,29 @@ export default function TeacherResults() {
               O'quvchilar natijalarini kuzatish va akademik tahlil
             </p>
           </div>
-          <button className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-white/5 border border-white/10 shadow-inner text-[10px] font-black text-primary uppercase tracking-[0.2em] hover:bg-primary transition-all shadow-sm">
-            <FaFileExport /> Umumiy Hisobot (Excel)
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleExportResults("excel")}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black text-primary uppercase tracking-[0.18em] hover:bg-primary transition-all"
+            >
+              <FaFileExport /> Excel
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExportResults("word")}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black text-primary uppercase tracking-[0.18em] hover:bg-primary transition-all"
+            >
+              <FaFileExport /> Word
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExportResults("pdf")}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black text-primary uppercase tracking-[0.18em] hover:bg-primary transition-all"
+            >
+              <FaFileExport /> PDF
+            </button>
+          </div>
         </div>
       </section>
 
@@ -330,18 +379,23 @@ export default function TeacherResults() {
                         <div className="flex justify-between items-start mb-6">
                           <div className="flex gap-4">
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-white ${q.isCorrect ? 'bg-green-500' : 'bg-red-500'}`}>{idx + 1}</div>
-                            <h5 className="font-black text-xl text-white leading-tight">{q.questionText}</h5>
+                            <RichTextMath text={q.questionText} as="h5" className="font-black text-xl text-white leading-tight" preserveLines={false} />
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-6 pl-14">
                           <div className="p-5 rounded-2xl bg-white/5 border border-white/10 shadow-inner">
                             <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mb-2">O'quvchi javobi</p>
-                            <p className={`text-sm font-bold ${q.isCorrect ? 'text-green-500' : 'text-red-500'}`}>{q.selectedOption}</p>
+                            <RichTextMath
+                              text={q.selectedOption}
+                              as="p"
+                              className={`text-sm font-bold ${q.isCorrect ? "text-green-500" : "text-red-500"}`}
+                              preserveLines={false}
+                            />
                           </div>
                           {!q.isCorrect && (
                             <div className="p-5 rounded-2xl bg-green-500/5 border border-green-500/10">
                               <p className="text-green-600 text-[10px] font-black uppercase tracking-widest mb-2">To'g'ri javob</p>
-                              <p className="text-sm font-black text-green-600">{q.correctOption}</p>
+                              <RichTextMath text={q.correctOption} as="p" className="text-sm font-black text-green-600" preserveLines={false} />
                             </div>
                           )}
                         </div>

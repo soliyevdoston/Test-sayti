@@ -1,111 +1,203 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import { Clock, FileText, RefreshCcw, Search } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
-import { Search, CreditCard, ChevronRight, Filter } from "lucide-react";
+import { getAvailableTests } from "../api/api";
+import { getAssignedTestsByStudent } from "../utils/studentTestAssignments";
+import {
+  getActiveStudentCatalogTests,
+  getStudentCatalogDirections,
+} from "../utils/studentCatalogTools";
 
 export default function AvailableTests() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [tests, setTests] = useState([]);
+  const [assignedTestIds, setAssignedTestIds] = useState([]);
+  const [selectedDirection, setSelectedDirection] = useState("all");
+  const [availableDirections, setAvailableDirections] = useState([]);
 
-  const tests = [
-    { id: 1, title: "Ingliz tili + ona tili va adabiyoti+bepul", price: 0, paid: false },
-    { id: 2, title: "Ingliz tili + Matematika+bepul", price: 0, paid: false },
-    { id: 3, title: "Kimyo + biologiya+bepul", price: 0, paid: false },
-    { id: 4, title: "Matematika+Fizika+bepul", price: 0, paid: false },
-    { id: 5, title: "Matematika+Fizika", price: 5000, paid: false },
-    { id: 6, title: "Matematika+Ingliz tili", price: 5000, paid: false },
-  ];
+  const loadTests = async () => {
+    const teacherId = localStorage.getItem("teacherId");
+    const groupId = localStorage.getItem("groupId");
+    const studentId = localStorage.getItem("studentId");
+    const accessMode = localStorage.getItem("studentAccessMode");
+
+    try {
+      setLoading(true);
+      if (accessMode === "personal") {
+        const catalogTests = getActiveStudentCatalogTests().map((entry) => ({
+          _id: `catalog_${entry.catalogId}`,
+          title: entry.title,
+          description: entry.description,
+          duration: entry.duration,
+          isStarted: entry.isStarted,
+          direction: entry.direction,
+        }));
+        const directions = getStudentCatalogDirections(catalogTests);
+        setAssignedTestIds([]);
+        setAvailableDirections(directions);
+        setSelectedDirection((prev) =>
+          prev === "all" || directions.includes(prev) ? prev : "all"
+        );
+        setTests(catalogTests);
+        return;
+      }
+
+      if (!teacherId) {
+        setTests([]);
+        return;
+      }
+
+      const { data } = await getAvailableTests(teacherId, groupId);
+      const fetched = Array.isArray(data) ? data : [];
+      const assigned = studentId ? getAssignedTestsByStudent(studentId) : [];
+      const assignedSet = new Set(assigned);
+      const filteredBase =
+        accessMode === "personal" && assigned.length
+          ? fetched.filter((test) => assignedSet.has(test._id))
+          : fetched;
+      const sorted = [...filteredBase].sort(
+        (a, b) => Number(assignedSet.has(b._id)) - Number(assignedSet.has(a._id))
+      );
+      setAssignedTestIds(assigned);
+      setAvailableDirections([]);
+      setSelectedDirection("all");
+      setTests(sorted);
+    } catch {
+      toast.error("Testlar ro'yxatini yuklashda xatolik");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTests();
+  }, []);
+
+  const filteredTests = useMemo(() => {
+    const keyword = searchTerm.toLowerCase();
+    const accessMode = localStorage.getItem("studentAccessMode");
+    const directionFiltered =
+      accessMode === "personal" && selectedDirection !== "all"
+        ? tests.filter(
+            (test) =>
+              String(test.direction || "").toLowerCase() === String(selectedDirection || "").toLowerCase()
+          )
+        : tests;
+    return directionFiltered.filter((test) => (test.title || "").toLowerCase().includes(keyword));
+  }, [searchTerm, tests, selectedDirection]);
+
+  const assignedSet = useMemo(() => new Set(assignedTestIds), [assignedTestIds]);
+  const accessMode = localStorage.getItem("studentAccessMode");
 
   return (
     <DashboardLayout role="student">
-      <div className="max-w-7xl mx-auto">
-        {/* Breadcrumbs */}
-        <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-muted mb-8">
-          <span className="text-primary">Asosiy</span>
-          <ChevronRight size={14} />
-          <span className="text-purple-500">Testlar</span>
-        </div>
-
-        {/* Search & Filter Bar */}
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <div className="relative flex-grow">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
-            <input
-              type="text"
-              placeholder="Testlar bo'yicha qidirish..."
-              className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white border border-primary outline-none focus:border-purple-500 transition-all text-sm font-bold"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black text-primary uppercase italic">
+              Testlar <span className="text-indigo-600">Bo'limi</span>
+            </h1>
+            <p className="text-xs text-muted mt-1">
+              {accessMode === "personal"
+                ? "Shaxsiy kabinet uchun yo'nalishli testlar."
+                : "Admin biriktirgan testlar birinchi chiqadi."}
+            </p>
           </div>
-          <button className="flex items-center gap-2 px-6 py-4 bg-white border border-primary rounded-2xl text-primary font-bold text-sm hover:bg-secondary transition-all">
-            <Filter size={18} />
-            Saralash
+          <button type="button" className="btn-secondary" onClick={loadTests}>
+            <RefreshCcw size={14} /> Yangilash
           </button>
         </div>
 
-        {/* Tests Table Container */}
-        <div className="bg-white rounded-[2rem] border border-primary shadow-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-primary/50 text-[10px] font-black uppercase tracking-[0.2em] text-muted bg-secondary/30">
-                  <th className="px-8 py-5 w-16">
-                    <input type="checkbox" className="w-4 h-4 rounded border-primary" />
-                  </th>
-                  <th className="px-6 py-5">Sarlavha</th>
-                  <th className="px-6 py-5">Narxi</th>
-                  <th className="px-6 py-5 text-center">To'lov</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary/10">
-                {tests.map((test) => (
-                  <tr key={test.id} className="hover:bg-purple-500/[0.02] transition-colors group">
-                    <td className="px-8 py-5">
-                      <input type="checkbox" className="w-4 h-4 rounded border-primary" />
-                    </td>
-                    <td className="px-6 py-5">
-                      <p className="text-sm font-bold text-primary group-hover:text-purple-600 transition-colors uppercase tracking-tight">
-                        {test.title}
-                      </p>
-                    </td>
-                    <td className="px-6 py-5 whitespace-nowrap">
-                      <span className="text-sm font-black text-primary">
-                        {test.price.toLocaleString()}
-                      </span>
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="flex justify-center">
-                        <button className="p-2.5 rounded-xl bg-[#00D094]/10 text-[#00D094] hover:bg-[#00D094] hover:text-white transition-all shadow-sm">
-                          <CreditCard size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
+          <input
+            type="text"
+            placeholder="Testlarni qidirish..."
+            className="input-clean pl-11"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
 
-        {/* Pagination/Bottom Info */}
-        <div className="mt-12 flex flex-col md:flex-row justify-between items-center gap-6 p-8 bg-white border border-primary rounded-[2.5rem]">
-           <div className="text-[10px] font-black uppercase tracking-[0.2em] text-center md:text-left text-gray-500 max-w-2xl leading-relaxed">
-             Mualliflik huquqi © 2025 O'zR FA V.I. Romanovskiy nomidagi Matematika instituti va Testchi jamoasi tomonidan ishlab chiqilgan. Barcha huquqlar himoyalangan.
-           </div>
-           <div className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 whitespace-nowrap">
-             Tarqatgan: <span className="text-purple-500">Testchi</span>
-           </div>
-        </div>
-      </div>
-      
-      {/* Target Logo Float (matching Image 1) */}
-      <div className="fixed bottom-8 right-8 w-16 h-16 bg-white border border-primary rounded-full shadow-2xl flex items-center justify-center p-2 group hover:scale-110 transition-transform cursor-pointer">
-        <div className="w-full h-full bg-blue-600 rounded-full flex items-center justify-center text-white">
-          <div className="w-8 h-8 relative">
-             <div className="absolute inset-0 border-4 border-white rounded-full"></div>
-             <div className="absolute inset-2 bg-white rounded-full"></div>
-             <div className="absolute inset-1 border-2 border-blue-600 rounded-full"></div>
+        {accessMode === "personal" && (
+          <div className="premium-card">
+            <label className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+              Yo'nalishni tanlang
+            </label>
+            <select
+              value={selectedDirection}
+              onChange={(e) => setSelectedDirection(e.target.value)}
+              className="input-clean mt-2 md:w-72"
+            >
+              <option value="all">Barcha yo'nalishlar</option>
+              {availableDirections.map((direction) => (
+                <option key={direction} value={direction}>
+                  {direction}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
+        )}
+
+        {loading ? (
+          <div className="premium-card py-20 text-center text-muted">Yuklanmoqda...</div>
+        ) : filteredTests.length ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            {filteredTests.map((test) => (
+              <div key={test._id} className="premium-card">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="w-11 h-11 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+                    <FileText size={20} />
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <span
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                        test.isStarted
+                          ? "bg-green-500/10 text-green-600 border-green-500/20"
+                          : "bg-red-500/10 text-red-600 border-red-500/20"
+                      }`}
+                    >
+                      {test.isStarted ? "Faol" : "Kutilmoqda"}
+                    </span>
+                    {assignedSet.has(test._id) && (
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border bg-blue-500/10 text-blue-600 border-blue-500/20">
+                        Admin biriktirgan
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <h3 className="text-lg font-black text-primary line-clamp-1">{test.title || "Nomsiz test"}</h3>
+                {accessMode === "personal" && (
+                  <p className="text-[11px] text-blue-600 font-semibold mt-1 uppercase">
+                    Yo'nalish: {test.direction || "Umumiy"}
+                  </p>
+                )}
+                <p className="text-sm text-secondary mt-2 line-clamp-2 min-h-[40px]">
+                  {test.description || "Tavsif mavjud emas"}
+                </p>
+
+                <div className="mt-5 pt-4 border-t border-primary/20 flex items-center justify-between">
+                  <span className="inline-flex items-center gap-1.5 text-xs text-muted font-semibold">
+                    <Clock size={14} className="text-indigo-500" />
+                    {test.duration || "-"} daqiqa
+                  </span>
+                  <button type="button" className="btn-secondary" onClick={() => navigate("/student/dashboard")}>
+                    Kabinetda ochish
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="premium-card py-20 text-center text-muted">
+            Hozircha ko'rinadigan test topilmadi
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

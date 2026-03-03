@@ -18,16 +18,64 @@ import {
   Search,
   X
 } from "lucide-react";
-import logo from "../assets/logo.svg";
 import { submitTestApi, BASE_URL, getAvailableTests, loginUser, getMyResults, requestRetake } from "../api/api";
 import DashboardLayout from "../components/DashboardLayout";
 import ChatBox from "../components/ChatBox";
 import ConfirmationModal from "../components/ConfirmationModal";
+import RichTextMath from "../components/RichTextMath";
+import { getAssignedTestsByStudent } from "../utils/studentTestAssignments";
+import {
+  getAllPaymentRequests,
+  hasActiveStudentSubscription,
+  PAYMENT_CONFIG,
+  submitPaymentRequest,
+} from "../utils/billingTools";
+import {
+  getActiveStudentCatalogTests,
+  getStudentCatalogDirections,
+} from "../utils/studentCatalogTools";
+import { getAssignedCatalogIds } from "../utils/personalAssignmentsTools";
+import { clearUserSession } from "../utils/authSession";
+import { getTeacherSolveLimitSnapshot } from "../utils/teacherSolveUsageTools";
 
 const socket = io(BASE_URL, {
   transports: ["polling", "websocket"],
 });
+
+const pickMixedDirectionTests = (tests = [], limit = 10) => {
+  const pool = Array.isArray(tests) ? tests : [];
+  if (!pool.length || limit <= 0) return [];
+
+  const byDirection = new Map();
+  pool.forEach((item) => {
+    const key = String(item.direction || "Umumiy").trim().toLowerCase();
+    if (!byDirection.has(key)) byDirection.set(key, []);
+    byDirection.get(key).push(item);
+  });
+
+  const selected = [];
+  // Har bir yo'nalishdan kamida bittadan olishga harakat qilamiz.
+  byDirection.forEach((items) => {
+    if (items.length) selected.push(items[0]);
+  });
+
+  if (selected.length >= limit) {
+    return selected.slice(0, limit);
+  }
+
+  const pickedIds = new Set(selected.map((item) => String(item._id)));
+  for (const item of pool) {
+    if (selected.length >= limit) break;
+    const id = String(item._id);
+    if (pickedIds.has(id)) continue;
+    pickedIds.add(id);
+    selected.push(item);
+  }
+
+  return selected;
+};
 export default function StudentDashboard() {
+  const PERSONAL_FREE_TEST_LIMIT = 10;
   const location = useLocation();
   const navigate = useNavigate();
   const [studentData, setStudentData] = useState(null);
@@ -39,10 +87,17 @@ export default function StudentDashboard() {
   const [result, setResult] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
+  const [assignedTestIds, setAssignedTestIds] = useState([]);
+  const [studentPaymentReceipt, setStudentPaymentReceipt] = useState("");
+  const [studentPaymentImage, setStudentPaymentImage] = useState(null);
+  const [studentPaymentLoading, setStudentPaymentLoading] = useState(false);
+  const [studentPaymentId, setStudentPaymentId] = useState("");
   const [selectedResult, setSelectedResult] = useState(null);
   const [isGuest, setIsGuest] = useState(true); // ✅ Track if guest or authenticated
+  const [selectedDirection, setSelectedDirection] = useState("all");
+  const [availableDirections, setAvailableDirections] = useState([]);
+  const [teacherSolveLimits, setTeacherSolveLimits] = useState({});
   const questionRefs = useRef({});
 
   const [modalConfig, setModalConfig] = useState({
@@ -55,6 +110,32 @@ export default function StudentDashboard() {
 
   const showConfirm = (message, onConfirm, type = "info", title = "Tasdiqlash") => {
     setModalConfig({ isOpen: true, title, message, onConfirm, type });
+  };
+
+  const primeTeacherSolveLimits = async (teacherIds = []) => {
+    const uniqueIds = Array.from(
+      new Set(
+        (Array.isArray(teacherIds) ? teacherIds : [])
+          .map((id) => String(id || "").trim())
+          .filter(Boolean)
+      )
+    );
+    if (!uniqueIds.length) return;
+
+    try {
+      const snapshots = await Promise.all(
+        uniqueIds.map(async (id) => {
+          const snapshot = await getTeacherSolveLimitSnapshot(id);
+          return [id, snapshot];
+        })
+      );
+      setTeacherSolveLimits((prev) => ({
+        ...prev,
+        ...Object.fromEntries(snapshots),
+      }));
+    } catch {
+      // Ignore background sync errors; join flow has direct re-check.
+    }
   };
 
   // ================= INIT =================
@@ -176,6 +257,8 @@ export default function StudentDashboard() {
       });
     }, 1000);
     return () => clearInterval(timer);
+    // Timer callback intentionally references current submit handler.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, timeLeft]);
 
   const handleSelect = (questionId, optionText) => {
@@ -233,13 +316,42 @@ export default function StudentDashboard() {
   };
 
   const handleJoinTest = async (test) => {
+    const currentStudentId = localStorage.getItem("studentId");
+    const accessMode = localStorage.getItem("studentAccessMode");
+    const personalLimitReached =
+      accessMode === "personal" &&
+      history.length >= PERSONAL_FREE_TEST_LIMIT &&
+      !hasActiveStudentSubscription(currentStudentId);
+    if (personalLimitReached) {
+      toast.warning(`${PERSONAL_FREE_TEST_LIMIT} ta bepul test tugagan. Davom etish uchun obuna kerak.`);
+      return;
+    }
+
     if (!test.isStarted) {
       return toast.warning("Ushbu test hali boshlanmagan!");
     }
+
+    const teacherIdForLimit = String(test.teacherId || localStorage.getItem("teacherId") || "").trim();
+    if (teacherIdForLimit) {
+      let teacherLimit = teacherSolveLimits[teacherIdForLimit];
+      if (!teacherLimit) {
+        teacherLimit = await getTeacherSolveLimitSnapshot(teacherIdForLimit);
+        setTeacherSolveLimits((prev) => ({
+          ...prev,
+          [teacherIdForLimit]: teacherLimit,
+        }));
+      }
+      if (teacherLimit?.hasSolveLimit && teacherLimit?.limitReached) {
+        toast.warning(
+          `Bu o'qituvchining bepul yechish limiti tugagan (${teacherLimit.maxSolved} ta).`
+        );
+        return;
+      }
+    }
+
     const studentName = studentData?.name || localStorage.getItem("fullName");
     const studentId = localStorage.getItem("studentId");
     try {
-      setLoading(true);
       const data = await loginUser("student", test.testLogin, "none", studentName, studentId);
       setStudentData({
         name: studentName,
@@ -267,13 +379,11 @@ export default function StudentDashboard() {
       if (err.response?.status === 403 && alreadyTaken) {
          showConfirm(
            "Qayta yechish uchun ustozga so'rov yuborasizmi?",
-           () => handleRequestRetake(testId || test._id, teacherId || test.teacherId),
+           () => handleRequestRetake(testId || test.sourceTestId || test._id, teacherId || test.teacherId),
            "info",
            "Qayta yechish"
          );
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -288,23 +398,130 @@ export default function StudentDashboard() {
 
   const handleRequestRetake = async (testId, teacherId) => {
     try {
-      setLoading(true);
       const studentId = localStorage.getItem("studentId");
       await requestRetake({ studentId, testId, teacherId });
       toast.success("So'rov muvaffaqiyatli yuborildi!");
     } catch (err) {
       toast.error(err.response?.data?.msg || "So'rov yuborishda xatolik");
-    } finally {
-      setLoading(false);
     }
   };
 
   const loadAvailableTests = async (tid, gid) => {
     try {
+      const accessMode = localStorage.getItem("studentAccessMode");
+      const studentId = localStorage.getItem("studentId");
+
+      if (accessMode === "personal") {
+        const catalogTests = getActiveStudentCatalogTests().map((entry) => ({
+          _id: `catalog_${entry.catalogId}`,
+          sourceTestId: entry.testId,
+          catalogId: entry.catalogId,
+          teacherId: entry.teacherId,
+          title: entry.title,
+          description: entry.description,
+          duration: entry.duration,
+          testLogin: entry.testLogin,
+          isStarted: entry.isStarted,
+          direction: entry.direction,
+        }));
+        const assignedCatalogIds = getAssignedCatalogIds(studentId);
+        const assignedCatalogUiIds = assignedCatalogIds.map((id) => `catalog_${id}`);
+        const hasSubscription = hasActiveStudentSubscription(studentId);
+
+        let visibleCatalog = [...catalogTests];
+        if (hasSubscription && assignedCatalogIds.length) {
+          const assignedSet = new Set(assignedCatalogIds.map((id) => String(id).toLowerCase()));
+          visibleCatalog = visibleCatalog.filter((item) =>
+            assignedSet.has(String(item.catalogId || "").toLowerCase())
+          );
+        } else if (!hasSubscription) {
+          visibleCatalog = pickMixedDirectionTests(visibleCatalog, PERSONAL_FREE_TEST_LIMIT);
+        }
+
+        const directions = getStudentCatalogDirections(visibleCatalog);
+        setAssignedTestIds(assignedCatalogUiIds);
+        setAvailableDirections(directions);
+        setSelectedDirection((prev) => {
+          if (prev === "all") return "all";
+          return directions.includes(prev) ? prev : "all";
+        });
+        setAvailableTests(visibleCatalog);
+        primeTeacherSolveLimits(visibleCatalog.map((item) => item.teacherId));
+        return;
+      }
+
       const { data } = await getAvailableTests(tid, gid);
-      setAvailableTests(data);
+      const tests = Array.isArray(data) ? data : [];
+
+      if (!studentId) {
+        setAssignedTestIds([]);
+        setAvailableDirections([]);
+        setSelectedDirection("all");
+        setAvailableTests(tests);
+        return;
+      }
+
+      const assignedIds = getAssignedTestsByStudent(studentId);
+      const assignedSet = new Set(assignedIds);
+      const baseTests =
+        accessMode === "personal" && assignedIds.length
+          ? tests.filter((test) => assignedSet.has(test._id))
+          : tests;
+
+      const sortedTests = [...baseTests].sort(
+        (a, b) => Number(assignedSet.has(b._id)) - Number(assignedSet.has(a._id))
+      );
+
+      setAssignedTestIds(assignedIds);
+      setAvailableDirections([]);
+      setSelectedDirection("all");
+      setAvailableTests(sortedTests);
+      if (tid) {
+        primeTeacherSolveLimits([tid]);
+      }
     } catch {
       toast.error("Testlarni yuklashda xatolik");
+    }
+  };
+
+  const handleStudentSubscriptionPayment = async () => {
+    const studentId = localStorage.getItem("studentId");
+    const studentName = localStorage.getItem("fullName") || studentData?.name || "O'quvchi";
+    if (!studentId) return toast.warning("Student ID topilmadi");
+    if (!studentPaymentImage) return toast.warning("Chek rasmini yuklang");
+
+    const pending = getAllPaymentRequests().find(
+      (request) =>
+        request.userType === "student" &&
+        String(request.userId) === String(studentId) &&
+        request.status === "pending"
+    );
+    if (pending) {
+      toast.info(`Pending so'rov allaqachon bor: ${pending.requestId}`);
+      return;
+    }
+
+    try {
+      setStudentPaymentLoading(true);
+      const requestId = await submitPaymentRequest({
+        userType: "student",
+        userId: studentId,
+        planId: "student_monthly",
+        amount: PAYMENT_CONFIG.studentMonthlyAmount,
+        fullName: studentName,
+        email: localStorage.getItem("studentEmail") || "",
+        receipt: studentPaymentReceipt.trim(),
+        receiptFile: studentPaymentImage,
+      });
+
+      setStudentPaymentId(requestId);
+      setStudentPaymentReceipt("");
+      setStudentPaymentImage(null);
+      toast.success(`Obuna so'rovi yuborildi. ID: ${requestId}`);
+    } catch (err) {
+      toast.error(err.message || "So'rov yuborilmadi");
+    } finally {
+      setStudentPaymentLoading(false);
     }
   };
 
@@ -337,12 +554,7 @@ export default function StudentDashboard() {
       return;
     }
 
-    localStorage.removeItem("studentId");
-    localStorage.removeItem("fullName");
-    localStorage.removeItem("teacherId");
-    localStorage.removeItem("role");
-    if (studentData?.testId)
-      localStorage.removeItem(`answers_${studentData.testId}`);
+    clearUserSession();
     navigate("/", { replace: true });
   };
 
@@ -387,6 +599,37 @@ export default function StudentDashboard() {
   // ================= SELECTION (CABINET) =================
   if (status === "selection") {
     const stats = getStats();
+    const normalizedSearch = searchTerm.toLowerCase();
+    const assignedSet = new Set(assignedTestIds);
+    const accessMode = localStorage.getItem("studentAccessMode");
+    const isPersonalMode = accessMode === "personal";
+    const studentId = localStorage.getItem("studentId");
+    const personalSubscriptionActive = hasActiveStudentSubscription(studentId);
+    const pendingStudentPayment = getAllPaymentRequests().find(
+      (request) =>
+        request.userType === "student" &&
+        String(request.userId) === String(studentId) &&
+        request.status === "pending"
+    );
+    const personalFreeLimitReached =
+      isPersonalMode &&
+      history.length >= PERSONAL_FREE_TEST_LIMIT &&
+      !personalSubscriptionActive;
+    const directionFilteredTests =
+      isPersonalMode && selectedDirection !== "all"
+        ? availableTests.filter(
+            (test) =>
+              String(test.direction || "").toLowerCase() === String(selectedDirection || "").toLowerCase()
+          )
+        : availableTests;
+    const filteredTests = directionFilteredTests.filter((test) =>
+      (test.title || "").toLowerCase().includes(normalizedSearch)
+    );
+    const isTeacherLimitReachedForTest = (test) => {
+      const teacherId = String(test.teacherId || localStorage.getItem("teacherId") || "").trim();
+      if (!teacherId) return false;
+      return Boolean(teacherSolveLimits[teacherId]?.limitReached);
+    };
     return (
       <DashboardLayout role="student" userName={studentData?.name}>
         <ConfirmationModal 
@@ -449,6 +692,87 @@ export default function StudentDashboard() {
 
           {/* 2. AVAILABLE TESTS SECTION */}
           <section className="animate-in fade-in slide-in-from-bottom-8 duration-1000">
+            {personalFreeLimitReached && (
+              <div className="mb-8 premium-card border border-amber-500/30 bg-amber-500/5">
+                <h4 className="text-lg font-black text-primary">
+                  Shaxsiy kabinetda bepul {PERSONAL_FREE_TEST_LIMIT} test tugadi
+                </h4>
+                <p className="text-sm text-secondary mt-2">
+                  Summa:{" "}
+                  <span className="font-bold text-amber-600">
+                    {PAYMENT_CONFIG.studentMonthlyAmount.toLocaleString("uz-UZ")} {PAYMENT_CONFIG.currency}
+                  </span>{" "}
+                  | Karta: <span className="font-bold">{PAYMENT_CONFIG.cardNumber}</span>
+                </p>
+
+                {pendingStudentPayment ? (
+                  <p className="mt-3 text-sm text-indigo-600 font-semibold">
+                    Pending so'rov: {pendingStudentPayment.requestId}
+                  </p>
+                ) : (
+                  <div className="mt-4 space-y-3">
+                    <input
+                      type="text"
+                      className="input-clean"
+                      placeholder="To'lov izohi (ixtiyoriy)"
+                      value={studentPaymentReceipt}
+                      onChange={(e) => setStudentPaymentReceipt(e.target.value)}
+                    />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="input-clean"
+                      onChange={(e) => setStudentPaymentImage(e.target.files?.[0] || null)}
+                    />
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={handleStudentSubscriptionPayment}
+                      disabled={studentPaymentLoading}
+                    >
+                      {studentPaymentLoading ? "Yuborilmoqda..." : "Chekni botga yuborish"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => navigate("/student/subscription")}
+                    >
+                      To'liq obuna bo'limiga o'tish
+                    </button>
+                  </div>
+                )}
+
+                {studentPaymentId && (
+                  <p className="text-xs text-muted mt-2">So'rov ID: {studentPaymentId}</p>
+                )}
+              </div>
+            )}
+
+            {isPersonalMode && (
+              <div className="mb-6 premium-card">
+                <div className="flex flex-col md:flex-row md:items-center gap-4 md:justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Yo'nalish bo'yicha testlar</p>
+                    <p className="text-sm text-secondary mt-1">
+                      Bepul limit: {Math.min(history.length, PERSONAL_FREE_TEST_LIMIT)}/{PERSONAL_FREE_TEST_LIMIT}
+                    </p>
+                  </div>
+                  <select
+                    value={selectedDirection}
+                    onChange={(e) => setSelectedDirection(e.target.value)}
+                    className="input-clean md:w-64"
+                  >
+                    <option value="all">Barcha yo'nalishlar</option>
+                    {availableDirections.map((direction) => (
+                      <option key={direction} value={direction}>
+                        {direction}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
               <div>
                 <h2 className="text-2xl md:text-3xl font-black tracking-tight text-primary uppercase italic">
@@ -469,21 +793,44 @@ export default function StudentDashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-              {availableTests.filter(t => t.title.toLowerCase().includes(searchTerm.toLowerCase())).length > 0 ? (
-                availableTests.filter(t => t.title.toLowerCase().includes(searchTerm.toLowerCase())).map((t, tidx) => (
-                  <div key={t._id} className="group bg-secondary/20 backdrop-blur-md border border-primary p-8 rounded-[2.5rem] hover:bg-secondary/40 hover:border-indigo-500/50 transition-all duration-500 relative overflow-hidden animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: `${tidx * 100}ms` }}>
+              {filteredTests.length > 0 ? (
+                filteredTests.map((t, tidx) => {
+                  const teacherLimitReached = isTeacherLimitReachedForTest(t);
+                  return (
+                  <div key={t._id} className={`group bg-secondary/20 backdrop-blur-md border p-8 rounded-[2.5rem] transition-all duration-500 relative overflow-hidden animate-in fade-in slide-in-from-bottom-4 ${
+                    teacherLimitReached
+                      ? "border-amber-500/30"
+                      : "border-primary hover:bg-secondary/40 hover:border-indigo-500/50"
+                  }`} style={{ animationDelay: `${tidx * 100}ms` }}>
                     <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-700" />
                     <div className="flex items-start justify-between mb-6 relative z-10">
                       <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center text-indigo-500 shadow-xl shadow-indigo-500/5 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500">
                         <FileText size={28} />
                       </div>
-                      {t.isStarted ? (
-                        <span className="px-3 py-1 rounded-full bg-green-500/10 text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest border border-green-500/20">Faol</span>
-                      ) : (
-                        <span className="px-3 py-1 rounded-full bg-red-500/10 text-[10px] font-black text-red-600 dark:text-red-400 uppercase tracking-widest border border-red-500/20">Kutilmoqda</span>
-                      )}
+                      <div className="flex flex-col items-end gap-2">
+                        {t.isStarted ? (
+                          <span className="px-3 py-1 rounded-full bg-green-500/10 text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest border border-green-500/20">Faol</span>
+                        ) : (
+                          <span className="px-3 py-1 rounded-full bg-red-500/10 text-[10px] font-black text-red-600 dark:text-red-400 uppercase tracking-widest border border-red-500/20">Kutilmoqda</span>
+                        )}
+                        {assignedSet.has(t._id) && (
+                          <span className="px-3 py-1 rounded-full bg-blue-500/10 text-[10px] font-black text-blue-600 uppercase tracking-widest border border-blue-500/20">
+                            Admin biriktirgan
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <h3 className="text-xl font-black text-primary uppercase tracking-tight mb-3 line-clamp-1">{t.title}</h3>
+                    {isPersonalMode && (
+                      <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-2">
+                        Yo'nalish: {t.direction || "Umumiy"}
+                      </p>
+                    )}
+                    {teacherLimitReached && (
+                      <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-2">
+                        O'qituvchi limiti tugagan
+                      </p>
+                    )}
                     <p className="text-sm text-secondary mb-8 line-clamp-2 min-h-[40px] opacity-70">{t.description || "Ushbu test uchun tavsif yozilmagan."}</p>
                     <div className="flex items-center justify-between pt-6 border-t border-primary/10">
                       <div className="flex items-center gap-2 text-[10px] font-black uppercase text-muted tracking-widest">
@@ -493,16 +840,20 @@ export default function StudentDashboard() {
                       <button 
                         onClick={() => handleJoinTest(t)}
                         className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                          t.isStarted 
+                          t.isStarted && !personalFreeLimitReached && !teacherLimitReached
                           ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 hover:scale-105 active:scale-95" 
                           : "bg-primary/50 text-muted cursor-not-allowed opacity-50"
                         }`}
                       >
-                        Kirish
+                        {teacherLimitReached
+                          ? "Limit tugagan"
+                          : personalFreeLimitReached
+                            ? "Obuna kerak"
+                            : "Kirish"}
                       </button>
                     </div>
                   </div>
-                ))
+                )})
               ) : (
                 <div className="col-span-full py-24 text-center border-2 border-dashed border-primary rounded-[2.5rem] opacity-40">
                   <p className="text-muted font-black uppercase tracking-widest italic">Hozirda mavjud testlar yo'q</p>
@@ -671,7 +1022,7 @@ export default function StudentDashboard() {
         {/* ✅ DETAILED ANALYSIS MODAL */}
         {selectedResult && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setSelectedResult(null)} />
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-md cursor-clickable" onClick={() => setSelectedResult(null)} />
             <div className="relative w-full max-w-4xl bg-solid-primary border border-primary rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
               <div className="p-8 border-b border-primary flex items-center justify-between bg-solid-secondary">
                 <h3 className="text-2xl font-black text-primary uppercase italic tracking-tighter">Test <span className="text-indigo-500">Tahlili</span></h3>
@@ -687,7 +1038,7 @@ export default function StudentDashboard() {
                           <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 font-black text-xs ${ans.isCorrect ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
                             {idx + 1}
                           </span>
-                          {ans.questionText || `Savol #${idx+1}`}
+                          <RichTextMath text={ans.questionText || `Savol #${idx + 1}`} as="span" preserveLines={false} />
                        </h4>
                        <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${ans.isCorrect ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
                           {ans.isCorrect ? "To'g'ri" : "Xato"}
@@ -696,12 +1047,17 @@ export default function StudentDashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                        <div className="p-4 bg-primary rounded-2xl border border-primary">
                           <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-1">Sizning javobingiz:</p>
-                          <p className={`text-sm font-bold ${ans.isCorrect ? 'text-green-500' : 'text-red-500'}`}>{ans.selectedOption || "Belgilanmagan"}</p>
+                          <RichTextMath
+                            text={ans.selectedOption || "Belgilanmagan"}
+                            as="p"
+                            className={`text-sm font-bold ${ans.isCorrect ? "text-green-500" : "text-red-500"}`}
+                            preserveLines={false}
+                          />
                        </div>
                        {!ans.isCorrect && (
                          <div className="p-4 bg-green-500/10 rounded-2xl border border-green-500/20">
                             <p className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-1">To'g'ri javob:</p>
-                            <p className="text-sm font-bold text-green-600">{ans.correctOption}</p>
+                            <RichTextMath text={ans.correctOption} as="p" className="text-sm font-bold text-green-600" preserveLines={false} />
                          </div>
                        )}
                     </div>
@@ -754,9 +1110,10 @@ export default function StudentDashboard() {
                <h4 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 mb-6 italic">
                   <FileText size={16} /> Matn bilan tanishib chiqing
                </h4>
-               <div className="text-lg leading-relaxed font-serif text-primary/80 bg-primary/10 p-8 rounded-3xl border border-primary/10">
-                 {testData.readingText}
-               </div>
+               <RichTextMath
+                 text={testData.readingText}
+                 className="text-lg leading-relaxed font-serif text-primary/80 bg-primary/10 p-8 rounded-3xl border border-primary/10"
+               />
              </div>
           )}
 
@@ -775,7 +1132,7 @@ export default function StudentDashboard() {
                       <span className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 font-black text-sm transition-all shadow-md ${selected ? 'bg-indigo-600 text-white' : 'bg-primary text-indigo-500 border border-primary'}`}>
                         {index + 1}
                       </span>
-                      {q.text}
+                      <RichTextMath text={q.text} as="span" className="flex-1" />
                     </h3>
                     <span className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-primary/40 text-muted border border-primary whitespace-nowrap italic">
                       {q.points} ball
@@ -811,9 +1168,12 @@ export default function StudentDashboard() {
                         >
                           {selected === opt.text && <div className="w-2.5 h-2.5 bg-white rounded-full animate-in zoom-in duration-300"></div>}
                         </div>
-                        <span className={`text-lg transition-colors font-medium ${selected === opt.text ? "text-primary italic font-bold" : "text-muted"}`}>
-                          {opt.text}
-                        </span>
+                        <RichTextMath
+                          text={opt.text}
+                          as="span"
+                          className={`text-lg transition-colors font-medium ${selected === opt.text ? "text-primary italic font-bold" : "text-muted"}`}
+                          preserveLines={false}
+                        />
                       </label>
                     ))}
                   </div>

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import {
   FaFileAlt,
   FaDownload,
-  FaVideo,
   FaLightbulb,
   FaSearch
 } from "react-icons/fa";
@@ -22,7 +21,7 @@ export default function TeacherResources() {
 
   const resources = [
     { title: "Test tuzish qoidalari", type: "PDF", date: "12.02.2026", size: "2.4 MB", icon: <FaFileAlt /> },
-    { title: "Video qo'llanma: OCR", type: "VIDEO", date: "10.02.2026", size: "156 MB", icon: <FaVideo /> },
+    { title: "Import shablonlari (TXT/CSV)", type: "ZIP", date: "10.02.2026", size: "1.8 MB", icon: <FaFileAlt /> },
     { title: "Dars ishlanmalari", type: "DOCX", date: "08.02.2026", size: "1.1 MB", icon: <FaLightbulb /> },
   ];
 
@@ -32,18 +31,27 @@ export default function TeacherResources() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-primary pb-8 mb-12">
           <div>
             <h2 className="text-4xl font-black tracking-tight text-primary mb-2 uppercase italic">
-              Test<span className="text-indigo-600 dark:text-indigo-400">Onlinee</span> Resurslari
+              Oson<span className="text-indigo-600 dark:text-indigo-400">TestOl</span> Resurslari
             </h2>
             <p className="text-secondary font-medium uppercase tracking-widest text-xs opacity-70">
-              Metodik qo'llanmalar, video darslar va foydali materiallar
+              Metodik qo'llanmalar va foydali materiallar
             </p>
           </div>
-          <div className="relative">
-            <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
-            <input 
-              placeholder="Resurslarni izlash..." 
-              className="pl-12 pr-6 py-3 rounded-2xl bg-secondary border border-primary text-xs font-bold uppercase tracking-widest outline-none focus:border-indigo-500 transition-all w-64 md:w-80 shadow-sm" 
-            />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={() => navigate("/guide")}
+              className="px-5 py-3 rounded-2xl bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all"
+            >
+              To'liq qo'llanmaga o'tish
+            </button>
+            <div className="relative">
+              <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
+              <input 
+                placeholder="Resurslarni izlash..." 
+                className="pl-12 pr-6 py-3 rounded-2xl bg-secondary border border-primary text-xs font-bold uppercase tracking-widest outline-none focus:border-indigo-500 transition-all w-64 md:w-80 shadow-sm" 
+              />
+            </div>
           </div>
         </div>
       </section>

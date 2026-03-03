@@ -1,143 +1,219 @@
-import { HelpCircle, ChevronRight, Check, Zap, Clipboard, Plus, ArrowLeft, Home } from "lucide-react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
-import logo from "../assets/logo.svg";
+import {
+  ArrowLeft,
+  BookOpen,
+  CheckCircle2,
+  CreditCard,
+  FileSpreadsheet,
+  Home,
+  Key,
+  School,
+  ShieldAlert,
+  UserCircle2,
+  Users,
+} from "lucide-react";
+import SiteFooter from "../components/SiteFooter";
+
+const SECTIONS = [
+  {
+    id: "login-roles",
+    icon: Key,
+    title: "1. Kirish turlari",
+    intro: "Platformada 3 xil kirish bor: shaxsiy kabinet, umumiy test, guruh.",
+    items: [
+      "Shaxsiy kabinet: Gmail + parol orqali kiriladi.",
+      "Umumiy test: o'qituvchi bergan test login/paroli bilan kiriladi.",
+      "Guruh kabineti: o'qituvchi bergan guruh login/paroli bilan kiriladi.",
+      "Admin va o'qituvchi o'z kabinetlariga alohida kiradi.",
+    ],
+  },
+  {
+    id: "register-flow",
+    icon: UserCircle2,
+    title: "2. Ro'yxatdan o'tish tartibi",
+    intro: "O'quvchi ro'yxatdan o'tishi soddalashtirilgan.",
+    items: [
+      "F.I.Sh, telefon, parol kiriting.",
+      "Gmail kiritsangiz shaxsiy kabinetga to'g'ridan-to'g'ri bog'lanadi.",
+      "Ro'yxatdan o'tgandan keyin login sahifasidan `Shaxsiy kabinet` bo'limini tanlang.",
+      "Batafsil ishlash ketma-ketligi shu qo'llanma sahifasida jamlangan.",
+    ],
+  },
+  {
+    id: "admin-control",
+    icon: School,
+    title: "3. Admin boshqaruvi",
+    intro: "Admin barcha jarayonni kuzatadi va nazorat qiladi.",
+    items: [
+      "O'qituvchilar, guruhlar, o'quvchilar sonini ko'radi.",
+      "To'lov so'rovlarini pending holatda ko'radi va tasdiqlaydi/rad etadi.",
+      "Qo'lda o'quvchi yoki o'qituvchiga obuna ulab bera oladi.",
+      "Shaxsiy kabinet test bazasini yo'nalish bo'yicha boshqaradi.",
+      "Google/Gmail kirgan foydalanuvchilarni monitoring qiladi.",
+    ],
+  },
+  {
+    id: "teacher-flow",
+    icon: Users,
+    title: "4. O'qituvchi ish oqimi",
+    intro: "Har bir bo'lim alohida va tushunarli ishlaydi.",
+    items: [
+      "Dashboard: limit, qolgan imkon va faol testlar ko'rinadi.",
+      "Testlar: Word/TXT/CSV yuklash, preview, arxiv, eksport.",
+      "Guruhlar: o'quvchini birma-bir yoki ro'yxat (bulk) bilan qo'shish.",
+      "Natijalar: test natijalari, qayta yechish so'rovlari, eksportlar.",
+      "Obuna: to'lov yuborish, holat kuzatish, tarixni ko'rish.",
+    ],
+  },
+  {
+    id: "formula-upload",
+    icon: FileSpreadsheet,
+    title: "5. Test yuklash va formulalar",
+    intro: "Formula va matnli testlar xatosiz ishlashi uchun shu tartibdan foydalaning.",
+    items: [
+      "Word fayl: `.docx` tavsiya etiladi.",
+      "TXT/CSV fayl ham yuklash mumkin, tizim avtomatik text parserdan o'tkazadi.",
+      "Formula misollari: `x^2`, `x_1`, `\\frac{a}{b}`, `\\sqrt{16}`, `$...$`.",
+      "Saqlashdan oldin preview qiling va topilgan savollar sonini tekshiring.",
+      "Format xatosi chiqsa shablon fayldan foydalaning.",
+    ],
+  },
+  {
+    id: "subscription-flow",
+    icon: CreditCard,
+    title: "6. Obuna va to'lov",
+    intro: "Obuna bo'lmagan holatda limit tugagach yordamchi funksiyalar bloklanadi.",
+    items: [
+      "O'qituvchi bepul 10 testdan keyin obuna orqali davom etadi.",
+      "Shaxsiy kabinet o'quvchisi bepul 10 testdan keyin obuna oladi.",
+      "To'lov: karta raqamiga to'lab, chekni botga yuboradi.",
+      "Admin tasdiqlagach obuna funksiyalari to'liq ochiladi.",
+      "Pending so'rovlar admin panelda ko'rinadi.",
+    ],
+  },
+  {
+    id: "security-warning",
+    icon: ShieldAlert,
+    title: "7. Xavfsizlik ogohlantirishi",
+    intro: "To'lov va akkaunt bo'yicha qat'iy qoidalar mavjud.",
+    items: [
+      "Soxta chek yuborgan foydalanuvchilar doimiy bloklanadi.",
+      "Bir qurilmada boshqa login/emailga o'tish cheklangan.",
+      "Faqat haqiqiy to'lov va haqiqiy ma'lumotlar bilan ishlang.",
+    ],
+  },
+  {
+    id: "student-flow",
+    icon: BookOpen,
+    title: "8. O'quvchi shaxsiy kabineti",
+    intro: "Shaxsiy kabinetda yo'nalish bo'yicha testlar chiqadi.",
+    items: [
+      "Shaxsiy kabinet birinchi kirish turi sifatida tanlangan.",
+      "Gmail orqali kiriladi va o'ziga biriktirilgan testlar ko'rinadi.",
+      "Yo'nalish tanlab testlarni filtrlash mumkin.",
+      "Obuna bo'limi alohida mavjud va teacher obuna bo'limiga o'xshash.",
+    ],
+  },
+];
 
 export default function Guide() {
   const navigate = useNavigate();
 
+  const go = (id) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
-    <div className="min-h-screen bg-primary font-['Outfit']">
-      {/* Simple Navigation for Guide */}
-      <header className="sticky top-0 z-50 glass border-b border-primary p-4 lg:px-8">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate("/")}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-indigo-500/20 group-hover:rotate-12 transition-transform">
-              T
-            </div>
-            <span className="text-2xl font-black tracking-tighter uppercase text-primary">
-              OsonTestOl
-            </span>
+    <div className="min-h-screen bg-primary text-primary flex flex-col">
+      <header className="sticky top-0 z-40 border-b border-primary bg-secondary/90 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
+          <div className="text-left">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-muted font-bold">To'liq qo'llanma</p>
+            <p className="text-lg font-extrabold">OsonTestOl</p>
           </div>
-          <button 
-            onClick={() => navigate("/")}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-indigo-600 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-600/30 hover:scale-105 active:scale-95 transition-all"
-          >
-            <Home size={14} /> Asosiy Sahifa
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>
+              <ArrowLeft size={14} /> Orqaga
+            </button>
+            <button type="button" className="btn-primary" onClick={() => navigate("/")}>
+              <Home size={14} /> Asosiy
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto py-20 px-6 relative">
-        {/* Subtle background glow */}
-        <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-[600px] h-[600px] bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none" />
-        
-        <div className="relative z-10 space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          {/* Header */}
-          <section>
-            <div className="flex items-center justify-between gap-4 border-b border-primary pb-8 mb-12">
-              <div>
-                <button 
-                  onClick={() => navigate(-1)}
-                  className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-6 hover:-translate-x-1 transition-transform"
+      <main className="flex-1 max-w-7xl mx-auto px-4 md:px-6 py-8 md:py-10 w-full">
+        <div className="mb-8">
+          <p className="text-xs uppercase tracking-[0.18em] text-muted font-bold">To'liq qo'llanma</p>
+          <h1 className="text-3xl md:text-5xl font-extrabold mt-2">Barcha jarayonlar bitta sahifada</h1>
+          <p className="text-secondary mt-3 max-w-3xl">
+            Login, test yuklash, obuna, to'lov, admin nazorati va xavfsizlik bo'yicha to'liq yo'riqnoma.
+          </p>
+        </div>
+
+        <div className="grid lg:grid-cols-[280px_1fr] gap-5">
+          <aside className="lg:sticky lg:top-20 h-fit premium-card p-3">
+            <p className="px-2 py-1 text-xs uppercase tracking-[0.18em] text-muted font-bold">Bo'limlar</p>
+            <div className="mt-2 space-y-1">
+              {SECTIONS.map((section) => (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => go(section.id)}
+                  className="w-full text-left px-2.5 py-2 rounded-lg text-sm font-semibold text-secondary hover:text-primary hover:bg-accent transition-colors"
                 >
-                  <ArrowLeft size={14} /> Orqaga
+                  {section.title}
                 </button>
-                <h2 className="text-4xl font-black tracking-tight text-primary mb-2 uppercase italic">
-                  Professional <span className="text-indigo-600 dark:text-indigo-400">Parser Qo'llanmasi</span>
-                </h2>
-                <p className="text-secondary font-medium uppercase tracking-widest text-xs opacity-70">
-                  Testlarni yuklash va tahlil qilish bo'yicha to'liq yo'riqnoma
-                </p>
-              </div>
+              ))}
             </div>
+          </aside>
+
+          <section className="space-y-4">
+            {SECTIONS.map((section) => {
+              const Icon = section.icon;
+              return (
+                <article key={section.id} id={section.id} className="premium-card scroll-mt-24">
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 text-blue-700 border border-blue-500/20 flex items-center justify-center shrink-0">
+                      <Icon size={18} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl md:text-2xl font-extrabold">{section.title}</h2>
+                      <p className="text-sm text-secondary mt-1">{section.intro}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {section.items.map((item, idx) => (
+                      <div key={`${section.id}-${idx}`} className="flex items-start gap-2.5 rounded-xl border border-primary bg-primary px-3 py-2.5">
+                        <div className="w-6 h-6 rounded-md bg-blue-600 text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                          {idx + 1}
+                        </div>
+                        <p className="text-sm text-secondary font-medium">{item}</p>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              );
+            })}
+
+            <article className="premium-card border border-green-500/20 bg-green-500/5">
+              <h3 className="font-extrabold text-lg flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-green-600" /> Ishga tayyor check-list
+              </h3>
+              <div className="mt-3 space-y-2 text-sm text-secondary">
+                <p>1. Kirish turlari va ro'yxatdan o'tish tekshirildi.</p>
+                <p>2. Test yuklash preview orqali tekshirildi.</p>
+                <p>3. Obuna va to'lov oqimi sinovdan o'tkazildi.</p>
+                <p>4. Eksportlar (Word/PDF/Excel) test qilindi.</p>
+              </div>
+            </article>
           </section>
-
-          {/* Content Section */}
-          <div className="space-y-12">
-            {/* Intro */}
-            <div className="p-6 md:p-8 bg-indigo-500/5 border border-indigo-500/10 rounded-[2rem] md:rounded-[2.5rem] flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
-              <div className="w-16 h-16 rounded-2xl bg-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 shrink-0">
-                <Zap size={32} />
-              </div>
-              <p className="text-sm md:text-base text-primary font-medium leading-relaxed italic">
-                "OsonTestOl" platformasida testlarni Word faylidan yoki matndan yuklashda bizning professional parser savollarni avtomatik tahlil qiladi. Tizim aniq ishlashi uchun quyidagi qoidalarga amal qiling."
-              </p>
-            </div>
-
-            <div className="grid gap-6 md:gap-10">
-              {/* Rule 1 */}
-              <section className="premium-card group hover:border-indigo-500/50 transition-all">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform">
-                    <Plus size={24} />
-                  </div>
-                  <h3 className="text-xl font-black text-primary uppercase italic tracking-tighter">1. Aqlli Ketma-ketlik</h3>
-                </div>
-                <p className="text-sm text-secondary leading-relaxed font-medium mb-6">
-                  Tizim savollarni 1, 2, 3 tartibida qat'iy kuzatib boradi. Bu savol matni ichidagi boshqa raqamli ro'yxatlar bilan asosiy savolni adashtirmaslikka yordam beradi.
-                </p>
-                <div className="p-6 bg-secondary/50 rounded-2xl border border-primary font-mono text-xs leading-relaxed text-indigo-500">
-                   1. Quyidagi shaxslarni muvofiqlashtiring:<br/>
-                   1) Muhammad Rahim; 2) Doniyolbiy; 3) Shohmurod.<br/>
-                   A) Variant 1<br/>
-                   B) Variant 2
-                </div>
-              </section>
-
-              {/* Rule 2 */}
-              <section className="premium-card group hover:border-emerald-500/50 transition-all">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
-                    <Clipboard size={24} />
-                  </div>
-                  <h3 className="text-xl font-black text-primary uppercase italic tracking-tighter">2. Katta-Kichik Harflar</h3>
-                </div>
-                <p className="text-sm text-secondary leading-relaxed font-medium mb-6">
-                  Variantlar har doim KATTA harflar (`A, B, C, D`) bilan belgilanishi shart. Kichik harfli ro'yxatlar (`a, b, c...`) savolning davomi sifatida qabul qilinadi.
-                </p>
-                <div className="p-6 bg-secondary/50 rounded-2xl border border-primary font-mono text-xs leading-relaxed text-emerald-600">
-                   1. Noto'g'ri hukmni aniqlang:<br/>
-                   a) Birinchi ma'lumot...<br/>
-                   b) Ikkinchi ma'lumot...<br/>
-                   A) To'g'ri javob shu yerda (Katta harfda)<br/>
-                   B) Noto'g'ri javob
-                </div>
-              </section>
-
-              {/* Rule 3 */}
-              <section className="premium-card group hover:border-blue-500/50 transition-all">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
-                    <Check size={24} />
-                  </div>
-                  <h3 className="text-xl font-black text-primary uppercase italic tracking-tighter">3. To'g'ri Javobni Belgilash</h3>
-                </div>
-                <p className="text-sm text-secondary leading-relaxed font-medium mb-6">
-                  To'g'ri javobni variant oldiga `+` belgisi qo'yish orqali YOKI matn oxiriga "Javoblar" kalitini qo'shish orqali ko'rsatishingiz mumkin.
-                </p>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="p-6 bg-secondary/50 rounded-2xl border border-primary font-mono text-xs leading-relaxed">
-                     1. Savol...<br/>
-                     +A) To'g'ri javob<br/>
-                     B) Variant
-                  </div>
-                  <div className="p-6 bg-secondary/50 rounded-2xl border border-primary font-mono text-xs leading-relaxed">
-                     Javoblar:<br/>
-                     1-A<br/>
-                     2-C
-                  </div>
-                </div>
-              </section>
-            </div>
-          </div>
         </div>
       </main>
-      
-      <footer className="py-12 border-t border-primary/10 bg-secondary/30 text-center">
-        <p className="text-xs font-black uppercase tracking-widest text-muted">
-          © {new Date().getFullYear()} OsonTestOl Platformasi
-        </p>
-      </footer>
+
+      <SiteFooter />
     </div>
   );
 }

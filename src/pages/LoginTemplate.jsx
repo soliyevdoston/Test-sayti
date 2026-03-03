@@ -1,117 +1,164 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { ArrowLeft, CheckCircle2, Sparkles } from "lucide-react";
+import { getTeachers, loginUser, requestRetake, studentIndividualLogin } from "../api/api";
+import { canUseDeviceForPrincipal, lockDeviceForPrincipal, registerOauthUser } from "../utils/billingTools";
+import { clearUserSession } from "../utils/authSession";
 import logo from "../assets/logo.svg";
-import { loginUser, studentIndividualLogin, requestRetake } from "../api/api";
-import ConfirmationModal from "../components/ConfirmationModal";
+import SiteFooter from "../components/SiteFooter";
 
-export default function LoginTemplate({ role, loginPath, initialUsername = "", initialPassword = "" }) {
+export default function LoginTemplate({
+  role,
+  loginPath,
+  initialUsername = "",
+  initialPassword = "",
+}) {
   const navigate = useNavigate();
-
   const [username, setUsername] = useState(initialUsername);
   const [password, setPassword] = useState(initialPassword);
-  const [fullName, setFullName] = useState("");
-  const [isIndividual, setIsIndividual] = useState(false);
+  const [studentMode, setStudentMode] = useState("personal"); // personal | test | group
   const [loading, setLoading] = useState(false);
-  
-  const [modalConfig, setModalConfig] = useState({
-    isOpen: false,
-    title: "",
-    message: "",
-    onConfirm: () => {},
-    type: "info"
-  });
 
-  const showConfirm = (message, onConfirm, type = "info", title = "Tasdiqlash") => {
-    setModalConfig({ isOpen: true, title, message, onConfirm, type });
-  };
+  const roleTips =
+    role === "Teacher"
+      ? [
+          "Email/parol bilan kabinetga kiring",
+          "Google login ham mavjud",
+          "Ro'yxatdan o'tmagan bo'lsangiz account yarating",
+        ]
+      : role === "Admin"
+        ? ["Admin login/parol kiriting", "To'lov va obuna nazoratini boshqaring", "Teacher monitoring paneliga o'ting"]
+        : studentMode === "personal"
+          ? ["Gmail kiriting", "Shaxsiy kabinetga kiring", "Tarix va testlar bo'limidan foydalaning"]
+          : studentMode === "group"
+            ? ["Ustoz bergan login/parolni kiriting", "Guruhga kirib testlarni ko'ring", "Natijalarni kabinetda saqlang"]
+            : ["Test login/parolini kiriting", "Faol testga qo'shiling", "Yakunlang va natijani ko'ring"];
 
   const handleLogin = async (e) => {
     e.preventDefault();
-
-    if (role === "Student" && !isIndividual && !fullName.trim()) {
-      return toast.warning("Iltimos, ism va familiyangizni kiriting!");
-    }
-
     setLoading(true);
+
     try {
-      if (role === "Student" && isIndividual) {
-        localStorage.clear(); // Clear any existing guest session/garbage
-        const { data } = await studentIndividualLogin({ username, password });
+      if (role === "Student" && (studentMode === "group" || studentMode === "personal")) {
+        const normalizedStudentIdentity = `${username}`.trim().toLowerCase();
+        if (studentMode === "personal" && !normalizedStudentIdentity.includes("@")) {
+          toast.warning("Shaxsiy kabinet uchun email kiriting");
+          setLoading(false);
+          return;
+        }
+        if (studentMode === "personal" && !normalizedStudentIdentity.endsWith("@gmail.com")) {
+          toast.warning("Shaxsiy kabinetga kirish uchun gmail.com email kiriting");
+          setLoading(false);
+          return;
+        }
+
+        const principal = normalizedStudentIdentity;
+        if (!canUseDeviceForPrincipal("student", principal)) {
+          toast.error("Bu qurilmada student roli uchun boshqa login/email biriktirilgan.");
+          setLoading(false);
+          return;
+        }
+
+        clearUserSession();
+        const { data } = await studentIndividualLogin({
+          username: studentMode === "personal" ? normalizedStudentIdentity : username,
+          password,
+        });
         localStorage.setItem("studentId", data._id);
         localStorage.setItem("fullName", data.fullName);
+        localStorage.setItem("studentName", data.fullName);
+        if (studentMode === "personal") {
+          localStorage.setItem("studentEmail", normalizedStudentIdentity);
+        } else if (data.email) {
+          localStorage.setItem("studentEmail", data.email);
+        }
         localStorage.setItem("teacherId", data.teacherId);
         localStorage.setItem("groupId", data.groupId || "");
-        localStorage.setItem("userRole", "student"); // Consistent key with Admin/Teacher
-        toast.success("Xush kelibsiz, " + data.fullName);
-        navigate("/student/dashboard");
-      } else {
-        // ✅ For guests, still check if they have a studentId in localStorage
-        const existingStudentId = role === "Student" ? localStorage.getItem("studentId") : "";
-
-        const data = await loginUser(
-          role.toLowerCase(),
-          username,
-          password,
-          fullName,
-          existingStudentId
-        );
-
-        toast.success(data.message);
-
-        if (role === "Student") {
-          navigate(loginPath, { state: { testData: data } });
-        } else {
-          navigate(loginPath);
+        localStorage.setItem("userRole", "student");
+        localStorage.setItem("studentAccessMode", studentMode);
+        if (studentMode === "personal") {
+          registerOauthUser({
+            provider: "google",
+            role: "student",
+            userId: data._id,
+            fullName: data.fullName,
+            email: normalizedStudentIdentity,
+          });
         }
+        lockDeviceForPrincipal("student", principal);
+        toast.success(`Xush kelibsiz, ${data.fullName}`);
+        navigate("/student/dashboard");
+        return;
+      }
+
+      const existingStudentId =
+        role === "Student" && studentMode === "test"
+          ? localStorage.getItem("studentId")
+          : "";
+      const quickStudentName =
+        role === "Student" && studentMode === "test" ? username.trim() || "O'quvchi" : "";
+
+      if (role === "Teacher" || role === "Admin") {
+        const roleKey = role.toLowerCase();
+        const principal = `${username}`.trim().toLowerCase();
+        if (!canUseDeviceForPrincipal(roleKey, principal)) {
+          toast.error(`Bu qurilmada ${roleKey} roli uchun boshqa email/login biriktirilgan.`);
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (role === "Teacher" || role === "Admin") {
+        clearUserSession();
+      }
+
+      const data = await loginUser(
+        role.toLowerCase(),
+        username,
+        password,
+        quickStudentName,
+        existingStudentId
+      );
+
+      toast.success(data.message || "Muvaffaqiyatli kirdingiz.");
+      if (role === "Teacher" || role === "Admin") {
+        const roleKey = role.toLowerCase();
+        const principal = `${username}`.trim().toLowerCase();
+        lockDeviceForPrincipal(roleKey, principal);
+        if (role === "Teacher") {
+          localStorage.setItem("teacherEmail", principal);
+        }
+      }
+      if (role === "Student") {
+        navigate(loginPath, { state: { testData: data } });
+      } else {
+        navigate(loginPath);
       }
     } catch (err) {
       const errorMsg = err.response?.data?.msg || err.message || "Login xato!";
-      
-      // ✅ Handle Forbidden 403 errors specifically
+
       if (err.response?.status === 403) {
-         const { alreadyTaken, teacherId, testId } = err.response.data || {};
-         
-         if (alreadyTaken) {
-            showConfirm(
-              errorMsg + "\n\nQayta yechish uchun ustozga so'rov yuborasizmi?",
-              async () => {
-                try {
-                  const studentId = localStorage.getItem("studentId");
-                  if (!studentId) {
-                    toast.error("So'rov yuborish uchun tizimga shaxsiy kabinet orqali kirgan bo'lishingiz kerak.");
-                    return setIsIndividual(true);
-                  }
-                  toast.info("So'rov yuborilmoqda...");
-                  const res = await requestRetake({ studentId, testId, teacherId });
-                  toast.success(res.data.msg || "So'rov yuborildi!");
-                } catch (e) {
-                  toast.error(e.response?.data?.msg || "So'rov yuborishda xatolik");
-                }
-              },
-              "info",
-              "Qayta yechish"
-            );
-         } else {
-            // Other 403 (Group restricted, etc.)
-            toast.error(errorMsg);
-            
-            // If they are a guest with an existing studentId, maybe that's the problem
-            if (role === "Student" && !isIndividual && localStorage.getItem("studentId")) {
-               showConfirm(
-                 "Balki eski sessiya xalaqit berayotgan bo'lishi mumkin. Sessiyani tozalab qaytadan urinib ko'rasizmi?",
-                 () => {
-                    localStorage.removeItem("studentId");
-                    localStorage.removeItem("fullName");
-                    localStorage.removeItem("teacherId");
-                    localStorage.removeItem("groupId");
-                    toast.info("Sessiya tozalandi. Qayta urinib ko'ring.");
-                 },
-                 "warning",
-                 "Sessiyani tozalash"
-               );
+        const { alreadyTaken, teacherId, testId } = err.response.data || {};
+
+        if (alreadyTaken) {
+          try {
+            const studentId = localStorage.getItem("studentId");
+            if (!studentId) {
+              toast.error("Qayta yechish so'rovi uchun Guruhga kirish orqali kabinetga kiring.");
+              setStudentMode("group");
+            } else if (!teacherId || !testId) {
+              toast.error(errorMsg);
+            } else {
+              await requestRetake({ studentId, testId, teacherId });
+              toast.success("Qayta yechish so'rovi yuborildi.");
             }
-         }
+          } catch (requestError) {
+            toast.error(requestError.response?.data?.msg || "So'rov yuborishda xatolik.");
+          }
+        } else {
+          toast.error(errorMsg);
+        }
       } else {
         toast.error(errorMsg);
       }
@@ -120,159 +167,259 @@ export default function LoginTemplate({ role, loginPath, initialUsername = "", i
     }
   };
 
+  const handleGoogleTeacherLogin = async () => {
+    const fallbackEmail = `${username || ""}`.trim();
+    const promptedEmail = fallbackEmail || window.prompt("Google email kiriting:", "");
+    if (!promptedEmail) return;
+    const normalizedEmail = promptedEmail.trim().toLowerCase();
+    if (!normalizedEmail.endsWith("@gmail.com")) {
+      return toast.warning("Faqat gmail.com email ishlaydi");
+    }
+    if (!canUseDeviceForPrincipal("teacher", normalizedEmail)) {
+      return toast.error("Bu qurilmada teacher roli uchun boshqa email/login biriktirilgan.");
+    }
+
+    try {
+      setLoading(true);
+      const { data } = await getTeachers();
+      const teachers = Array.isArray(data) ? data : [];
+      const found = teachers.find((teacher) => String(teacher.username || "").toLowerCase() === normalizedEmail);
+      if (!found) {
+        toast.error("Bu email topilmadi. Avval ro'yxatdan o'ting.");
+        return;
+      }
+
+      const loginData = await loginUser("teacher", found.username, found.password);
+      registerOauthUser({
+        provider: "google",
+        role: "teacher",
+        userId: loginData.teacherId || found._id,
+        fullName: found.fullName,
+        email: normalizedEmail,
+      });
+      lockDeviceForPrincipal("teacher", normalizedEmail);
+      localStorage.setItem("teacherEmail", normalizedEmail);
+      toast.success("Google orqali kirildi");
+      navigate(loginPath);
+    } catch (err) {
+      toast.error(err.response?.data?.msg || "Google login xatoligi");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleStudentEmail = () => {
+    const prompted = window.prompt("Gmail kiriting (example@gmail.com):", username || "");
+    if (!prompted) return;
+    const normalized = prompted.trim().toLowerCase();
+    if (!normalized.endsWith("@gmail.com")) {
+      toast.warning("Faqat gmail.com email kiriting");
+      return;
+    }
+    setStudentMode("personal");
+    setUsername(normalized);
+    toast.success("Gmail maydonga kiritildi");
+  };
+
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-primary text-primary overflow-hidden px-6 transition-colors duration-300">
-      {/* Glow background */}
-      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-indigo-600/10 dark:bg-indigo-600/30 rounded-full blur-3xl animate-blob pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-blue-600/10 dark:bg-blue-600/30 rounded-full blur-3xl animate-blob animation-delay-2000 pointer-events-none" />
+    <div className="min-h-screen bg-primary text-primary relative overflow-hidden flex flex-col">
+      <div className="pointer-events-none absolute -top-24 -left-24 w-72 h-72 rounded-full bg-blue-500/10 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-indigo-500/10 blur-3xl" />
 
-      {/* Confirmation Modal */}
-      <ConfirmationModal 
-        {...modalConfig} 
-        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))} 
-      />
+      <div className="relative z-10 flex-1 w-full px-4 py-8 flex items-center justify-center">
+        <div className="w-full max-w-5xl grid md:grid-cols-2 gap-5 items-stretch">
+          <section className="premium-card hidden md:flex flex-col justify-between">
+            <div>
+              <p className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] uppercase tracking-[0.2em] font-bold border border-blue-500/20 bg-blue-500/10 text-blue-700">
+                <Sparkles size={12} /> OsonTestOl
+              </p>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-muted font-bold mt-2 inline-flex items-center gap-2">
+                <img src={logo} alt="OsonTestOl logo" className="w-4 h-4 rounded" /> testonlinee.uz
+              </p>
+              <h1 className="text-4xl font-extrabold mt-2">
+                {role === "Student"
+                  ? studentMode === "test"
+                    ? "Testga kirish"
+                    : studentMode === "group"
+                      ? "Guruhga kirish"
+                      : "Shaxsiy kabinetga kirish"
+                  : `${role} kabinetiga kirish`}
+              </h1>
+              <p className="text-secondary mt-3 text-sm leading-relaxed">
+                {role === "Student" && studentMode === "personal"
+                  ? "Shaxsiy kabinetga email va parol bilan kiring."
+                  : "Login va parolni kiriting. Tizimga kirgandan so'ng bevosita ish boshlaysiz."}
+              </p>
+              <div className="mt-5 space-y-2">
+                {roleTips.map((item) => (
+                  <p key={item} className="text-sm text-secondary inline-flex items-start gap-2">
+                    <CheckCircle2 size={14} className="text-blue-600 mt-0.5 shrink-0" />
+                    {item}
+                  </p>
+                ))}
+              </div>
+            </div>
 
-      {/* Login Card */}
-      <form
-        onSubmit={handleLogin}
-        className="
-          relative z-10 w-full max-w-md
-          bg-solid-secondary
-          border border-primary
-          rounded-[2rem] md:rounded-[32px] p-6 md:p-10
-          shadow-2xl
-        "
-      >
-        {/* Logo */}
-        <div className="flex justify-center mb-6">
-          <div className="w-16 h-16 rounded-[1.25rem] bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-black text-3xl shadow-lg shadow-indigo-600/20">
-            T
-          </div>
-        </div>
+            <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-4 mt-8">
+              <p className="text-sm font-semibold text-primary">Tezkor yo'riqnoma</p>
+              <div className="mt-2 space-y-1.5 text-xs text-secondary">
+                <p>1. Kirish turini tanlang.</p>
+                <p>2. Login/email va parol kiriting.</p>
+                <p>3. Kirgach bo'limlar bo'yicha ishlashni boshlang.</p>
+                <p>4. Batafsil yo'riqnoma: <button type="button" onClick={() => navigate("/guide")} className="text-blue-600 font-semibold">Qo'llanma</button></p>
+              </div>
+            </div>
+          </section>
 
-        {/* Title */}
-        <h2 className="text-4xl font-black text-center mb-2 text-primary tracking-tighter uppercase italic">
-          {role === "Student" ? "Testga" : role} <span className="text-indigo-600 dark:text-indigo-400">{role === "Student" ? "Kirish" : "Login"}</span>
-        </h2>
+          <form onSubmit={handleLogin} className="premium-card">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs uppercase tracking-[0.2em] text-muted font-bold">Kirish</p>
+              <button
+                type="button"
+                onClick={() => navigate("/")}
+                className="text-xs font-semibold text-blue-600 inline-flex items-center gap-1"
+              >
+                <ArrowLeft size={14} /> Asosiy
+              </button>
+            </div>
+            <h2 className="text-2xl md:text-3xl font-extrabold mt-2">
+              {role === "Student" ? "O'quvchi" : role} login
+            </h2>
 
-        <p className="text-center text-muted text-xs font-bold uppercase tracking-widest mb-6 opacity-70">
-          Xush kelibsiz
-        </p>
+            {role === "Student" && (
+              <div className="grid grid-cols-3 gap-2 rounded-xl bg-accent p-1 mt-5 mb-3">
+                <button
+                  type="button"
+                  onClick={() => setStudentMode("personal")}
+                  className={`py-2.5 rounded-lg text-xs font-bold uppercase tracking-[0.12em] transition-colors ${
+                    studentMode === "personal" ? "bg-blue-600 text-white" : "text-secondary"
+                  }`}
+                >
+                  Shaxsiy kabinet
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStudentMode("test")}
+                  className={`py-2.5 rounded-lg text-xs font-bold uppercase tracking-[0.12em] transition-colors ${
+                    studentMode === "test" ? "bg-blue-600 text-white" : "text-secondary"
+                  }`}
+                >
+                  Umumiy test
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStudentMode("group")}
+                  className={`py-2.5 rounded-lg text-xs font-bold uppercase tracking-[0.12em] transition-colors ${
+                    studentMode === "group" ? "bg-blue-600 text-white" : "text-secondary"
+                  }`}
+                >
+                  Guruh
+                </button>
+              </div>
+            )}
 
-        {role === "Student" && (
-          <div className="flex bg-solid-primary p-1 rounded-2xl mb-8 border border-primary/20">
-            <button 
-              type="button"
-              onClick={() => setIsIndividual(false)}
-              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!isIndividual ? 'bg-indigo-600 text-white shadow-lg' : 'text-muted hover:text-primary'}`}
-            >
-              Testga Kirish
+            {role === "Student" && (
+              <p className="text-[11px] text-secondary mb-4">
+                {studentMode === "personal" && "Shaxsiy kabinet uchun email va parolni kiriting."}
+                {studentMode === "test" && "O'qituvchi bergan test login/paroli bilan kirasiz."}
+                {studentMode === "group" && "Guruh kabineti uchun o'qituvchi bergan login/parolni kiriting."}
+              </p>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-[0.12em] text-muted block mb-2">
+                  {role === "Student"
+                    ? studentMode === "test"
+                      ? "Test logini"
+                      : studentMode === "group"
+                        ? "Guruh logini"
+                        : "Email"
+                    : role === "Teacher"
+                      ? "Email"
+                      : "Login"}
+                </label>
+                <input
+                  type={
+                    role === "Teacher" || (role === "Student" && studentMode === "personal")
+                      ? "email"
+                      : "text"
+                  }
+                  className="input-clean"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder={
+                    role === "Teacher" || (role === "Student" && studentMode === "personal")
+                      ? "example@gmail.com"
+                      : "Login"
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-[0.12em] text-muted block mb-2">
+                  {role === "Student"
+                    ? studentMode === "test"
+                      ? "Test paroli"
+                      : studentMode === "group"
+                        ? "Guruh paroli"
+                        : "Shaxsiy parol"
+                    : "Parol"}
+                </label>
+                <input
+                  type="password"
+                  className="input-clean"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+
+            <button type="submit" className="btn-primary w-full mt-6" disabled={loading}>
+              {loading ? "Kirilmoqda..." : "Kirish"}
             </button>
-            <button 
-              type="button"
-              onClick={() => setIsIndividual(true)}
-              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isIndividual ? 'bg-indigo-600 text-white shadow-lg' : 'text-muted hover:text-primary'}`}
-            >
-              Shaxsiy Kabinet
-            </button>
-          </div>
-        )}
 
-        {/* Student Full Name - Only for Guest */}
-        {role === "Student" && !isIndividual && (
-          <div className="mb-6 animate-in slide-in-from-top-2 duration-300">
-            <label className="block text-[10px] font-black uppercase tracking-widest text-muted mb-2 ml-1">
-              Ism va Familiya
-            </label>
-            <input
-              type="text"
-              placeholder="Ali Valiyev"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="
-                w-full p-4 rounded-2xl
-                bg-primary border border-primary
-                focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
-                outline-none transition-all shadow-sm
-                text-primary placeholder:text-muted/50
-              "
-            />
-          </div>
-        )}
+            {role === "Student" && studentMode === "personal" && (
+              <button type="button" className="btn-secondary w-full mt-3" onClick={handleGoogleStudentEmail}>
+                Gmail orqali qo'shish
+              </button>
+            )}
 
-        {/* Username */}
-        <div className="mb-6">
-          <label className="block text-[10px] font-black uppercase tracking-widest text-muted mb-2 ml-1">
-            {role === "Student" && !isIndividual ? "Test Logini" : "Login"}
-          </label>
-          <input
-            type="text"
-            placeholder={
-              role === "Student" && !isIndividual ? "O'qituvchi bergan login" : "Loginni kiriting"
-            }
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="
-              w-full p-4 rounded-2xl
-              bg-primary border border-primary
-              focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
-              outline-none transition-all shadow-sm
-              text-primary placeholder:text-muted/50
-            "
-          />
+            {role === "Teacher" && (
+              <>
+                <button type="button" className="btn-secondary w-full mt-3" onClick={handleGoogleTeacherLogin} disabled={loading}>
+                  Google orqali kirish
+                </button>
+                <div className="mt-4 text-center">
+                  <button type="button" onClick={() => navigate("/teacher/register")} className="text-sm font-semibold text-blue-600">
+                    Email orqali ro'yxatdan o'tish
+                  </button>
+                </div>
+              </>
+            )}
+
+            {role === "Student" && (
+              <div className="mt-5 text-center space-y-2">
+                <button
+                  type="button"
+                  onClick={() => navigate("/register")}
+                  className="text-sm font-semibold text-blue-600"
+                >
+                  Akkaunt yo'qmi? Ro'yxatdan o'tish
+                </button>
+                <div>
+                  <button type="button" className="text-xs font-semibold text-secondary" onClick={() => navigate("/guide")}>
+                    Qanday kirish kerak? Qo'llanmani ochish
+                  </button>
+                </div>
+              </div>
+            )}
+          </form>
         </div>
+      </div>
 
-        {/* Password */}
-        <div className="mb-10">
-          <label className="block text-[10px] font-black uppercase tracking-widest text-muted mb-2 ml-1">
-            {isIndividual ? "Parol" : "Test Paroli"}
-          </label>
-          <input
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="
-              w-full p-4 rounded-2xl
-              bg-primary border border-primary
-              focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
-              outline-none transition-all shadow-sm
-              text-primary placeholder:text-muted/50
-            "
-          />
-        </div>
-
-        {/* Button */}
-        <button
-          type="submit"
-          disabled={loading}
-          className={`
-            w-full py-5 rounded-2xl
-            font-black uppercase tracking-[0.2em] text-xs
-            transition-all flex items-center justify-center gap-3
-            ${
-              loading
-                ? "bg-secondary text-muted cursor-not-allowed opacity-50"
-                : "bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-xl shadow-indigo-600/30 hover:shadow-indigo-600/50 hover:scale-[1.02] active:scale-95"
-            }
-          `}
-        >
-          {loading ? "Kirilmoqda..." : "Kirish"}
-        </button>
-
-        {role === "Student" && (
-          <div className="mt-8 text-center">
-            <p className="text-xs font-bold text-muted mb-4 italic">Sizda hali akkaunt yo'qmi?</p>
-            <button
-              type="button"
-              onClick={() => navigate("/register")}
-              className="text-sm font-black text-indigo-500 hover:text-indigo-600 uppercase tracking-widest transition-colors"
-            >
-              Ro'yxatdan o'tish
-            </button>
-          </div>
-        )}
-      </form>
+      <SiteFooter className="relative z-10" />
     </div>
   );
 }

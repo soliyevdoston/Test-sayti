@@ -4,7 +4,10 @@ import {
   FaPlus,
   FaTrash,
   FaUserGraduate,
-  FaCalendarAlt
+  FaCalendarAlt,
+  FaRandom,
+  FaCopy,
+  FaFileDownload
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
@@ -18,6 +21,7 @@ import {
   getTeacherGroups, 
   addTeacherGroup, 
   deleteTeacherGroup,
+  getTeacherStudents,
   getGroupStudents,
   addStudentApi,
   deleteStudentApi,
@@ -25,6 +29,14 @@ import {
   handleRetakeRequest, // ✅
   BASE_URL // ✅
 } from "../api/api";
+import { formatLimit, getTeacherSubscription } from "../utils/subscriptionTools";
+import {
+  buildCredentialsText,
+  downloadStudentsTemplate,
+  parseBulkStudents,
+  prepareStudentRecord,
+} from "../utils/academicTools";
+import { isTeacherProActive } from "../utils/teacherAccessTools";
 
 const socket = io(BASE_URL, { transports: ["polling", "websocket"] }); // ✅
 
@@ -37,8 +49,18 @@ export default function TeacherGroups() {
   const [students, setStudents] = useState([]);
   const [studentLoading, setStudentLoading] = useState(false);
   const [newStudent, setNewStudent] = useState({ fullName: "", username: "", password: "" });
+  const [manualCredentials, setManualCredentials] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkLoading, setBulkLoading] = useState(false);
   const [activeChat, setActiveChat] = useState(null); // { studentId, fullName }
   const [retakeRequests, setRetakeRequests] = useState([]); // ✅ NEW
+  const [studentCapacity, setStudentCapacity] = useState({
+    loading: true,
+    planLabel: "Bepul",
+    maxStudents: 100,
+    currentStudents: 0,
+    limitReached: false,
+  });
   const [modalConfig, setModalConfig] = useState({
     isOpen: false,
     title: "",
@@ -66,12 +88,19 @@ export default function TeacherGroups() {
   useEffect(() => {
     const name = localStorage.getItem("teacherName");
     const id = localStorage.getItem("teacherId");
-    if (!name || !id) navigate("/teacher/login");
-    else {
-      setTeacherName(name);
-      loadGroups(id);
-      fetchRetakeRequests(id);
+    if (!name || !id) {
+      navigate("/teacher/login");
+      return undefined;
     }
+    if (!isTeacherProActive(id)) {
+      toast.info("Guruhlar bo'limi faqat Pro tarifda ishlaydi.");
+      navigate("/teacher/subscription");
+      return undefined;
+    }
+    setTeacherName(name);
+    loadGroups(id);
+    fetchRetakeRequests(id);
+    refreshStudentCapacity(id);
 
     // 🔥 REAL-TIME RETAKE REQUESTS
     socket.on("new-retake-request", ({ teacherId, request }) => {
@@ -84,6 +113,25 @@ export default function TeacherGroups() {
 
     return () => socket.off("new-retake-request");
   }, [navigate]);
+
+  const refreshStudentCapacity = async (teacherId) => {
+    if (!teacherId) return;
+    try {
+      const subscription = getTeacherSubscription(teacherId);
+      const { data } = await getTeacherStudents(teacherId);
+      const totalStudents = Array.isArray(data) ? data.length : 0;
+      const hasLimit = Number.isFinite(subscription.maxStudents);
+      setStudentCapacity({
+        loading: false,
+        planLabel: subscription.label,
+        maxStudents: subscription.maxStudents,
+        currentStudents: totalStudents,
+        limitReached: hasLimit && totalStudents >= subscription.maxStudents,
+      });
+    } catch {
+      setStudentCapacity((prev) => ({ ...prev, loading: false }));
+    }
+  };
 
   const loadGroups = async (id) => {
     try {
@@ -137,6 +185,9 @@ export default function TeacherGroups() {
   const openStudentModal = async (group) => {
     setStudentModal({ open: true, group });
     setActiveChat(null);
+    setManualCredentials(false);
+    setBulkText("");
+    setNewStudent({ fullName: "", username: "", password: "" });
     fetchStudents(group._id);
   };
 
@@ -152,21 +203,125 @@ export default function TeacherGroups() {
     }
   };
 
+  const getUsedUsernameSet = () =>
+    new Set(students.map((student) => student.username).filter(Boolean));
+
+  const copyCredentials = async (records) => {
+    const text = buildCredentialsText(records);
+    if (!text) {
+      toast.warning("Nusxa olish uchun ma'lumot topilmadi");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Login-parollar clipboard'ga nusxalandi");
+    } catch {
+      toast.error("Clipboard'ga nusxalab bo'lmadi");
+    }
+  };
+
+  const handleGenerateCredentials = () => {
+    if (!newStudent.fullName.trim()) {
+      toast.warning("Avval o'quvchi F.I.Sh kiriting");
+      return;
+    }
+    const generated = prepareStudentRecord({ fullName: newStudent.fullName }, getUsedUsernameSet());
+    setNewStudent(generated);
+    toast.info("Auto login-parol yaratildi");
+  };
+
+  const handleBulkImport = async () => {
+    if (!bulkText.trim()) {
+      toast.warning("Ro'yxat matnini kiriting");
+      return;
+    }
+
+    const parsedRecords = parseBulkStudents(bulkText).filter((record) => record.fullName?.trim());
+    if (!parsedRecords.length) {
+      toast.warning("Import uchun kamida bitta satr kerak");
+      return;
+    }
+
+    const hasLimit = Number.isFinite(studentCapacity.maxStudents);
+    const availableSlots = hasLimit ? Math.max(studentCapacity.maxStudents - studentCapacity.currentStudents, 0) : Number.POSITIVE_INFINITY;
+    if (hasLimit && availableSlots <= 0) {
+      toast.warning(`O'quvchi limiti tugagan (${formatLimit(studentCapacity.maxStudents)} ta).`);
+      return;
+    }
+    if (hasLimit && parsedRecords.length > availableSlots) {
+      toast.warning(`Faqat ${availableSlots} ta o'quvchi qo'shish mumkin. Import satrlarini kamaytiring.`);
+      return;
+    }
+
+    const teacherId = localStorage.getItem("teacherId");
+    const usedSet = getUsedUsernameSet();
+    const prepared = parsedRecords.map((record) => prepareStudentRecord(record, usedSet));
+
+    setBulkLoading(true);
+    const success = [];
+    let failedCount = 0;
+
+    for (const record of prepared) {
+      try {
+        await addStudentApi({
+          ...record,
+          groupId: studentModal.group._id,
+          teacherId,
+        });
+        success.push(record);
+      } catch {
+        failedCount += 1;
+      }
+    }
+
+    setBulkLoading(false);
+
+    if (success.length) {
+      toast.success(`${success.length} ta o'quvchi qo'shildi`);
+      setBulkText("");
+      fetchStudents(studentModal.group._id);
+      loadGroups();
+      refreshStudentCapacity(teacherId);
+      copyCredentials(success);
+    }
+
+    if (!success.length || failedCount) {
+      toast.warning(`Xatoliklar: ${failedCount} ta satr qo'shilmadi`);
+    }
+  };
+
   const handleAddStudent = async (e) => {
     e.preventDefault();
-    if (!newStudent.fullName || !newStudent.username || !newStudent.password) {
-      return toast.warning("Barcha maydonlarni to'ldiring");
+    if (studentCapacity.limitReached) {
+      return toast.warning(`O'quvchi limiti tugagan (${formatLimit(studentCapacity.maxStudents)} ta).`);
     }
+    if (!newStudent.fullName.trim()) {
+      return toast.warning("To'liq ismni kiriting");
+    }
+    if (manualCredentials && (!newStudent.username.trim() || !newStudent.password.trim())) {
+      return toast.warning("Manual rejimda login va parol majburiy");
+    }
+
+    const record = manualCredentials
+      ? {
+          fullName: newStudent.fullName.trim(),
+          username: newStudent.username.trim(),
+          password: newStudent.password.trim(),
+        }
+      : prepareStudentRecord({ fullName: newStudent.fullName }, getUsedUsernameSet());
+
     try {
       await addStudentApi({
-        ...newStudent,
+        ...record,
         groupId: studentModal.group._id,
         teacherId: localStorage.getItem("teacherId")
       });
-      toast.success("O'quvchi qo'shildi");
+      toast.success(`O'quvchi qo'shildi: ${record.username} / ${record.password}`);
       setNewStudent({ fullName: "", username: "", password: "" });
       fetchStudents(studentModal.group._id);
       loadGroups(); // Update count
+      refreshStudentCapacity(localStorage.getItem("teacherId"));
     } catch (err) {
       toast.error(err.response?.data?.msg || err.message || "Xatolik");
     }
@@ -181,6 +336,7 @@ export default function TeacherGroups() {
           toast.info("O'chirildi");
           fetchStudents(studentModal.group._id);
           loadGroups(); // Update count
+          refreshStudentCapacity(localStorage.getItem("teacherId"));
         } catch {
           toast.error("Xatolik");
         }
@@ -227,6 +383,9 @@ export default function TeacherGroups() {
             </h2>
             <p className="text-secondary font-medium uppercase tracking-widest text-xs opacity-70">
               O'quvchi guruhlari va dars jadvallarini boshqarish
+            </p>
+            <p className={`text-xs font-semibold mt-2 ${studentCapacity.limitReached ? "text-red-600" : "text-secondary"}`}>
+              Obuna: {studentCapacity.planLabel} | O'quvchi limiti: {formatLimit(studentCapacity.maxStudents)} | Joriy: {studentCapacity.currentStudents}
             </p>
           </div>
           <button 
@@ -356,28 +515,86 @@ export default function TeacherGroups() {
                       className="w-full bg-primary border border-primary rounded-xl px-4 py-3 outline-none focus:border-indigo-500 text-xs font-bold"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-2">Username</label>
-                    <input 
-                      placeholder="login"
-                      value={newStudent.username}
-                      onChange={(e) => setNewStudent({...newStudent, username: e.target.value})}
-                      className="w-full bg-primary border border-primary rounded-xl px-4 py-3 outline-none focus:border-indigo-500 text-xs font-bold"
-                    />
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setManualCredentials(false)}
+                      className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${!manualCredentials ? "bg-indigo-600 text-white border-indigo-600" : "bg-primary border-primary text-muted"}`}
+                    >
+                      Auto login/parol
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setManualCredentials(true)}
+                      className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${manualCredentials ? "bg-indigo-600 text-white border-indigo-600" : "bg-primary border-primary text-muted"}`}
+                    >
+                      Manual login/parol
+                    </button>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-2">Parol</label>
-                    <input 
-                      placeholder="parol"
-                      value={newStudent.password}
-                      onChange={(e) => setNewStudent({...newStudent, password: e.target.value})}
-                      className="w-full bg-primary border border-primary rounded-xl px-4 py-3 outline-none focus:border-indigo-500 text-xs font-bold"
-                    />
-                  </div>
+
+                  {manualCredentials ? (
+                    <>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-2">Username</label>
+                        <input 
+                          placeholder="login"
+                          value={newStudent.username}
+                          onChange={(e) => setNewStudent({...newStudent, username: e.target.value})}
+                          className="w-full bg-primary border border-primary rounded-xl px-4 py-3 outline-none focus:border-indigo-500 text-xs font-bold"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-2">Parol</label>
+                        <input 
+                          placeholder="parol"
+                          value={newStudent.password}
+                          onChange={(e) => setNewStudent({...newStudent, password: e.target.value})}
+                          className="w-full bg-primary border border-primary rounded-xl px-4 py-3 outline-none focus:border-indigo-500 text-xs font-bold"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleGenerateCredentials}
+                      className="w-full py-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
+                    >
+                      <FaRandom /> Auto yaratib ko'rsatish
+                    </button>
+                  )}
+
                   <button className="w-full py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-600/20 hover:scale-[1.02] transition-all">
                     Qo'shish
                   </button>
                 </form>
+
+                <div className="mt-6 p-4 rounded-2xl border border-primary bg-primary/40 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted">Bulk import (ro'yxat)</p>
+                    <button
+                      type="button"
+                      onClick={downloadStudentsTemplate}
+                      className="text-[9px] font-black uppercase tracking-widest text-indigo-600 flex items-center gap-1"
+                    >
+                      <FaFileDownload size={10} /> Shablon
+                    </button>
+                  </div>
+                  <textarea
+                    value={bulkText}
+                    onChange={(e) => setBulkText(e.target.value)}
+                    className="w-full h-28 bg-primary border border-primary rounded-xl px-3 py-2 outline-none focus:border-indigo-500 text-xs font-medium resize-none"
+                    placeholder={"Ali Valiyev,ali_valiyev,Ali@2026\nVali Karimov,,\nDilshod Qodirov,dilshod_q,12345"}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleBulkImport}
+                    disabled={bulkLoading}
+                    className="w-full py-2.5 bg-green-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest disabled:opacity-60"
+                  >
+                    {bulkLoading ? "Yuklanmoqda..." : "Ro'yxatdan qo'shish"}
+                  </button>
+                </div>
               </div>
 
               {/* Right Side: List or Chat */}
@@ -398,12 +615,25 @@ export default function TeacherGroups() {
                       <>O'quvchilar <span className="text-indigo-500">Ro'yxati</span></>
                     )}
                   </h3>
-                  <button 
-                    onClick={() => setStudentModal({ open: false, group: null })}
-                    className="p-2 hover:bg-red-500/10 text-red-500 rounded-xl transition-all"
-                  >
-                    Yopish
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {!activeChat && (
+                      <button
+                        type="button"
+                        onClick={() => copyCredentials(students)}
+                        className="p-2 hover:bg-indigo-500/10 text-indigo-600 rounded-xl transition-all flex items-center gap-1.5"
+                        title="Login-parollarni nusxalash"
+                      >
+                        <FaCopy size={12} />
+                        <span className="text-[9px] font-black uppercase tracking-widest">Copy</span>
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => setStudentModal({ open: false, group: null })}
+                      className="p-2 hover:bg-red-500/10 text-red-500 rounded-xl transition-all"
+                    >
+                      Yopish
+                    </button>
+                  </div>
                 </div>
 
                 {activeChat ? (

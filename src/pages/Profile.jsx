@@ -2,12 +2,18 @@ import React, { useState, useEffect } from "react";
 import DashboardLayout from "../components/DashboardLayout";
 import { User, Phone, MapPin, Building, Globe, Mail, Camera, Save, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "react-toastify";
-import { updateAdminApi } from "../api/api";
+import { useNavigate } from "react-router-dom";
+import { getTeacherTests, updateAdminApi } from "../api/api";
+import { getTeacherSubscription } from "../utils/subscriptionTools";
+import { syncTeacherTestUsageWithCurrent } from "../utils/testUsageTools";
+import { isTeacherProActive } from "../utils/teacherAccessTools";
 
 export default function Profile() {
+  const navigate = useNavigate();
   const [role, setRole] = useState("student");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [teacherSettingsLocked, setTeacherSettingsLocked] = useState(false);
   const [user, setUser] = useState({
     fullName: "",
     username: "",
@@ -27,9 +33,9 @@ export default function Profile() {
     if (savedRole === "admin") {
       savedName = localStorage.getItem("schoolName") || "Admin";
     } else if (savedRole === "teacher") {
-      savedName = localStorage.getItem("teacherName") || "";
+      savedName = localStorage.getItem("teacherName") || localStorage.getItem("fullName") || "";
     } else {
-      savedName = localStorage.getItem("studentName") || "";
+      savedName = localStorage.getItem("fullName") || localStorage.getItem("studentName") || "";
     }
 
     setRole(savedRole);
@@ -41,6 +47,40 @@ export default function Profile() {
     }));
   }, []);
 
+  useEffect(() => {
+    const currentRole = localStorage.getItem("userRole");
+    if (currentRole !== "teacher") return;
+    const teacherId = localStorage.getItem("teacherId");
+    if (!teacherId) {
+      navigate("/teacher/login");
+      return;
+    }
+    if (!isTeacherProActive(teacherId)) {
+      toast.info("Sozlamalar bo'limi faqat Pro tarifda ishlaydi.");
+      navigate("/teacher/subscription");
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    const checkTeacherAccess = async () => {
+      const currentRole = localStorage.getItem("userRole");
+      if (currentRole !== "teacher") return;
+      const teacherId = localStorage.getItem("teacherId");
+      if (!teacherId) return;
+      try {
+        const subscription = getTeacherSubscription(teacherId);
+        const { data } = await getTeacherTests(teacherId);
+        const totalTests = Array.isArray(data) ? data.length : 0;
+        const usageCount = syncTeacherTestUsageWithCurrent(teacherId, totalTests);
+        const hasLimit = Number.isFinite(subscription.maxTests);
+        setTeacherSettingsLocked(hasLimit && usageCount >= subscription.maxTests);
+      } catch {
+        setTeacherSettingsLocked(false);
+      }
+    };
+    checkTeacherAccess();
+  }, []);
+
   const handleChange = (e) => {
     setUser({ ...user, [e.target.name]: e.target.value });
   };
@@ -49,6 +89,10 @@ export default function Profile() {
     e.preventDefault();
     setLoading(true);
     try {
+      if (role === "teacher" && teacherSettingsLocked) {
+        toast.warning("Bepul limit tugagan. Sozlamalar uchun obuna kerak.");
+        return;
+      }
       if (role === "admin") {
         const schoolId = localStorage.getItem("schoolId");
         if (!schoolId) {
@@ -116,6 +160,11 @@ export default function Profile() {
           {/* Form Section */}
           <div className="lg:col-span-2">
             <div className="premium-card">
+              {role === "teacher" && teacherSettingsLocked && (
+                <div className="mb-5 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-sm text-secondary">
+                  Bepul limit tugagan. Sozlamalarni davom ettirish uchun avval obuna so'rovini `Testlar` bo'limidan yuboring.
+                </div>
+              )}
               <form onSubmit={handleSave} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
@@ -196,7 +245,7 @@ export default function Profile() {
                 <div className="pt-4">
                   <button 
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || (role === "teacher" && teacherSettingsLocked)}
                     className="w-full md:w-auto px-12 py-5 bg-gradient-to-r from-indigo-600 to-blue-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl shadow-indigo-600/30 hover:scale-[1.02] active:scale-95 transition-all"
                   >
                     {loading ? "Saqlanmoqda..." : <><Save size={18} /> Saqlash <span className="opacity-50">/ Update</span></>}

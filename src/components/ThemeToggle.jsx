@@ -1,46 +1,48 @@
 import React, { useState } from "react";
-import { useTheme } from "../context/ThemeContext";
-import { Sun, Moon, Monitor, Palette } from "lucide-react";
+import { Moon, Monitor, Palette, Sun } from "lucide-react";
+import { useTheme } from "../context/useTheme";
 
 export default function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const [isOpen, setIsOpen] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const options = [
-    { id: "light", icon: Sun, label: "Light" },
-    { id: "dark", icon: Moon, label: "Dark" },
-    { id: "system", icon: Monitor, label: "System" },
+    { id: "light", label: "Light", icon: Sun },
+    { id: "dark", label: "Dark", icon: Moon },
+    { id: "system", label: "System", icon: Monitor },
   ];
 
   return (
-    <div className="fixed bottom-6 right-6 z-[9999]">
-      {isOpen && (
-        <div className="absolute bottom-16 right-0 mb-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 min-w-[140px] animate-in fade-in slide-in-from-bottom-4 duration-300">
-          {options.map((opt) => (
+    <div className="fixed bottom-4 right-4 z-[9999]">
+      {open && (
+        <div className="mb-2 premium-card p-2 w-36">
+          {options.map((option) => (
             <button
-              key={opt.id}
+              key={option.id}
+              type="button"
               onClick={() => {
-                setTheme(opt.id);
-                setIsOpen(false);
+                setTheme(option.id);
+                setOpen(false);
               }}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                theme === opt.id
-                  ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/20"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                theme === option.id
+                  ? "bg-blue-600 text-white"
+                  : "text-secondary hover:bg-accent hover:text-primary"
               }`}
             >
-              <opt.icon size={18} />
-              {opt.label}
+              <option.icon size={15} />
+              {option.label}
             </button>
           ))}
         </div>
       )}
-      
+
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-14 h-14 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full shadow-2xl flex items-center justify-center text-slate-700 dark:text-cyan-400 hover:scale-110 transition-all active:scale-95 group"
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="w-11 h-11 rounded-full border border-primary bg-secondary/95 backdrop-blur-sm text-primary flex items-center justify-center shadow-md"
       >
-        <Palette className="group-hover:rotate-12 transition-transform" size={24} />
+        <Palette size={18} />
       </button>
     </div>
   );

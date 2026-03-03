@@ -1,8 +1,10 @@
 import axios from "axios";
+import { logUserActivity } from "../utils/activityLog";
 
-// ⚠️ DIQQAT: Ngrok har safar o'chib yonganda bu havola o'zgaradi.
-// Uni terminaldan olib, shu yerga yangilang!
-export const BASE_URL = "https://online-test-backend-2.onrender.com";
+const normalizeBaseUrl = (value) => String(value || "").trim().replace(/\/+$/, "");
+const FALLBACK_BASE_URL = "https://online-test-backend-2.onrender.com";
+
+export const BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL) || FALLBACK_BASE_URL;
 const API_URL = `${BASE_URL}/api`;
 
 const api = axios.create({
@@ -14,6 +16,58 @@ const api = axios.create({
   },
 });
 
+const shouldTrackApiActivity = (method = "", url = "") => {
+  const normalizedMethod = String(method || "").toLowerCase();
+  const normalizedUrl = String(url || "").toLowerCase();
+  if (["post", "put", "patch", "delete"].includes(normalizedMethod)) return true;
+  return normalizedUrl.includes("/login");
+};
+
+api.interceptors.request.use((config) => {
+  const next = config;
+  next.metadata = { startedAt: Date.now() };
+  return next;
+});
+
+api.interceptors.response.use(
+  (response) => {
+    const method = response?.config?.method || "";
+    const url = response?.config?.url || "";
+    if (shouldTrackApiActivity(method, url)) {
+      const duration = Date.now() - Number(response?.config?.metadata?.startedAt || Date.now());
+      logUserActivity({
+        action: `${String(method).toUpperCase()} ${url}`,
+        area: "api",
+        status: "success",
+        message: "API amal bajarildi",
+        meta: {
+          statusCode: response?.status,
+          durationMs: duration,
+        },
+      });
+    }
+    return response;
+  },
+  (error) => {
+    const method = error?.config?.method || "";
+    const url = error?.config?.url || "";
+    if (shouldTrackApiActivity(method, url)) {
+      const duration = Date.now() - Number(error?.config?.metadata?.startedAt || Date.now());
+      logUserActivity({
+        action: `${String(method).toUpperCase()} ${url}`,
+        area: "api",
+        status: "failed",
+        message: error?.response?.data?.msg || error?.message || "API xato",
+        meta: {
+          statusCode: error?.response?.status || 0,
+          durationMs: duration,
+        },
+      });
+    }
+    return Promise.reject(error);
+  }
+);
+
 /* ===================== LOGIN ===================== */
 
 export const loginUser = async (
@@ -23,67 +77,66 @@ export const loginUser = async (
   fullName = "",
   studentId = "",
 ) => {
-  try {
-    // ===== ADMIN (School) =====
-    if (role === "admin") {
-      const res = await api.post("/school/login", {
-        name: username,
-        adminPassword: password,
-      });
+  // ===== ADMIN (School) =====
+  if (role === "admin") {
+    const res = await api.post("/school/login", {
+      name: username,
+      adminPassword: password,
+    });
 
-      localStorage.setItem("schoolId", res.data.schoolId);
-      localStorage.setItem("schoolName", res.data.name);
-      localStorage.setItem("userRole", "admin");
+    localStorage.setItem("schoolId", res.data.schoolId);
+    localStorage.setItem("schoolName", res.data.name);
+    localStorage.setItem("userRole", "admin");
 
-      return {
-        ...res.data,
-        role: "admin",
-        message: "Admin tizimga kirdi",
-      };
-    }
-
-    // ===== TEACHER (O'qituvchi) =====
-    if (role === "teacher") {
-      const res = await api.post("/auth/teacher-login", {
-        username,
-        password,
-      });
-
-      localStorage.setItem("teacherId", res.data.teacherId);
-      localStorage.setItem("teacherName", res.data.fullName);
-      localStorage.setItem("userRole", "teacher");
-
-      return {
-        ...res.data,
-        role: "teacher",
-        message: "Xush kelibsiz, ustoz!",
-      };
-    }
-
-    // ===== STUDENT (O'quvchi) =====
-    if (role === "student") {
-      const res = await api.post("/student/login", {
-        login: username,
-        password,
-        studentName: fullName,
-        studentId,
-      });
-
-      localStorage.setItem("studentTestId", res.data.testId);
-      localStorage.setItem("studentName", res.data.studentName);
-      localStorage.setItem("userRole", "student");
-
-      return {
-        ...res.data,
-        role: "student",
-        message: "Testga muvaffaqiyatli kirdingiz!",
-      };
-    }
-
-    throw new Error("Role noto‘g‘ri tanlandi!");
-  } catch (err) {
-    throw err;
+    return {
+      ...res.data,
+      role: "admin",
+      message: "Admin tizimga kirdi",
+    };
   }
+
+  // ===== TEACHER (O'qituvchi) =====
+  if (role === "teacher") {
+    const res = await api.post("/auth/teacher-login", {
+      username,
+      password,
+    });
+
+    localStorage.setItem("teacherId", res.data.teacherId);
+    localStorage.setItem("teacherName", res.data.fullName);
+    localStorage.setItem("fullName", res.data.fullName);
+    localStorage.setItem("userRole", "teacher");
+
+    return {
+      ...res.data,
+      role: "teacher",
+      message: "Xush kelibsiz, ustoz!",
+    };
+  }
+
+  // ===== STUDENT (O'quvchi) =====
+  if (role === "student") {
+    const res = await api.post("/student/login", {
+      login: username,
+      password,
+      studentName: fullName,
+      studentId,
+    });
+
+    const resolvedStudentName = res.data.studentName || fullName || "";
+    localStorage.setItem("studentTestId", res.data.testId);
+    localStorage.setItem("studentName", resolvedStudentName);
+    localStorage.setItem("fullName", resolvedStudentName);
+    localStorage.setItem("userRole", "student");
+
+    return {
+      ...res.data,
+      role: "student",
+      message: "Testga muvaffaqiyatli kirdingiz!",
+    };
+  }
+
+  throw new Error("Role noto‘g‘ri tanlandi!");
 };
 
 /* ===================== ADMIN API ===================== */
@@ -187,35 +240,15 @@ export const sendMessageApi = (data) => api.post("/chat/send", data);
 
 /* ===================== STUDENT API ===================== */
 
-const handleApiError = (err) => {
-  throw err;
-};
+export const submitTestApi = (data) => api.post("/student/submit", data);
 
-export const submitTestApi = async (data) => {
-  try {
-    return await api.post("/student/submit", data);
-  } catch (err) {
-    handleApiError(err);
-  }
-};
+export const studentIndividualLogin = (data) => api.post("/auth/student-login", data);
 
-export const studentIndividualLogin = async (data) => {
-  try {
-    return await api.post("/auth/student-login", data);
-  } catch (err) {
-    handleApiError(err);
-  }
-};
-
-export const getAvailableTests = async (teacherId, studentGroupId) => {
-  try {
-    const url = studentGroupId
-      ? `/student/available-tests/${teacherId}?studentGroupId=${studentGroupId}`
-      : `/student/available-tests/${teacherId}`;
-    return await api.get(url);
-  } catch (err) {
-    handleApiError(err);
-  }
+export const getAvailableTests = (teacherId, studentGroupId) => {
+  const url = studentGroupId
+    ? `/student/available-tests/${teacherId}?studentGroupId=${studentGroupId}`
+    : `/student/available-tests/${teacherId}`;
+  return api.get(url);
 };
 
 export default api;

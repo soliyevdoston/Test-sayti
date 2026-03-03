@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Send, User, Trash2, MessageSquare } from "lucide-react";
 import { getChatHistoryApi, sendMessageApi, BASE_URL } from "../api/api";
 import { io } from "socket.io-client";
@@ -12,6 +12,18 @@ export default function ChatBox({ teacherId, studentId, role }) {
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef();
+
+  const fetchHistory = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { data } = await getChatHistoryApi(teacherId, studentId);
+      setMessages(data);
+    } catch (err) {
+      console.error("Chat history error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [teacherId, studentId]);
 
   useEffect(() => {
     fetchHistory();
@@ -27,23 +39,11 @@ export default function ChatBox({ teacherId, studentId, role }) {
     return () => {
       socket.off("receive-message");
     };
-  }, [teacherId, studentId]);
+  }, [fetchHistory, teacherId, studentId]);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  const fetchHistory = async () => {
-    try {
-      setLoading(true);
-      const { data } = await getChatHistoryApi(teacherId, studentId);
-      setMessages(data);
-    } catch (err) {
-      console.error("Chat history error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSend = async (e) => {
     e.preventDefault();

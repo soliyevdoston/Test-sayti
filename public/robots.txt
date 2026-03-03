@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://osontestol.uz/sitemap.xml
+Host: https://testonlinee.uz
+Sitemap: https://testonlinee.uz/sitemap.xml

@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import DashboardLayout from "../components/DashboardLayout";
-import { getChatListApi, getChatHistoryApi, sendMessageApi } from "../api/api";
+import { getChatListApi, getChatHistoryApi, sendMessageApi, BASE_URL } from "../api/api";
 import { toast } from "react-toastify";
-import { MessageSquare, Send, User, Search, Hash } from "lucide-react";
+import { MessageSquare, Send, User, Search } from "lucide-react";
 import { io } from "socket.io-client";
-
-const BASE_URL = "https://online-test-backend-2.onrender.com"; // Consider importing from a config
+import { useNavigate } from "react-router-dom";
+import { isTeacherProActive } from "../utils/teacherAccessTools";
 
 const TeacherChats = () => {
+  const navigate = useNavigate();
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -15,28 +16,62 @@ const TeacherChats = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const teacherId = localStorage.getItem("teacherId");
-  const teacherName = localStorage.getItem("fullName");
+  const teacherName = localStorage.getItem("teacherName") || localStorage.getItem("fullName") || "Teacher";
   const socketRef = useRef();
   const messagesEndRef = useRef(null);
 
+  const loadChats = useCallback(async () => {
+    try {
+      const res = await getChatListApi(teacherId);
+      setChats(res.data);
+    } catch {
+      toast.error("Chatlarni yuklashda xatolik");
+    } finally {
+      setLoading(false);
+    }
+  }, [teacherId]);
+
+  const loadMessages = useCallback(
+    async (studentId) => {
+      try {
+        const res = await getChatHistoryApi(teacherId, studentId);
+        setMessages(res.data);
+      } catch {
+        toast.error("Xabarlarni yuklashda xatolik");
+      }
+    },
+    [teacherId]
+  );
+
   useEffect(() => {
+    const name = localStorage.getItem("teacherName");
+    if (!teacherId || !name) {
+      navigate("/teacher/login");
+      return undefined;
+    }
+    if (!isTeacherProActive(teacherId)) {
+      toast.info("Chatlar bo'limi faqat Pro tarifda ishlaydi.");
+      navigate("/teacher/subscription");
+      return undefined;
+    }
     loadChats();
     socketRef.current = io(BASE_URL);
     
     return () => {
       socketRef.current.disconnect();
     };
-  }, []);
+  }, [loadChats, navigate, teacherId]);
 
   useEffect(() => {
-    if (selectedChat) {
+    if (selectedChat && socketRef.current) {
       loadMessages(selectedChat.student._id);
       const roomId = `${teacherId}-${selectedChat.student._id}`;
       socketRef.current.emit("join-chat", roomId);
     }
-  }, [selectedChat]);
+  }, [selectedChat, loadMessages, teacherId]);
 
   useEffect(() => {
+    if (!socketRef.current) return undefined;
     socketRef.current.on("receive-message", (msg) => {
       if (selectedChat && (msg.senderId === selectedChat.student._id || msg.studentId === selectedChat.student._id)) {
         setMessages((prev) => [...prev, msg]);
@@ -44,32 +79,12 @@ const TeacherChats = () => {
       loadChats(); // Refresh list to show new message preview
     });
 
-    return () => socketRef.current.off("receive-message");
-  }, [selectedChat]);
+    return () => socketRef.current?.off("receive-message");
+  }, [selectedChat, loadChats]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  const loadChats = async () => {
-    try {
-      const res = await getChatListApi(teacherId);
-      setChats(res.data);
-    } catch (err) {
-      toast.error("Chatlarni yuklashda xatolik");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadMessages = async (studentId) => {
-    try {
-      const res = await getChatHistoryApi(teacherId, studentId);
-      setMessages(res.data);
-    } catch (err) {
-      toast.error("Xabarlarni yuklashda xatolik");
-    }
-  };
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -93,7 +108,7 @@ const TeacherChats = () => {
       setMessages((prev) => [...prev, msgData]);
       setNewMessage("");
       loadChats();
-    } catch (err) {
+    } catch {
       toast.error("Xabar yuborishda xatolik");
     }
   };

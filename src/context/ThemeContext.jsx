@@ -1,15 +1,20 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-
-const ThemeContext = createContext();
-
-export const useTheme = () => useContext(ThemeContext);
+import React, { useEffect, useState } from "react";
+import { ThemeContext } from "./themeContextValue";
 
 export const ThemeProvider = ({ children }) => {
+  const resolveInitialTheme = () => {
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme === "light" || savedTheme === "dark" || savedTheme === "system") {
+      return savedTheme;
+    }
+    return "dark";
+  };
+
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("theme") || "light";
+    return resolveInitialTheme();
   });
 
-  const [resolvedTheme, setResolvedTheme] = useState("light");
+  const [resolvedTheme, setResolvedTheme] = useState("dark");
 
   useEffect(() => {
     localStorage.setItem("theme", theme);

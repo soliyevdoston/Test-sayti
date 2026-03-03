@@ -16,10 +16,17 @@ import {
   HelpCircle
 } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
-import { createManualTestApi, parsePreviewApi, getTeacherGroups } from "../api/api";
+import { createManualTestApi, parsePreviewApi, getTeacherGroups, getTeacherTests } from "../api/api";
+import { normalizeFormulaInput, validateFormulaSyntax } from "../utils/academicTools";
+import { formatLimit, getTeacherSubscription } from "../utils/subscriptionTools";
+import { incrementTeacherTestUsage, syncTeacherTestUsageWithCurrent } from "../utils/testUsageTools";
+import { getTeacherSolveLimitSnapshot } from "../utils/teacherSolveUsageTools";
+import { isTeacherProActive } from "../utils/teacherAccessTools";
 
 export default function CreateTest() {
   const navigate = useNavigate();
+  const teacherId = localStorage.getItem("teacherId");
+  const isProPlan = isTeacherProActive(teacherId);
   const [loading, setLoading] = useState(false);
   const [testData, setTestData] = useState({
     title: "",
@@ -48,14 +55,58 @@ export default function CreateTest() {
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [bulkText, setBulkText] = useState("");
   const [groups, setGroups] = useState([]);
+  const [testCapacity, setTestCapacity] = useState({
+    loading: true,
+    planLabel: "Bepul",
+    maxTests: 10,
+    maxSolved: 50,
+    currentTests: 0,
+    currentSolved: 0,
+    testLimitReached: false,
+    solveLimitReached: false,
+    limitReached: false,
+  });
 
   React.useEffect(() => {
     const id = localStorage.getItem("teacherId");
-    if (id) {
-      getTeacherGroups(id).then(res => {
-        setGroups(Array.isArray(res.data) ? res.data : []);
+    if (!id) return;
+
+    const subscription = getTeacherSubscription(id);
+    setTestCapacity((prev) => ({
+      ...prev,
+      planLabel: subscription.label,
+      maxTests: subscription.maxTests,
+      maxSolved: subscription.maxSolved,
+    }));
+
+    Promise.all([getTeacherGroups(id), getTeacherTests(id)])
+      .then(async ([groupsRes, testsRes]) => {
+        const groupsData = Array.isArray(groupsRes.data) ? groupsRes.data : [];
+        const testsData = Array.isArray(testsRes.data) ? testsRes.data : [];
+        const usageCount = syncTeacherTestUsageWithCurrent(id, testsData.length);
+        const solveSnapshot = await getTeacherSolveLimitSnapshot(id, testsData);
+        const solvedCount = Number(solveSnapshot.usedSolved || 0);
+        setGroups(groupsData);
+        const hasTestLimit = Number.isFinite(subscription.maxTests);
+        const hasSolveLimit = Number.isFinite(subscription.maxSolved);
+        const testLimitReached = hasTestLimit && usageCount >= subscription.maxTests;
+        const solveLimitReached = hasSolveLimit && solvedCount >= subscription.maxSolved;
+        setTestCapacity({
+          loading: false,
+          planLabel: subscription.label,
+          maxTests: subscription.maxTests,
+          maxSolved: subscription.maxSolved,
+          currentTests: usageCount,
+          currentSolved: solvedCount,
+          testLimitReached,
+          solveLimitReached,
+          limitReached: testLimitReached || solveLimitReached,
+        });
+      })
+      .catch(() => {
+        setGroups([]);
+        setTestCapacity((prev) => ({ ...prev, loading: false }));
       });
-    }
   }, []);
 
   const parseBulkText = async () => {
@@ -63,7 +114,15 @@ export default function CreateTest() {
     
     try {
       setLoading(true);
-      const res = await parsePreviewApi({ text: bulkText });
+      const normalizedText = normalizeFormulaInput(bulkText);
+      const formulaCheck = validateFormulaSyntax(normalizedText);
+      if (!formulaCheck.isValid) {
+        toast.warning(formulaCheck.issues[0]);
+        setLoading(false);
+        return;
+      }
+
+      const res = await parsePreviewApi({ text: normalizedText });
       const parsedQuestions = res.data.questions;
 
       if (!parsedQuestions || parsedQuestions.length === 0) {
@@ -168,7 +227,20 @@ export default function CreateTest() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    const teacherId = localStorage.getItem("teacherId");
+    if (testCapacity.limitReached) {
+      const message = testCapacity.solveLimitReached
+        ? `Yechish limiti tugagan (${formatLimit(testCapacity.maxSolved)} ta). Davom etish uchun obuna kerak.`
+        : `Test limiti tugagan (${formatLimit(testCapacity.maxTests)} ta). Davom etish uchun obuna kerak.`;
+      toast.warning(message);
+      navigate("/teacher/subscription");
+      return;
+    }
+    const activeTeacherId = localStorage.getItem("teacherId");
+    if (!isProPlan && testData.accessType === "group") {
+      toast.info("Guruhga yopiq testlar faqat Pro tarifda ishlaydi.");
+      navigate("/teacher/subscription");
+      return;
+    }
     
     // Validatsiya
     if (!testData.title || !testData.testLogin || !testData.testPassword) {
@@ -186,9 +258,17 @@ export default function CreateTest() {
       setLoading(true);
       await createManualTestApi({
         ...testData,
-        teacherId,
+        teacherId: activeTeacherId,
         isStarted: false
       });
+      const nextUsage = incrementTeacherTestUsage(activeTeacherId, 1, testCapacity.currentTests);
+      setTestCapacity((prev) => ({
+        ...prev,
+        currentTests: nextUsage,
+        testLimitReached: Number.isFinite(prev.maxTests) && nextUsage >= prev.maxTests,
+        limitReached:
+          (Number.isFinite(prev.maxTests) && nextUsage >= prev.maxTests) || Boolean(prev.solveLimitReached),
+      }));
       toast.success("Test muvaffaqiyatli yaratildi!");
       navigate("/teacher/tests");
     } catch (err) {
@@ -213,11 +293,37 @@ export default function CreateTest() {
           </div>
           <button 
             onClick={handleSave}
-            disabled={loading}
-            className="px-8 py-4 bg-indigo-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-indigo-600/30 hover:scale-[1.05] active:scale-95 transition-all flex items-center gap-3"
+            disabled={loading || testCapacity.limitReached}
+            className={`px-8 py-4 rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center gap-3 ${
+              loading || testCapacity.limitReached
+                ? "bg-slate-500 text-white cursor-not-allowed"
+                : "bg-indigo-600 text-white shadow-xl shadow-indigo-600/30 hover:scale-[1.05] active:scale-95"
+            }`}
           >
             {loading ? "Saqlanmoqda..." : <><Save size={18} /> Saqlash</>}
           </button>
+        </div>
+
+        <div className={`mb-8 p-4 rounded-2xl border ${testCapacity.limitReached ? "bg-red-500/10 border-red-500/20" : "bg-indigo-500/5 border-indigo-500/20"}`}>
+          <p className="text-[11px] font-black uppercase tracking-widest text-primary">
+            Obuna: <span className="text-indigo-600">{testCapacity.planLabel}</span> | Test limiti:{" "}
+            <span className="text-indigo-600">{formatLimit(testCapacity.maxTests)}</span> | Yechish limiti:{" "}
+            <span className="text-indigo-600">{formatLimit(testCapacity.maxSolved)}</span>
+          </p>
+          <p className={`text-xs mt-1 font-semibold ${testCapacity.limitReached ? "text-red-600" : "text-secondary"}`}>
+            {testCapacity.loading
+              ? "Limit tekshirilmoqda..."
+              : Number.isFinite(testCapacity.maxTests)
+                ? `Umumiy qo'shilgan testlar: ${testCapacity.currentTests}. Yangi qo'shish imkoni: ${Math.max(testCapacity.maxTests - testCapacity.currentTests, 0)}`
+                : `Umumiy qo'shilgan testlar: ${testCapacity.currentTests}. Sizda test cheksiz.`}
+          </p>
+          <p className={`text-xs mt-1 font-semibold ${testCapacity.limitReached ? "text-red-600" : "text-secondary"}`}>
+            {testCapacity.loading
+              ? "Yechish limiti tekshirilmoqda..."
+              : Number.isFinite(testCapacity.maxSolved)
+                ? `Yechilgan jami: ${testCapacity.currentSolved}. Qolgan yechish: ${Math.max(testCapacity.maxSolved - testCapacity.currentSolved, 0)}`
+                : `Yechilgan jami: ${testCapacity.currentSolved}. Sizda yechish cheksiz.`}
+          </p>
         </div>
 
         <div className="space-y-8">
@@ -277,15 +383,27 @@ export default function CreateTest() {
                     </button>
                     <button 
                       type="button"
-                      onClick={() => setTestData({...testData, accessType: "group"})}
-                      className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${testData.accessType === 'group' ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20' : 'bg-secondary text-muted border-primary hover:text-primary'}`}
+                      onClick={() => {
+                        if (!isProPlan) {
+                          toast.info("Guruhga yopiq testlar faqat Pro tarifda.");
+                          navigate("/teacher/subscription");
+                          return;
+                        }
+                        setTestData({ ...testData, accessType: "group" });
+                      }}
+                      disabled={!isProPlan}
+                      className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                        testData.accessType === "group"
+                          ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20"
+                          : "bg-secondary text-muted border-primary hover:text-primary"
+                      } ${!isProPlan ? "opacity-60 cursor-not-allowed" : ""}`}
                     >
-                      Faqat Guruhga
+                      Faqat Guruhga {!isProPlan ? "(Pro)" : ""}
                     </button>
                   </div>
                 </div>
 
-                {testData.accessType === "group" && (
+                {testData.accessType === "group" && isProPlan && (
                   <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300">
                     <label className="text-[10px] font-black uppercase tracking-widest text-indigo-600 block ml-1">Guruhni Tanlang</label>
                     <select 

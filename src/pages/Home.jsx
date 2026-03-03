@@ -1,1156 +1,689 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Rocket,
-  ShieldCheck,
-  BarChart3,
-  FileText,
-  Users,
   ArrowRight,
-  Play,
-  Globe,
-  Instagram,
-  Send,
-  Check,
-  Star,
-  Plus,
-  Minus,
-  HelpCircle,
-  ExternalLink,
-  ChevronDown,
-  Layout,
-  Zap,
-  Award,
-  Shield,
-  School,
-  GraduationCap,
+  BarChart3,
   BookOpen,
-  UserCheck,
-  Search,
-  Languages,
-  Key,
-  Menu,
-  X,
-  Mail,
+  CheckCircle2,
+  FileSpreadsheet,
+  Instagram,
+  MessageSquareText,
   Phone,
-  MessageCircle,
-  Loader2
+  Send,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Users,
 } from "lucide-react";
 import logo from "../assets/logo.svg";
+import SiteFooter from "../components/SiteFooter";
 
-const StatCard = ({ label, value, icon: Icon }) => (
-  <div className="premium-card flex flex-col items-center justify-center text-center group">
-    <div className="p-4 bg-indigo-500/10 rounded-2xl mb-5 text-indigo-500 group-hover:scale-110 group-hover:rotate-12 transition-all duration-500">
-      <Icon size={32} />
-    </div>
-    <div className="text-3xl font-black text-primary mb-1">{value}</div>
-    <div className="text-[10px] font-black uppercase tracking-widest text-muted">{label}</div>
+const STATS = [
+  { value: "3", label: "Rolga mos oqim" },
+  { value: "10 daq", label: "Tez ishga tushirish" },
+  { value: "PDF/Word", label: "Eksport tayyor" },
+  { value: "24/7", label: "Doimiy nazorat" },
+];
+
+const FEATURES = [
+  {
+    icon: FileSpreadsheet,
+    title: "Word/TXT/CSV import",
+    desc: "Mavjud test fayllaringizni qayta yozmasdan tizimga kiriting va preview orqali tekshirib saqlang.",
+  },
+  {
+    icon: BookOpen,
+    title: "Formula-friendly savollar",
+    desc: "Matematika va aniq fanlar uchun formulalar to'g'ri parse qilinadi, savollar tushunarli ko'rinadi.",
+  },
+  {
+    icon: BarChart3,
+    title: "Chuqur tahlil paneli",
+    desc: "Test kesimi, o'quvchi kesimi, to'g'ri/xato dinamikasi va natijalar bo'yicha tez qaror oling.",
+  },
+  {
+    icon: Users,
+    title: "Guruh va login boshqaruvi",
+    desc: "Har guruhga alohida o'quvchi qo'shing, login/parolni avtomatik yarating va nusxalang.",
+  },
+  {
+    icon: MessageSquareText,
+    title: "Teacher-Student chat",
+    desc: "O'quvchilar bilan aloqani platforma ichida yuriting, savol-javoblarni yo'qotmang.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "To'lov va obuna nazorati",
+    desc: "Chek qabul qilish, pending so'rovlar, admin tasdiqlash va obuna aktivatsiyasi bir joyda.",
+  },
+];
+
+const WORKFLOW = [
+  {
+    step: "01",
+    title: "Testni yuklang yoki yarating",
+    desc: "Fayl import qiling yoki matndan test yarating. Preview bilan savollarni tekshiring.",
+  },
+  {
+    step: "02",
+    title: "Guruhga biriktiring va boshlang",
+    desc: "O'quvchilarni guruhga kiriting, testni oching va kerak bo'lsa jonli to'xtating.",
+  },
+  {
+    step: "03",
+    title: "Natijani tahlil qilib qaror qiling",
+    desc: "Natijalarni eksport qiling, qayta yechish so'rovlarini boshqaring, kuchli tarafni toping.",
+  },
+];
+
+const WORKFLOW_META = [
+  {
+    title: "Start vaqti",
+    value: "10-15 daqiqa",
+    desc: "Birinchi test oqimini tez ishga tushirish.",
+  },
+  {
+    title: "Texnik talab",
+    value: "Past",
+    desc: "Texnik bo'lmagan jamoa ham bemalol moslashadi.",
+  },
+  {
+    title: "Natija formati",
+    value: "Excel/PDF",
+    desc: "Hisobot va monitoring uchun tayyor eksportlar.",
+  },
+];
+
+const AUDIENCE = [
+  {
+    title: "O'qituvchi",
+    focus: "Test + guruh + chat + eksport",
+    path: "/teacher/login",
+    points: ["Yangi testlar oqimi", "Guruh bo'yicha nazorat", "Natijalarni tez tahlil"],
+  },
+  {
+    title: "O'quvchi",
+    focus: "Shaxsiy kabinet yoki guruh kirishi",
+    path: "/student/login",
+    points: ["Testlar ro'yxati", "Yechilganlar tarixi", "Qayta yechish so'rovi"],
+  },
+  {
+    title: "Admin",
+    focus: "Tizim va to'lov boshqaruvi",
+    path: "/admin/login",
+    points: ["O'qituvchilar nazorati", "Obuna monitoringi", "Platforma statistikasi"],
+  },
+];
+
+const PRICING = [
+  {
+    name: "Bepul",
+    price: "0 so'm",
+    tag: "Start",
+    list: [
+      "Faqat test oqimi (yaratish va boshlash)",
+      "10 ta test limiti",
+      "50 ta umumiy yechish limiti",
+      "Blok imtihon yopiq",
+      "Guruh, chat, natija, eksport: yopiq",
+    ],
+  },
+  {
+    name: "Teacher Pro",
+    price: "49 000 so'm / oy",
+    tag: "Most chosen",
+    list: [
+      "Barcha teacher funksiyalari ochiq",
+      "Blok imtihon (1-2-3+ fan)",
+      "Cheksiz test va cheksiz yechish",
+      "Guruh, chat, natija va sozlamalar",
+      "Preview, shablon va to'liq eksport",
+      "Arxiv, nusxa olish, analitika",
+    ],
+  },
+  {
+    name: "Maktab",
+    price: "1 499 000 so'm / oy",
+    tag: "Scale",
+    list: ["Barcha o'qituvchilar", "Markazlashgan nazorat", "Maktab darajasida monitoring"],
+  },
+];
+
+const SUBSCRIPTION_FLOW = [
+  {
+    title: "Limit tugaydi",
+    desc: "Bepul limit (10 test yoki 50 yechish) tugagach tizim obuna bo'limiga yo'naltiradi.",
+  },
+  {
+    title: "To'lov yuboriladi",
+    desc: "Karta raqami va summa bo'yicha to'lov qilinib chek jo'natiladi.",
+  },
+  {
+    title: "Admin tekshiradi",
+    desc: "Admin cheklar va foydalanuvchi holatini tekshiradi.",
+  },
+  {
+    title: "Obuna faollashadi",
+    desc: "Tasdiqlangach limitlar ochiladi va to'liq funksiyalar ishlaydi.",
+  },
+];
+
+const PLAN_GUIDE = [
+  "Bepul: faqat test oqimini sinab ko'rish (10 test / 50 yechish).",
+  "Teacher Pro: kundalik ishlash uchun barcha teacher bo'limlari to'liq ochiq.",
+  "Maktab: bir nechta o'qituvchi va markazlashgan monitoring uchun.",
+];
+
+const PRO_FEATURES_FULL = [
+  "Cheksiz test yaratish va boshlash",
+  "Cheksiz yechish limiti",
+  "Blok imtihon (bir testda ko'p fan)",
+  "Umumiy vaqtli kompleks test oqimi",
+  "Guruhlar bo'limi va o'quvchi boshqaruvi",
+  "Natijalar va individual tahlil",
+  "Teacher-Student chat",
+  "Preview va parser tekshiruvi",
+  "TXT/CSV shablon yuklash",
+  "JSON/TXT/CSV/WORD/PDF eksport",
+  "Arxiv va nusxalash",
+  "Sozlamalar bo'limi va profil boshqaruvi",
+];
+
+const TESTIMONIALS = [
+  {
+    text: "Oldin test jarayoni tarqoq edi. Endi guruh, natija va chat bitta panelda.",
+    author: "Madina T., Matematika o'qituvchisi",
+  },
+  {
+    text: "O'quvchilar uchun kirish ancha osonlashdi. Natijalarni ko'rish va qayta yechish oqimi aniq.",
+    author: "Azizbek R., O'quv markaz rahbari",
+  },
+  {
+    text: "Admin sifatida to'lov va obuna nazorati ancha tartibli bo'ldi. Hisobot berish tezlashdi.",
+    author: "Dilshod S., Platforma administratori",
+  },
+];
+
+const FAQS = [
+  {
+    q: "Platformani ishga tushirish qancha vaqt oladi?",
+    a: "Agar testlaringiz tayyor bo'lsa, odatda 10-15 daqiqada birinchi test oqimini to'liq yo'lga qo'yasiz.",
+  },
+  {
+    q: "Word/TXT/CSV fayllarni qayta ishlash bormi?",
+    a: "Ha. Import, preview va saqlash oqimi bor. Formula ishlatilgan savollar ham qo'llab-quvvatlanadi.",
+  },
+  {
+    q: "Bepul tarifdan keyin nima bo'ladi?",
+    a: "10 ta test yoki 50 ta yechish tugaganda qo'shimcha bo'limlar yopiq qoladi. Pro to'lovi yuborilib admin tasdiqlagach barcha funksiyalar ochiladi.",
+  },
+  {
+    q: "Mobil qurilmada ishlaydimi?",
+    a: "Ha. Dashboard va asosiy sahifalar mobilga moslashgan, tezkor ishlash uchun optimallashtirilgan.",
+  },
+];
+
+const CONTACTS = [
+  {
+    icon: Send,
+    channel: "Telegram",
+    value: "@Dostonbek_Solijonov",
+    note: "Tezkor savollar uchun",
+    href: "https://t.me/Dostonbek_Solijonov",
+  },
+  {
+    icon: Instagram,
+    channel: "Instagram",
+    value: "@soliyev_web",
+    note: "Yangiliklar va yangilanishlar",
+    href: "https://instagram.com/soliyev_web",
+  },
+  {
+    icon: Phone,
+    channel: "Telefon",
+    value: "+998 91 660 56 06",
+    note: "Ish vaqti: 09:00 - 18:00",
+    href: "tel:+998916605606",
+  },
+];
+
+const CONTACT_INFO = [
+  "Savollar bo'yicha odatda 5-15 daqiqada javob beriladi.",
+  "Texnik muammolar bo'yicha bosqichma-bosqich yo'riqnoma beriladi.",
+  "Hamkorlik va integratsiya bo'yicha alohida ish tartibi tuziladi.",
+];
+
+const SectionTitle = ({ badge, title, subtitle }) => (
+  <div className="max-w-3xl">
+    <p className="text-xs uppercase tracking-[0.2em] text-muted font-bold">{badge}</p>
+    <h2 className="text-3xl md:text-5xl font-extrabold mt-2 leading-tight">{title}</h2>
+    {subtitle && <p className="text-secondary mt-3 text-base">{subtitle}</p>}
   </div>
 );
 
-const OrbitBadge = ({ icon: Icon, label, className, color, delay }) => (
-  <div className={`absolute z-20 flex flex-col items-center gap-2 animate-float ${className}`} style={{ animationDelay: delay }}>
-    <div className="p-5 glass rounded-3xl shadow-2xl border border-primary/20 bg-white/80 dark:bg-primary/80 backdrop-blur-xl group hover:scale-110 transition-transform cursor-pointer">
-      <div className={`p-3 rounded-2xl bg-primary shadow-inner ${color}`}>
-        <Icon size={24} strokeWidth={3} />
-      </div>
-    </div>
-    <span className="px-4 py-1.5 glass rounded-full text-[10px] font-black uppercase tracking-widest text-primary shadow-sm border border-primary/10">
-      {label}
-    </span>
-  </div>
-);
+const ScreenSection = ({ id, className = "", delay = 0, children }) => {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
 
-const PartnershipLogo = ({ name, color = "text-primary" }) => (
-  <div className="flex items-center gap-4 group cursor-pointer">
-    <div className={`w-12 h-12 rounded-xl border border-primary/20 flex items-center justify-center p-2 bg-white/5 shadow-premium group-hover:border-indigo-500/50 transition-colors`}>
-      <img src={logo} alt={`${name} logo`} className="w-full h-full object-contain opacity-50 group-hover:opacity-100 transition-opacity" />
-    </div>
-    <span className={`text-[10px] font-black uppercase tracking-tighter max-w-[120px] leading-tight group-hover:text-blue-500 transition-colors ${color}`}>{name}</span>
-  </div>
-);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return undefined;
 
-const PricingCard = ({ title, price, features, recommended, path, navigate }) => (
-  <div className={`premium-card flex flex-col h-full group ${recommended ? 'ring-4 ring-indigo-500/10 border-indigo-500/50 scale-[1.02]' : ''}`}>
-    {recommended && (
-      <div className="absolute top-6 right-6 bg-indigo-500 text-white text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest shadow-lg shadow-indigo-500/30">
-        Tavsiya
-      </div>
-    )}
-    <h3 className="text-2xl font-black text-primary mb-2 uppercase tracking-tighter italic">{title}</h3>
-    <div className="flex items-baseline gap-1 mb-8">
-      <span className="text-5xl font-black text-primary tracking-tighter">{price}</span>
-      <span className="text-muted font-bold text-xs">/oyiga</span>
-    </div>
-    <ul className="space-y-4 mb-10 flex-grow">
-      {features.map((f, i) => (
-        <li key={i} className="flex items-center gap-3 text-sm font-bold text-muted group-hover:text-primary transition-colors">
-          <div className="p-1 rounded-lg bg-indigo-500/10 text-indigo-500"><Check size={14} /></div>
-          {f}
-        </li>
-      ))}
-    </ul>
-    <button
-      onClick={() => navigate(path)}
-      className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-xl ${recommended ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-indigo-600/30' : 'bg-primary border border-primary text-primary hover:bg-secondary'}`}
-    >
-      Boshlash
-    </button>
-  </div>
-);
-
-const FAQItem = ({ index, q, a }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  return (
-    <div className={`border rounded-[1.5rem] bg-white/50 dark:bg-primary/20 backdrop-blur-xl overflow-hidden mb-4 transition-all duration-500 ${isOpen ? 'border-indigo-500 shadow-lg shadow-indigo-500/10' : 'border-primary'}`}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-6 text-left hover:bg-indigo-500/5 transition-colors"
-      >
-        <span className="text-sm md:text-base font-black text-primary uppercase tracking-tight">
-          <span className="text-indigo-500">{index}-Savol:</span> {q}
-        </span>
-        <div className={`p-1.5 rounded-lg border border-primary transition-all duration-500 ${isOpen ? 'bg-indigo-500 border-indigo-500 rotate-180' : ''}`}>
-          {isOpen ? <Minus size={18} className="text-white" /> : <Plus size={18} className="text-indigo-500" />}
-        </div>
-      </button>
-      <div className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
-        <div className="p-6 pt-0 text-sm md:text-base text-secondary leading-relaxed border-t border-indigo-500/10 mt-2">
-          <span className="font-black text-primary">Javob:</span> {a}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const FeatureCard = ({ title, desc, icon: Icon, className = "" }) => (
-  <div className={`premium-card group hover:animate-tilt ${className}`}>
-    <div className="w-14 h-14 flex items-center justify-center bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl mb-8 text-white shadow-lg shadow-indigo-500/20 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500">
-      <Icon size={28} />
-    </div>
-    <h3 className="text-2xl font-black text-primary mb-4 tracking-tighter uppercase italic">{title}</h3>
-    <p className="text-muted font-medium leading-relaxed opacity-80">{desc}</p>
-  </div>
-);
-
-const StepCard = ({ number, title, desc }) => (
-  <div className="premium-card group">
-    <div className="text-5xl font-black text-indigo-500/10 group-hover:text-indigo-500/20 transition-colors mb-4">{number}</div>
-    <h4 className="text-xl font-black text-primary mb-3 uppercase tracking-tighter italic">{title}</h4>
-    <p className="text-muted font-medium opacity-80">{desc}</p>
-  </div>
-);
-
-const FeatureHighlight = ({ title, desc, features, image, reversed, badge }) => (
-  <div className={`flex flex-col lg:flex-row items-center gap-16 py-24 relative ${reversed ? 'lg:flex-row-reverse' : ''}`}>
-    {/* Illustration Side */}
-    <div className="w-full lg:w-1/2 relative group">
-      <div className="absolute inset-0 bg-indigo-500/10 rounded-[3rem] blur-3xl group-hover:bg-indigo-500/20 transition-all duration-700" />
-      <div className="relative p-2 glass rounded-[3rem] shadow-2xl overflow-hidden aspect-[4/3] border border-primary/20">
-        <img 
-          src={image} 
-          alt={`OsonTestOl - ${title}`} 
-          loading="lazy"
-          className="w-full h-full object-cover rounded-[2.5rem] group-hover:scale-105 transition-transform duration-1000" 
-        />
-        {badge && (
-          <div className="absolute top-6 right-6 p-4 glass rounded-2xl shadow-xl animate-bounce">
-            {badge}
-          </div>
-        )}
-      </div>
-    </div>
-
-    {/* Content Side */}
-    <div className="w-full lg:w-1/2 space-y-8">
-      <h2 className="text-4xl md:text-5xl font-black text-primary tracking-tighter leading-tight uppercase italic">
-        {title}
-      </h2>
-      <p className="text-secondary font-medium leading-relaxed max-w-xl">
-        {desc}
-      </p>
-      <div className="space-y-4">
-        {features.map((f, i) => (
-          <div key={i} className="flex items-start gap-4 group/item">
-            <div className="mt-1 w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30 group-hover/item:scale-110 transition-transform">
-              <Check size={14} strokeWidth={3} />
-            </div>
-            <div>
-              <p className="text-sm md:text-base font-black text-primary transition-colors group-hover/item:text-indigo-600">
-                {f.split(' - ')[0]} - <span className="text-secondary font-medium">{f.split(' - ')[1]}</span>
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-      <button
-        onClick={() => document.getElementById("roles")?.scrollIntoView({ behavior: "smooth" })}
-        className="px-10 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-600/30 transition-all transform hover:scale-105 active:scale-95"
-      >
-        Ishlatib ko'rish
-      </button>
-    </div>
-
-    {/* Vertical Timeline Connection Pin */}
-    <div className="absolute left-1/2 top-0 bottom-0 w-px bg-dashed bg-gradient-to-b from-transparent via-indigo-500/30 to-transparent hidden lg:block" />
-    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-indigo-600 rounded-full border-4 border-primary shadow-lg shadow-indigo-600/50 hidden lg:block" />
-  </div>
-);
-
-const GuideStep = ({ number, title, desc, icon: Icon }) => (
-  <div className="flex gap-6 group/step">
-    <div className="flex flex-col items-center">
-      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 group-hover/step:scale-110 transition-transform relative z-10">
-        <Icon size={24} />
-      </div>
-      <div className="w-px h-full bg-indigo-500/20 my-2 group-last/step:hidden"></div>
-    </div>
-    <div className="pb-10 group-last/step:pb-0">
-      <h4 className="text-xl font-black text-primary uppercase tracking-tighter italic mb-2">{number}. {title}</h4>
-      <p className="text-sm text-secondary font-medium leading-relaxed max-w-md">{desc}</p>
-    </div>
-  </div>
-);
-
-const GuideSection = () => {
-  const [activeTab, setActiveTab] = useState("teacher");
-
-  return (
-    <section id="guide" className="py-20 md:py-32 px-6 bg-secondary/10">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-20 space-y-4">
-          <h2 className="text-4xl md:text-6xl font-black text-primary tracking-tighter uppercase italic">
-            Platformadan <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-blue-600 underline decoration-indigo-500/30 decoration-8 underline-offset-8">foydalanish</span>
-          </h2>
-          <p className="text-muted font-bold uppercase tracking-widest text-xs">Eng oddiy va mayda qadamlar bilan tanishasiz</p>
-        </div>
-
-        <div className="flex justify-center mb-16">
-          <div className="inline-flex p-1.5 bg-primary/20 backdrop-blur-xl rounded-[2rem] border border-primary/20">
-            <button
-              onClick={() => setActiveTab("teacher")}
-              className={`px-10 py-4 rounded-[1.8rem] font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'teacher' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/30' : 'text-secondary hover:text-primary'}`}
-            >
-              O'qituvchi uchun
-            </button>
-            <button
-              onClick={() => setActiveTab("student")}
-              className={`px-10 py-4 rounded-[1.8rem] font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'student' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/30' : 'text-secondary hover:text-primary'}`}
-            >
-              O'quvchi uchun
-            </button>
-          </div>
-        </div>
-
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
-          <div className="space-y-2 animate-in fade-in slide-in-from-left duration-700">
-            {activeTab === "teacher" ? (
-              <div className="space-y-2">
-                <GuideStep 
-                  number="01" 
-                  title="Kirish" 
-                  desc="Tizimga o'qituvchi sifatida kiring. Agar akkountingiz bo'lmasa, Adminstrator sizga login va parolni taqdim etadi." 
-                  icon={Shield} 
-                />
-                <GuideStep 
-                  number="02" 
-                  title="Fan yaratish" 
-                  desc="Asosiy panelda 'Fanlar' bo'limiga o'ting va 'Yangi fan' tugmasini bosing. Fan nomini kiriting." 
-                  icon={Plus} 
-                />
-                <GuideStep 
-                  number="03" 
-                  title="Test yuklash" 
-                  desc="Word (.docx) faylidagi testlaringizni tizimga yuklang. Savollar avtomatik tarzda tahlil qilinadi va bazaga saqlanadi." 
-                  icon={ArrowRight} 
-                />
-                <GuideStep 
-                  number="04" 
-                  title="Testni boshlash" 
-                  desc="Testni ikki xil usulda o'tkazishingiz mumkin: 1) Ommaviy xona kodi (ID) orqali hamma uchun; 2) Faqat ma'lum bir guruhga biriktirib, faqat shu o'quvchilardan test olish." 
-                  icon={Rocket} 
-                />
-                <GuideStep 
-                  number="05" 
-                  title="Tahlil va Natija" 
-                  desc="O'quvchilar testni yechishni boshlashi bilan natijalarni real vaqt rejimida kuzatib boring. Shaxsiy kabinet orqali kirgan o'quvchilarning natijalari ularning profilida saqlanadi." 
-                  icon={BarChart3} 
-                />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <GuideStep 
-                  number="01" 
-                  title="Login" 
-                  desc="O'qituvchingiz bergan login va parol orqali o'quvchi kabinetiga kiring." 
-                  icon={Users} 
-                />
-                <GuideStep 
-                  number="02" 
-                  title="Testga kirish" 
-                  desc="O'qituvchi bergan xona kodi (ID) orqali kiring YOKI agar guruhga biriktirilgan bo'lsangiz, shaxsiy kabinetingizdagi 'Mening testlarim' bo'limidan kirishingiz mumkin." 
-                  icon={Key} 
-                />
-                <GuideStep 
-                  number="03" 
-                  title="Testni yechish" 
-                  desc="Test savollarini diqqat bilan o'qib chiqing va to'g'ri javoblarni belgilang." 
-                  icon={FileText} 
-                />
-                <GuideStep 
-                  number="04" 
-                  title="Yakunlash" 
-                  desc="Barcha savollarga javob bergach, 'Testni yakunlash' tugmasini bosing." 
-                  icon={Check} 
-                />
-                <GuideStep 
-                  number="05" 
-                  title="Natija" 
-                  desc="Sizga darhol necha ball to'plaganingiz va qaysi savollarda xato qilganingiz ko'rsatiladi." 
-                  icon={Award} 
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="relative group">
-             <div className="absolute inset-0 bg-indigo-500/10 rounded-[3rem] blur-3xl" />
-             <div className="relative p-2 glass rounded-[3rem] shadow-2xl overflow-hidden border border-primary/20 aspect-video flex items-center justify-center bg-primary/40">
-                <div className="text-center space-y-6">
-                  <div className="w-20 h-20 rounded-full bg-indigo-600/20 flex items-center justify-center mx-auto text-indigo-500 animate-pulse">
-                    <Play size={40} fill="currentColor" />
-                  </div>
-                  <p className="text-sm font-black uppercase tracking-widest text-primary italic">Video qo'llanma tez orada...</p>
-                </div>
-             </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-};
-
-// ─── Telegram Bot Config ───────────────────────────────────────────────────
-const TG_BOT_TOKEN = "8542512239:AAGU79I8KkdinR1V7xIAi2jmd-12-TEkUVg";
-const TG_CHAT_ID   = "8389397224";
-
-const ContactSection = () => {
-  const [form, setForm] = useState({ name: "", phone: "", email: "" });
-  const [status, setStatus] = useState("idle"); // idle | loading | success | error
-
-  const contacts = [
-    {
-      icon: MessageCircle,
-      label: "Telegram",
-      value: "@Dostonbek_Solijonov",
-      href: "https://t.me/Dostonbek_Solijonov",
-      color: "from-sky-500 to-blue-600",
-    },
-    {
-      icon: Phone,
-      label: "Telefon",
-      value: "+998 91 660 56 06",
-      href: "tel:+998916605606",
-      color: "from-indigo-500 to-violet-600",
-    },
-    {
-      icon: Mail,
-      label: "Gmail",
-      value: "dostonbeksolijonov.uz@gmail.com",
-      href: "mailto:dostonbeksolijonov.uz@gmail.com",
-      color: "from-pink-500 to-rose-600",
-    },
-  ];
-
-  const handleChange = (e) =>
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!form.name.trim() || !form.phone.trim()) return;
-    setStatus("loading");
-    const text =
-      `🔔 *Yangi kirish so'rovi!*\n\n` +
-      `👤 *Ism:* ${form.name}\n` +
-      `📱 *Telefon/TG:* ${form.phone}\n` +
-      `📧 *Email:* ${form.email || "—"}\n\n` +
-      `🕐 ${new Date().toLocaleString("uz-UZ")}`;
-    try {
-      const res = await fetch(
-        `https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: TG_CHAT_ID,
-            text,
-            parse_mode: "Markdown",
-          }),
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.unobserve(entry.target);
         }
-      );
-      if (!res.ok) throw new Error();
-      setStatus("success");
-      setForm({ name: "", phone: "", email: "" });
-      setTimeout(() => setStatus("idle"), 5000);
-    } catch {
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 4000);
-    }
-  };
+      },
+      { threshold: 0.24 }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <section id="contact" className="py-24 md:py-32 px-6 relative overflow-hidden">
-      {/* Background glow */}
-      <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-indigo-600/10 dark:bg-indigo-600/20 blur-[120px] rounded-full pointer-events-none" />
-
-      <div className="max-w-6xl mx-auto relative z-10">
-        {/* Header */}
-        <div className="text-center mb-16 space-y-3">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/5 border border-indigo-500/10">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Bepul Kirish</span>
-          </div>
-          <h2 className="text-4xl md:text-6xl font-black text-primary tracking-tighter uppercase italic">
-            Login va parol <span className="text-indigo-500">so'rash</span>
-          </h2>
-          <p className="text-secondary font-medium max-w-xl mx-auto">
-            Platformadan foydalanish uchun quyidagi formani to'ldiring — biz siz bilan tez orada bog'lanamiz va kirish ma'lumotlarini yuboramiz.
-          </p>
-        </div>
-
-        <div className="grid lg:grid-cols-2 gap-12 items-start">
-          {/* Left: Contact Cards */}
-          <div className="space-y-5">
-            <p className="text-xs font-black uppercase tracking-widest text-muted mb-6">Yoki to'g'ridan bevosita yozing:</p>
-            {contacts.map((c) => (
-              <a
-                key={c.label}
-                href={c.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-5 p-5 premium-card hover:border-indigo-500/40 group transition-all"
-              >
-                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${c.color} flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform flex-shrink-0`}>
-                  <c.icon size={22} />
-                </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted">{c.label}</p>
-                  <p className="text-base font-bold text-primary group-hover:text-indigo-500 transition-colors">{c.value}</p>
-                </div>
-                <ArrowRight size={16} className="ml-auto text-muted group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
-              </a>
-            ))}
-          </div>
-
-          {/* Right: Form */}
-          <div className="premium-card p-8 md:p-10">
-            <h3 className="text-2xl font-black text-primary tracking-tighter uppercase italic mb-8">
-              So'rov yuborish
-            </h3>
-
-            {status === "success" ? (
-              <div className="flex flex-col items-center justify-center py-12 space-y-4 text-center">
-                <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center">
-                  <Check size={32} className="text-green-500" strokeWidth={3} />
-                </div>
-                <h4 className="text-xl font-black text-primary">So'rov Yuborildi!</h4>
-                <p className="text-secondary text-sm">Tez orada siz bilan bog'lanamiz va login ma'lumotlarini yuboramiz.</p>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Name */}
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-muted mb-2">Ism va Familiya *</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={form.name}
-                    onChange={handleChange}
-                    placeholder="Ali Valiyev"
-                    required
-                    className="w-full p-4 rounded-2xl bg-primary border border-primary focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all text-primary placeholder:text-muted/40"
-                  />
-                </div>
-
-                {/* Phone / TG */}
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-muted mb-2">Telefon yoki Telegram *</label>
-                  <input
-                    type="text"
-                    name="phone"
-                    value={form.phone}
-                    onChange={handleChange}
-                    placeholder="+998 90 123 45 67 yoki @username"
-                    required
-                    className="w-full p-4 rounded-2xl bg-primary border border-primary focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all text-primary placeholder:text-muted/40"
-                  />
-                </div>
-
-                {/* Email */}
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-muted mb-2">Email (ixtiyoriy)</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={form.email}
-                    onChange={handleChange}
-                    placeholder="email@gmail.com"
-                    className="w-full p-4 rounded-2xl bg-primary border border-primary focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all text-primary placeholder:text-muted/40"
-                  />
-                </div>
-
-                {status === "error" && (
-                  <p className="text-red-500 text-xs font-bold text-center">Xatolik yuz berdi. Qayta urinib ko'ring yoki to'g'ridan Telegram orqali yozing.</p>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={status === "loading"}
-                  className="w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-xl shadow-indigo-600/25 hover:shadow-indigo-600/40 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {status === "loading" ? (
-                    <><Loader2 size={16} className="animate-spin" /> Yuborilmoqda...</>
-                  ) : (
-                    <><Send size={16} /> So'rov Yuborish</>
-                  )}
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      </div>
+    <section
+      id={id}
+      ref={ref}
+      style={{ transitionDelay: `${delay}ms` }}
+      className={`home-screen-section ${visible ? "is-visible" : ""} ${className}`}
+    >
+      {children}
     </section>
   );
 };
 
 export default function Home() {
   const navigate = useNavigate();
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    document.body.classList.add("home-scroll-snap");
+    return () => document.body.classList.remove("home-scroll-snap");
   }, []);
 
-  const roles = [
-    { title: "ADMIN", desc: "Tizimni nazorat qilish va boshqarish", path: "/admin/login", color: "from-indigo-500 to-blue-600" },
-    { title: "O'QITUVCHI", desc: "Testlar yaratish va natijalarni tahlil qilish", path: "/teacher/login", color: "from-blue-600 to-indigo-700" },
-    { title: "O'QUVCHI", desc: "Bilimlarni sinab ko'rish va rivojlantirish", path: "/student/login", color: "from-indigo-400 to-blue-500" },
-  ];
+  const scrollTo = (id) => {
+    const section = document.getElementById(id);
+    section?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
-    <div className="min-h-screen bg-primary text-primary selection:bg-indigo-500/30">
-      {/* Navigation */}
-      <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-700 ${scrolled ? "glass border-b border-primary py-3" : "py-6"}`}>
-        <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
-          <div className="flex items-center gap-3 group cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <div className="relative">
-              <div className="absolute inset-0 bg-indigo-500 blur-lg opacity-0 group-hover:opacity-40 transition-opacity" />
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-indigo-500/20 group-hover:rotate-12 transition-transform duration-500 relative">
-                T
+    <div className="min-h-screen bg-primary text-primary relative overflow-hidden">
+      <div className="pointer-events-none absolute -top-28 -left-24 w-80 h-80 rounded-full bg-blue-500/10 blur-3xl animate-blob" />
+      <div className="pointer-events-none absolute top-16 -right-20 w-[22rem] h-[22rem] rounded-full bg-cyan-500/10 blur-3xl animate-blob [animation-delay:1.5s]" />
+      <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 w-[40rem] h-[20rem] rounded-full bg-indigo-500/10 blur-3xl" />
+
+      <header className="sticky top-0 z-40 border-b border-primary bg-secondary/85 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto h-16 px-4 md:px-6 flex items-center justify-between">
+          <button type="button" className="text-left" onClick={() => scrollTo("hero")}>
+            <div className="flex items-center gap-2">
+              <img src={logo} alt="OsonTestOl logo" className="w-7 h-7 rounded-lg" />
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-muted font-bold">testonlinee.uz</p>
+                <p className="text-xl font-extrabold">OsonTestOl</p>
               </div>
             </div>
-            <span className="text-2xl font-black tracking-tighter uppercase text-primary">OsonTestOl</span>
-          </div>
-          <div className="hidden md:flex gap-10 text-xs font-bold text-primary italic">
-            <a href="#features" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Imkoniyatlar</a>
-            <a href="#how-it-works" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Qanday ishlaydi?</a>
-            <a href="/#/guide" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Qo'llanma</a>
-            <a href="#pricing" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Tariflar</a>
-            <a href="#faq" className="hover:text-indigo-600 transition-colors uppercase tracking-widest">Savollar</a>
-            <a href="#contact" className="hover:text-indigo-600 transition-colors uppercase tracking-widest text-indigo-500 font-black">Murojaat</a>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 glass rounded-xl cursor-not-allowed">
-              <Languages size={14} className="text-indigo-500" />
-              <span className="text-[10px] font-black uppercase text-secondary">O'zbek</span>
-              <ChevronDown size={12} className="text-secondary" />
-            </div>
-            <button 
-              onClick={() => document.getElementById('roles')?.scrollIntoView({ behavior: 'smooth' })}
-              className="px-6 py-2.5 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20"
-            >
-              Tizimga kirish
+          </button>
+
+          <div className="hidden md:flex items-center gap-5 text-xs font-bold uppercase tracking-[0.14em] text-muted">
+            <button type="button" onClick={() => scrollTo("features")} className="hover:text-primary transition-colors">
+              Imkoniyatlar
+            </button>
+            <button type="button" onClick={() => scrollTo("workflow")} className="hover:text-primary transition-colors">
+              Jarayon
+            </button>
+            <button type="button" onClick={() => scrollTo("pricing")} className="hover:text-primary transition-colors">
+              Tariflar
+            </button>
+            <button type="button" onClick={() => scrollTo("contact")} className="hover:text-primary transition-colors">
+              Bog'lanish
             </button>
           </div>
-          
-          {/* Mobile Menu Button */}
-          <button 
-            className="md:hidden p-2 text-primary"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
 
-        {/* Mobile Menu Overlay */}
-        {mobileMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 w-full bg-bg-primary/95 backdrop-blur-xl border-b border-primary/20 shadow-2xl animate-in slide-in-from-top-5">
-            <div className="flex flex-col p-6 space-y-4 text-center">
-              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-bold uppercase tracking-widest hover:text-indigo-500">Imkoniyatlar</a>
-              <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-bold uppercase tracking-widest hover:text-indigo-500">Qanday ishlaydi?</a>
-              <a href="/#/guide" onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-bold uppercase tracking-widest hover:text-indigo-500">Qo'llanma</a>
-              <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-bold uppercase tracking-widest hover:text-indigo-500">Tariflar</a>
-              <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-bold uppercase tracking-widest hover:text-indigo-500">Savollar</a>
-              <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-black uppercase tracking-widest text-indigo-500">Murojaat</a>
-              <div className="pt-4 border-t border-primary/10">
-                <button 
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    document.getElementById('roles')?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className="w-full py-4 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20"
-                >
-                  Tizimga kirish
-                </button>
-              </div>
-            </div>
+          <div className="flex items-center gap-2">
+            <button type="button" className="btn-secondary" onClick={() => navigate("/guide")}>
+              Qo'llanma
+            </button>
+            <button type="button" className="btn-primary" onClick={() => navigate("/teacher/register")}>
+              Boshlash
+            </button>
           </div>
-        )}
-      </nav>
-
-      {/* Hero Section */}
-      <section className="relative pt-32 md:pt-48 pb-16 md:pb-32 overflow-hidden">
-        {/* Animated Background Blobs */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-          <div className="absolute top-0 right-[-10%] w-[800px] h-[800px] bg-indigo-500/10 dark:bg-indigo-600/20 rounded-full blur-[120px] animate-blob" />
-          <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-blue-500/10 dark:bg-blue-600/20 rounded-full blur-[100px] animate-blob animation-delay-4000" />
-          <div className="absolute top-[20%] left-[20%] w-[300px] h-[300px] bg-purple-500/10 dark:bg-purple-600/20 rounded-full blur-[80px] animate-blob animation-delay-2000" />
         </div>
-        
-        <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center relative z-10">
-          {/* Left: Text Content */}
-          <div className="text-left space-y-8 md:space-y-10">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/5 border border-indigo-500/10 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-700">
-               <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-                </span>
-                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Zamonaviy ta'lim platformasi</span>
-            </div>
+      </header>
 
-            <h1 className="text-4xl md:text-7xl lg:text-8xl font-black tracking-tighter text-primary leading-[1.1] animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
-              Bilimni <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 animate-shine">O'lchab Ko'ring</span>
+      <main className="relative z-10 max-w-7xl mx-auto px-4 md:px-6 pt-10 md:pt-14 pb-16 md:pb-20">
+        <ScreenSection id="hero" className="grid lg:grid-cols-[1.05fr_0.95fr] gap-8 xl:gap-10 items-center">
+          <div>
+            <p className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] uppercase tracking-[0.2em] font-bold border border-blue-500/20 bg-blue-500/10 text-blue-700">
+              <Sparkles size={12} /> Zamonaviy online test ekotizimi
+            </p>
+            <h1 className="text-4xl md:text-6xl font-extrabold leading-tight mt-4">
+              Test jarayonini
+              <span className="block text-gradient">pro darajaga olib chiqing</span>
             </h1>
-            
-            <p className="max-w-lg text-lg md:text-xl text-secondary font-medium leading-relaxed animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
-              Zamonaviy test platformasi — <span className="text-primary font-bold">o'qituvchiga</span> vaqt tejaydi, <span className="text-primary font-bold">o'quvchiga</span> aniq va tezkor natija beradi.
+            <p className="text-secondary mt-5 max-w-2xl text-base md:text-lg">
+              O'qituvchi, o'quvchi va admin uchun yagona platforma: test yaratish, guruh boshqarish, chat, tahlil,
+              to'lov va obuna nazorati bitta joyda.
             </p>
 
-            <div className="flex flex-wrap items-center gap-6 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
-              <button
-                onClick={() => document.getElementById('roles')?.scrollIntoView({ behavior: 'smooth' })}
-                className="group relative px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-[2rem] text-sm uppercase tracking-widest shadow-xl shadow-indigo-600/30 transition-all active:scale-95 overflow-hidden"
-              >
-                <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shine" />
-                <span className="relative flex items-center gap-3">
-                  Boshlash <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                </span>
+            <div className="flex flex-wrap gap-3 mt-7">
+              <button type="button" className="btn-primary" onClick={() => navigate("/teacher/register")}>
+                Bepul boshlash <ArrowRight size={14} />
               </button>
-              
-              <button 
-                 onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
-                 className="px-8 py-4 bg-transparent border border-primary text-primary hover:bg-secondary rounded-[2rem] font-black text-sm uppercase tracking-widest transition-all flex items-center gap-3"
-              >
-                <Play size={18} className="text-indigo-500" /> Video-qo'llanma
+              <button type="button" className="btn-secondary" onClick={() => navigate("/student/login")}>
+                Student kirishi
               </button>
             </div>
-            
-            <div className="flex items-center gap-4 text-xs font-bold text-muted animate-in fade-in slide-in-from-bottom-8 duration-700 delay-500">
-               <div className="flex -space-x-3">
-                  {[1,2,3,4].map(i => (
-                    <div key={i} className={`w-8 h-8 rounded-full border-2 border-primary bg-gray-200 dark:bg-gray-700 z-${10-i}`} />
-                  ))}
-               </div>
-               <div>
-                 <div className="flex text-yellow-500 text-[10px] gap-0.5">
-                    {[1,2,3,4,5].map(i => <Star key={i} size={10} fill="currentColor" />)}
-                 </div>
-                 <p className="text-[10px] uppercase tracking-widest"><span className="text-primary">500+</span> mamnun o'qituvchilar</p>
-               </div>
-            </div>
-          </div>
 
-          {/* Right: Dynamic Composition */}
-          <div className="relative flex items-center justify-center min-h-[500px] lg:min-h-[600px] animate-in fade-in slide-in-from-right-8 duration-1000">
-            <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/20 to-blue-500/20 blur-[80px] rounded-full animate-blob opacity-60" />
-            
-            {/* Main Floating Card */}
-            <div className="relative z-20 w-full max-w-md aspect-square animate-float">
-               {/* Back Card (Decoration) */}
-               <div className="absolute -top-4 -right-4 w-full h-full bg-indigo-600/5 rounded-[3rem] border border-indigo-500/10 rotate-6" />
-               
-               {/* Feature Card 1 */}
-               <div className="absolute top-0 right-0 w-64 h-64 glass-card rounded-[2.5rem] shadow-2xl rotate-6 transition-all hover:rotate-0 hover:scale-105 duration-500 p-8 z-30 border border-white/20">
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="p-3 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl text-white shadow-lg shadow-indigo-500/30"><BarChart3 size={28} /></div>
-                    <div>
-                      <h4 className="font-black text-primary text-lg">Statistika</h4>
-                      <p className="text-[10px] text-muted uppercase tracking-widest">Real vaqt tahlili</p>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="h-2 w-full bg-primary/10 rounded-full overflow-hidden">
-                       <div className="h-full bg-indigo-500 w-[75%] rounded-full" />
-                    </div>
-                    <div className="h-2 w-full bg-primary/10 rounded-full overflow-hidden">
-                       <div className="h-full bg-blue-500 w-[50%] rounded-full" />
-                    </div>
-                    <div className="h-2 w-full bg-primary/10 rounded-full overflow-hidden">
-                       <div className="h-full bg-purple-500 w-[90%] rounded-full" />
-                    </div>
-                  </div>
-                  <div className="mt-8 flex justify-between items-end">
-                     <div>
-                       <p className="text-3xl font-black text-primary">98%</p>
-                       <p className="text-[9px] text-muted uppercase tracking-widest">O'zlashtirish</p>
-                     </div>
-                     <div className="px-3 py-1 bg-green-500/10 text-green-500 rounded-lg text-[10px] font-black uppercase tracking-widest">+24%</div>
-                  </div>
-               </div>
-               
-               {/* Feature Card 2 */}
-               <div className="absolute bottom-0 left-0 w-72 h-56 glass-card rounded-[2.5rem] shadow-2xl -rotate-3 transition-all hover:rotate-0 hover:scale-105 duration-500 p-8 z-20 border border-white/20">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl text-white shadow-lg shadow-blue-500/30"><Users size={24} /></div>
-                    <div className="bg-blue-500/10 px-3 py-1 rounded-lg border border-blue-500/10">
-                      <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Faol</span>
-                    </div>
-                  </div>
-                  <div className="flex -space-x-4 mb-4">
-                    {[1,2,3,4].map(i => <div key={i} className="w-12 h-12 rounded-full border-4 border-secondary bg-gray-200 dark:bg-gray-700 shadow-sm" />)}
-                    <div className="w-12 h-12 rounded-full border-4 border-secondary bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black shadow-sm">+12k</div>
-                  </div>
-                  <p className="text-[10px] font-bold text-muted uppercase tracking-widest">O'quvchilar soni ortmoqda</p>
-               </div>
-
-               {/* Central Badge */}
-               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 glass rounded-full shadow-2xl border border-white/30 flex flex-col items-center justify-center animate-pulse z-10 backdrop-blur-3xl">
-                  <ShieldCheck size={40} className="text-indigo-500 mb-2" />
-                  <div className="text-2xl font-black text-primary">100%</div>
-                  <div className="text-[9px] font-black uppercase text-secondary tracking-widest">Ishonchli</div>
-               </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Interactive Feature Highlights */}
-      <section className="py-24 px-6 relative overflow-hidden bg-primary/30">
-        <div className="max-w-7xl mx-auto relative px-4 sm:px-6 lg:px-8">
-          <FeatureHighlight
-            title="Istalgan Joydan, Istalgan Vaqtda"
-            desc="Test jarayonini joyga bog'lamasdan o'tkazing. Har qanday qurilma — telefon, planshet yoki kompyuter orqali uzilishlarsiz kirish va to'liq nazorat."
-            features={[
-              "Qurilmasiz Erkinlik - Brauzerga ega istalgan smartfon yoki kompyuterda uzilishlarsiz ishlash.",
-              "Real Vaqt Nazorati - Test jarayonini jonli rejimda kuzatish va boshqarish.",
-              "Tezkor Natija - O'quvchi testni yakunlagan zahoti ball va tahlil darhol taqdim etiladi."
-            ]}
-            image="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&q=80&w=2070"
-            badge={<ShieldCheck size={32} className="text-indigo-500" />}
-          />
-
-          <FeatureHighlight
-            title="Barcha O'quvchilar Bir Tizimda"
-            desc="Chalkash jadvallar va qog'oz ro'yxatidan voz keching. Guruhlar, o'quvchilar va fanlarni bitta qulay raqamli muhitda boshqaring."
-            features={[
-              "Yagona Ma'lumotlar Bazasi - Barcha o'quvchi ma'lumotlari va natijalar xavfsiz tizimda saqlanadi.",
-              "Oson Guruhlash - Fanlarga, o'qituvchilarga yoki sanalarga ko'ra tez saralash.",
-              "Shaxsiy Progress - Har bir o'quvchi uchun alohida statistika va rivojlanish grafigi."
-            ]}
-            image="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&q=80&w=2071"
-            reversed
-            badge={<Users size={32} className="text-blue-500" />}
-          />
-
-          <FeatureHighlight
-            title="Chuqur Tahlil va Aniq Ko'rsatkichlar"
-            desc="Natijalarni shunchaki ko'rsatmasdan, ularni tushuntiring. Qaysi mavzuda zaiflik bor, qaysi o'quvchi o'sishda — barchasi vizual va tushunimli shaklda."
-            features={[
-              "Mavzular Bo'yicha Tahlil - Har bir mavzudagi xatolar alohida ko'rsatiladi va bartaraf etishga yordam beradi.",
-              "Dinamika Grafigi - Vaqt o'tishi bilan o'quvchi natijalarining o'zgarishini kuzating.",
-              "PDF Hisobotlar - Bir tugma bilan tayyor, professional hujjatni yuklab oling."
-            ]}
-            image="https://images.unsplash.com/photo-1551288049-bbdac8a28a1e?auto=format&fit=crop&q=80&w=2070"
-            badge={<BarChart3 size={32} className="text-green-500" />}
-          />
-
-          <FeatureHighlight
-            title="Word Fayldan Testga — Bir Zumda"
-            desc="Murakkab import vositalari kerak emas. Odatdagi Word hujjatingizni yuklang — tizim savollarni avtomatik tanib olади va test tayyorlаydi."
-            features={[
-              "Aqlli O'qish - Turli formatlardagi Word hujjatlarini to'g'ri tahlil qiladi.",
-              "Xato Kamroq - Inson aralashuvisiz, tezda va aniq natijalar.",
-              "Avto-Sinxronizatsiya - Yuklangan test darhol o'quvchilar uchun mavjud bo'ladi."
-            ]}
-            image="https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&q=80&w=2070"
-            reversed
-            badge={<Zap size={32} className="text-yellow-500" />}
-          />
-        </div>
-      </section>
-
-      {/* Trust Section */}
-      <section className="py-16 border-y border-primary/10 bg-secondary/10">
-        <div className="max-w-7xl mx-auto px-6 overflow-hidden relative">
-          <p className="text-center text-[10px] font-black uppercase tracking-widest text-muted mb-8 opacity-60">Minglab o'qituvchilar va o'quvchilar tomonidan ishonilgan</p>
-          <div className="flex items-center justify-center gap-12 flex-wrap opacity-50">
-            <div className="flex items-center gap-2"><ShieldCheck size={18} className="text-indigo-500" /><span className="text-sm font-black uppercase tracking-tight text-secondary">Xavfsiz</span></div>
-            <div className="flex items-center gap-2"><Zap size={18} className="text-indigo-500" /><span className="text-sm font-black uppercase tracking-tight text-secondary">Tezkor</span></div>
-            <div className="flex items-center gap-2"><BarChart3 size={18} className="text-indigo-500" /><span className="text-sm font-black uppercase tracking-tight text-secondary">Aniq Tahlil</span></div>
-            <div className="flex items-center gap-2"><Users size={18} className="text-indigo-500" /><span className="text-sm font-black uppercase tracking-tight text-secondary">Ko'p Foydalanuvchi</span></div>
-            <div className="flex items-center gap-2"><Globe size={18} className="text-indigo-500" /><span className="text-sm font-black uppercase tracking-tight text-secondary">Istalgan Qurilma</span></div>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="py-24 relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-6 relative z-10 grid grid-cols-2 md:grid-cols-4 gap-6">
-          <StatCard label="Faol Testlar" value="500+" icon={FileText} />
-          <StatCard label="O'quvchilar" value="12k+" icon={Users} />
-          <StatCard label="Tahlillar" value="25k+" icon={BarChart3} />
-          <StatCard label="Aniqlik" value="99.9%" icon={ShieldCheck} />
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section id="how-it-works" className="py-20 md:py-32 relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="mb-20 text-center space-y-4">
-            <h2 className="text-4xl md:text-6xl font-black text-primary tracking-tighter uppercase italic">
-              Bu qanday <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-blue-600 underline decoration-indigo-500/30 decoration-8 underline-offset-8">ishlaydi?</span>
-            </h2>
-            <p className="text-secondary font-medium italic">
-              Ushbu videoda tizim qanday ishlashi tushuntirilgan, <span className="text-indigo-600 font-bold">ko'rishni tavsiya qilamiz.</span>
-            </p>
-          </div>
-
-          <div className="relative group max-w-5xl mx-auto">
-            <div className="absolute inset-0 bg-indigo-600/10 rounded-[3rem] blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            
-            {/* Dark Video Grid Container */}
-            <div className="relative p-8 bg-[#0F0F0F] rounded-[3rem] shadow-2xl border border-white/5 overflow-hidden">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  { title: "Tayyorlash", img: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&q=80&w=400" },
-                  { title: "Kirish", img: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&q=80&w=400" },
-                  { title: "Test Topshirish", img: "https://images.unsplash.com/photo-1551288049-bbdac8a28a1e?auto=format&fit=crop&q=80&w=400" },
-                  { title: "Nazorat", img: "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&q=80&w=400" },
-                  { title: "Statistika", img: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=400" },
-                  { title: "Mobil Ilova", img: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&q=80&w=400" },
-                  { title: "Baholash", img: "https://images.unsplash.com/photo-1454165833772-d996d49510d1?auto=format&fit=crop&q=80&w=400" },
-                  { title: "Yordam", img: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&q=80&w=400" }
-                ].map((vid, idx) => (
-                  <div key={idx} className="relative aspect-video rounded-xl overflow-hidden group/vid cursor-pointer border border-white/10 hover:border-indigo-500/50 transition-all">
-                    <img src={vid.img} alt={vid.title} className="w-full h-full object-cover opacity-60 group-hover/vid:scale-110 group-hover/vid:opacity-100 transition-all duration-700" />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/vid:opacity-100 transition-opacity">
-                      <div className="p-3 bg-white/20 backdrop-blur-md rounded-full text-white">
-                        <Play size={16} fill="white" />
-                      </div>
-                    </div>
-                    <div className="absolute bottom-2 left-2 right-2">
-                       <p className="text-[8px] font-black uppercase text-white truncate drop-shadow-lg">{vid.title}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Central Large Play Overlay (Hover state) */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none group-hover:opacity-100 opacity-0 transition-opacity duration-500">
-                 <div className="w-24 h-24 glass rounded-full flex items-center justify-center border border-white/20 shadow-2xl bg-white/10">
-                    <Play size={32} className="text-white fill-white ml-1" />
-                 </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Sequential Steps */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-20">
-            <div className="p-8 glass rounded-[2rem] border border-primary/20 space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl">1</div>
-              <h4 className="text-lg font-black text-primary uppercase italic">Tayyorlash</h4>
-              <p className="text-sm text-secondary font-medium">Word faylingizni odatdagidek tayyorlang va tizimga yuklang.</p>
-            </div>
-            <div className="p-8 glass rounded-[2rem] border border-primary/20 space-y-4">
-               <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl">2</div>
-               <h4 className="text-lg font-black text-primary uppercase italic">O'tkazish</h4>
-               <p className="text-sm text-secondary font-medium">O'quvchilarga kodni ulashing va ular xohlagan qurilmadan kirsinlar.</p>
-            </div>
-            <div className="p-8 glass rounded-[2rem] border border-primary/20 space-y-4">
-               <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl">3</div>
-               <h4 className="text-lg font-black text-primary uppercase italic">Tahlil</h4>
-               <p className="text-sm text-secondary font-medium">Natijalarni soniyalar ichida ko'ring va xatolar hisobotini oling.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section id="features" className="py-20 md:py-32 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-20">
-            <h2 className="text-4xl md:text-6xl font-black mb-6 text-primary tracking-tighter uppercase italic">
-              Nima uchun <br /> <span className="text-indigo-500">boshqacha?</span>
-            </h2>
-            <p className="text-muted font-bold uppercase tracking-widest text-xs">Oddiy, tez va samarali — ta'lim uchun yaratilgan</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <FeatureCard
-              icon={Rocket}
-              title="Bir Daqiqada Tayyor"
-              desc="Word faylingizni yuklang — tizim savollarni o'zi tahlil qiladi va testni bir zumda yaratadi. Hech qanday qo'shimcha sozlama shart emas."
-              className="md:col-span-2"
-            />
-            <FeatureCard
-              icon={BarChart3}
-              title="Xato Qaerda?"
-              desc="Qaysi savol qiyin, qaysi mavzuda zaiflik bor — barchasi aniq ko'rsatiladi."
-            />
-            <FeatureCard
-              icon={ShieldCheck}
-              title="To'liq Xavfsizlik"
-              desc="Barcha natijalar shifrlangan. Anti-cheat tizimi orqali har bir test adolatli o'tkaziladi."
-            />
-            <FeatureCard
-              icon={Zap}
-              title="Aqlli Yordamchi"
-              desc="Murakkab matnlardan ham savollarni ajratib oladi. Kamroq ish, ko'proq natija."
-              className="md:col-span-2"
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials Section */}
-      <section className="py-20 md:py-32 bg-secondary/20">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid md:grid-cols-2 gap-20 items-center">
-            <div>
-              <h2 className="text-4xl md:text-5xl font-black mb-8 text-primary leading-tight">Foydalanganlar <br /> nima deydi?</h2>
-              <div className="flex gap-1 mb-8">
-                {[1,2,3,4,5].map(i => <Star key={i} size={20} className="fill-indigo-500 text-indigo-500" />)}
-              </div>
-              <p className="text-xl text-secondary leading-relaxed italic">
-                "Bu platforma bilan test tayyorlash jarayoni butunlay o'zgardi. O'qituvchilar endi soatlab vaqt sarflamaydi — Word faylni yuklab, testni bir zumda boshlaydi."
-              </p>
-              <div className="mt-8 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-indigo-500/20 border border-indigo-500/20" />
-                <div>
-                  <h4 className="font-black text-primary uppercase text-sm">Aziza Rahimova</h4>
-                  <p className="text-xs text-muted uppercase tracking-widest">Matematika o'qituvchisi</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8">
+              {STATS.map((item) => (
+                <div key={item.label} className="rounded-xl border border-primary bg-secondary/80 p-3">
+                  <p className="text-lg font-extrabold text-primary">{item.value}</p>
+                  <p className="text-[11px] text-secondary mt-0.5">{item.label}</p>
                 </div>
-              </div>
+              ))}
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-4">
-                <div className="p-6 bg-secondary/50 border border-primary rounded-3xl h-48 flex items-center justify-center text-center">
-                  <p className="text-sm font-bold opacity-40 uppercase tracking-widest italic">Ishonchli & Xavfsiz</p>
-                </div>
-                  <div className="p-6 bg-indigo-600 text-white rounded-3xl h-64 flex flex-col justify-end">
-                  <Award size={32} className="mb-4" />
-                  <p className="font-bold text-lg">O'qituvchilar uchun eng qulay yechim</p>
-                  <p className="text-xs opacity-70">Platforma afzalliklari</p>
-                </div>
+          </div>
+
+          <div className="premium-card">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold">Live qiymat taklifi</p>
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold border border-green-500/20 bg-green-500/10 text-green-700">
+                Active
+              </span>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <div className="rounded-xl border border-primary bg-accent p-4">
+                <p className="text-xs uppercase tracking-widest text-muted font-bold">Qanday foyda beradi?</p>
+                <p className="text-sm text-secondary mt-2">
+                  Test tayyorlash va tekshirishga ketadigan vaqtni qisqartiradi, nazoratni markazlashtiradi.
+                </p>
               </div>
-              <div className="space-y-4 pt-12">
-                <div className="p-6 bg-secondary border border-primary rounded-3xl h-64 flex flex-col justify-between">
-                   <div className="flex gap-1">
-                    {[1,2,3,4,5].map(i => <Star key={i} size={12} className="fill-indigo-500 text-indigo-500" />)}
-                  </div>
-                  <p className="text-sm font-medium">"O'quvchilarim natijalarni darhol ko'rishayotganidan juda mamnun."
+              <div className="rounded-xl border border-primary bg-accent p-4">
+                <p className="text-xs uppercase tracking-widest text-muted font-bold">Kimlar uchun?</p>
+                <p className="text-sm text-secondary mt-2">
+                  O'quv markaz, maktab, xususiy mentorlar va onlayn test sotish modeli uchun tayyor.
+                </p>
+              </div>
+              <div className="rounded-xl border border-primary bg-accent p-4">
+                <p className="text-xs uppercase tracking-widest text-muted font-bold">Natija</p>
+                <div className="grid grid-cols-2 gap-2 mt-2 text-[11px] font-semibold text-secondary">
+                  <p className="inline-flex items-center gap-1.5">
+                    <CheckCircle2 size={13} className="text-blue-600" /> Tez ishga tushirish
                   </p>
-                  <p className="text-xs font-black uppercase text-muted">A. Karimov · O'qituvchi</p>
-                </div>
-                <div className="p-6 bg-secondary/50 border border-primary rounded-3xl h-48 flex items-center justify-center">
-                   <p className="text-sm font-bold opacity-40 uppercase tracking-widest italic">24/7 Yordam</p>
+                  <p className="inline-flex items-center gap-1.5">
+                    <CheckCircle2 size={13} className="text-blue-600" /> Nazorat kuchayadi
+                  </p>
+                  <p className="inline-flex items-center gap-1.5">
+                    <CheckCircle2 size={13} className="text-blue-600" /> Vaqt tejaladi
+                  </p>
+                  <p className="inline-flex items-center gap-1.5">
+                    <CheckCircle2 size={13} className="text-blue-600" /> Ishonch ortadi
+                  </p>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </ScreenSection>
 
-      <GuideSection />
-
-      {/* Pricing Section */}
-      <section id="pricing" className="py-20 md:py-32 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-20 text-center">
-            <h2 className="text-4xl md:text-6xl font-black mb-6 text-primary tracking-tighter uppercase italic">
-              Platforma <span className="text-indigo-500">rejalari</span>
-            </h2>
-            <p className="text-muted font-bold uppercase tracking-widest text-xs">Ehtiyojingizga mos rejani tanlang</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <PricingCard
-              title="Individual"
-              price="0"
-              features={["Cheksiz test topshirish", "Shaxsiy profil", "Natijalar tarixi", "Mobil ilova"]}
-              path="/student/login"
-              navigate={navigate}
-            />
-            <PricingCard
-              title="O'qituvchi"
-              price="0"
-              recommended
-              features={["Word & Manual import", "Guruhlar va Shaxsiy kabinetlar", "Shaxsiy Chat tizimi", "Chuqur statistika", "PDF eksport"]}
-              path="/teacher/login"
-              navigate={navigate}
-            />
-            <PricingCard
-              title="Maktab"
-              price="499k"
-              features={["Cheksiz o'qituvchilar", "Butun maktab boshqaruvi", "Ota-onalar paneli (Tez orada)", "24/7 Premium yordam", "Maxsus subdomen (Tez orada)"]}
-              path="/admin/login"
-              navigate={navigate}
-            />
-          </div>
-        </div>
-      </section>
-
-      <section id="faq" className="py-20 md:py-32 px-6 max-w-4xl mx-auto">
-        <div className="text-center mb-20">
-          <h2 className="text-4xl font-black mb-6 text-primary tracking-tighter uppercase italic">Ko'p so'raladigan <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-blue-600 underline decoration-indigo-500/30 decoration-8 underline-offset-8">savollar</span></h2>
-          <p className="text-secondary font-bold uppercase tracking-widest text-[10px]">Savol bormi? Biz javob tayyorladik</p>
-        </div>
-        <FAQItem
-          index={1}
-          q="Test yaratish uchun nimalar kerak?"
-          a="Faqat tayyor savollar to'plami (Word yoki matn ko'rinishida) kerak. Tizim Word (.docx) fayllarini avtomatik tahlil qilib, soniyalar ichida testga aylantiradi."
-        />
-        <FAQItem
-          index={2}
-          q="O'quvchilar uchun platforma bepulmi?"
-          a="Ha, o'quvchilar uchun platforma mutlaqo bepul. Ularga faqat o'qituvchi bergan test kodi yoki havola kerak bo'ladi."
-        />
-        <FAQItem
-          index={3}
-          q="Aqlli tizim qanday yordam beradi?"
-          a="Tizim siz yuklagan murakkab matnlardan savollarni ajratib oladi, savollarning qiyinlik darajasini aniqlaydi va xatolar ustida avtomatik tahlil beradi."
-        />
-        <FAQItem
-          index={4}
-          q="Natijalar xavfsiz va shaffofmi?"
-          a="Ha. Har bir test topshirish jarayoni anti-cheat tizimi orqali nazorat qilinadi. Natijalar shifrlangan bazada saqlanadi va faqat test yaratuvchisi ko'ra oladi."
-        />
-        <FAQItem
-          index={5}
-          q="Telefondan ham foydalansa bo'ladimi?"
-          a="Albatta! Platforma to'liq moslashuvchan (responsive) qilib yaratilgan. Kompyuter, planshet va smartfonlarda birdek mukammal ishlaydi."
-        />
-      </section>
-
-      <ContactSection />
-
-      {/* Roles Section */}
-      <section id="roles" className="py-20 md:py-32 px-6 scroll-mt-24 relative overflow-hidden">
-        <div className="absolute inset-0 bg-indigo-600/5 dark:bg-indigo-600/10 -skew-y-3 origin-center scale-110" />
-        <div className="max-w-7xl mx-auto text-center relative z-10">
-          <h2 className="text-4xl md:text-5xl font-black mb-16 text-primary uppercase tracking-tighter italic">Tizimga <span className="text-indigo-500">kirish</span></h2>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {roles.map((role, i) => (
-              <div
-                key={i}
-                onClick={() => navigate(role.path)}
-                className="group relative cursor-pointer overflow-hidden p-1 bg-gradient-to-br from-primary via-primary to-secondary rounded-[2.5rem] border border-primary hover:scale-[1.02] transition-all duration-500 shadow-xl"
-              >
-                <div className="p-10 rounded-[2.4rem] bg-primary/40 backdrop-blur-xl h-full flex flex-col">
-                  <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${role.color} flex items-center justify-center text-white mb-8 shadow-xl group-hover:scale-110 transition-transform`}>
-                    {role.title === "ADMIN" ? <Shield size={28} /> : role.title === "O'QITUVCHI" ? <Layout size={28} /> : <Zap size={28} />}
-                  </div>
-                  <h3 className="text-3xl font-black mb-4 tracking-tighter text-primary">{role.title}</h3>
-                  <p className="text-secondary mb-12 flex-grow">{role.desc}</p>
-
-                  <div className="flex items-center gap-3 text-indigo-500 font-bold uppercase text-[10px] tracking-[0.2em]">
-                    Boshqaruv paneli <ArrowRight size={14} className="group-hover:translate-x-2 transition-transform" />
-                  </div>
+        <ScreenSection id="features" className="space-y-6" delay={60}>
+          <SectionTitle
+            badge="Asosiy imkoniyatlar"
+            title="Har bir bo'lim amaliy natijaga yo'naltirilgan"
+            subtitle="Platforma test jarayonini markazlashtirish, tezlashtirish va nazoratni kuchaytirish uchun ishlab chiqilgan."
+          />
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
+            {FEATURES.map((item) => (
+              <article key={item.title} className="premium-card h-full">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                  <item.icon size={18} />
                 </div>
-              </div>
+                <h3 className="text-lg font-extrabold mt-3">{item.title}</h3>
+                <p className="text-sm text-secondary mt-2">{item.desc}</p>
+              </article>
             ))}
           </div>
-        </div>
-      </section>
+        </ScreenSection>
 
-      {/* Footer */}
-      <footer className="py-24 px-6 border-t border-primary bg-[#0A080F] text-white overflow-hidden relative">
-        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 animate-shine" />
-        <div className="max-w-7xl mx-auto relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16 mb-20">
-            {/* Column 1: Brand & Contacts */}
-            <div className="space-y-8">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-indigo-500/20">
-                  T
+        <ScreenSection id="workflow" className="space-y-6" delay={100}>
+          <SectionTitle
+            badge="Qanday ishlaydi"
+            title="3 qadamda to'liq test ekotizimi"
+            subtitle="Soddalashtirilgan ish jarayoni sababli texnik bo'lmagan jamoalar ham tez moslashadi."
+          />
+          <div className="grid md:grid-cols-3 gap-4 items-stretch">
+            {WORKFLOW.map((item) => (
+              <article key={item.step} className="premium-card h-full flex flex-col">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-600">{item.step}</p>
+                <h3 className="text-xl font-extrabold mt-2">{item.title}</h3>
+                <p className="text-sm text-secondary mt-2">{item.desc}</p>
+              </article>
+            ))}
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-4 items-stretch">
+            {WORKFLOW_META.map((item) => (
+              <article key={item.title} className="premium-card h-full">
+                <p className="text-xs uppercase tracking-[0.14em] text-muted font-bold">{item.title}</p>
+                <p className="text-2xl font-extrabold mt-2 text-blue-600">{item.value}</p>
+                <p className="text-sm text-secondary mt-1.5">{item.desc}</p>
+              </article>
+            ))}
+          </div>
+        </ScreenSection>
+
+        <ScreenSection className="space-y-6" delay={120}>
+          <SectionTitle
+            badge="Rolga mos echim"
+            title="Har foydalanuvchi o'z vazifasi bo'yicha ishlaydi"
+            subtitle="Kabinetlar mustaqil ishlaydi, lekin barcha jarayonlar yagona tizimda boshqariladi."
+          />
+          <div className="grid md:grid-cols-3 gap-4 items-stretch">
+            {AUDIENCE.map((item) => (
+              <article key={item.title} className="premium-card h-full flex flex-col">
+                <h3 className="text-xl font-extrabold">{item.title}</h3>
+                <p className="text-xs uppercase tracking-[0.16em] text-blue-600 font-bold mt-1">{item.focus}</p>
+                <div className="space-y-2 mt-4 flex-1">
+                  {item.points.map((point) => (
+                    <p key={point} className="text-sm text-secondary flex items-start gap-2">
+                      <CheckCircle2 size={14} className="mt-0.5 text-blue-600 shrink-0" />
+                      {point}
+                    </p>
+                  ))}
                 </div>
-                <span className="text-2xl font-black uppercase tracking-tighter">osontestol<span className="text-indigo-600">.uz</span></span>
+                <button type="button" className="btn-secondary mt-5" onClick={() => navigate(item.path)}>
+                  Kirish <ArrowRight size={14} />
+                </button>
+              </article>
+            ))}
+          </div>
+        </ScreenSection>
+
+        <ScreenSection id="pricing" className="space-y-6" delay={140}>
+          <SectionTitle
+            badge="Tariflar"
+            title="Aniq narx, tushunarli limit"
+            subtitle="Bepul rejimda faqat test oqimi ishlaydi. Guruh, chat, natija va eksport funksiyalari Pro tarifda to'liq ochiladi."
+          />
+          <div className="grid md:grid-cols-3 gap-4 items-stretch">
+            {PRICING.map((plan) => (
+              <article key={plan.name} className="premium-card h-full">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-xl font-extrabold">{plan.name}</h3>
+                  <span className="px-2.5 py-1 rounded-lg text-[10px] uppercase tracking-[0.12em] font-bold border border-primary bg-accent">
+                    {plan.tag}
+                  </span>
+                </div>
+                <p className="text-2xl font-extrabold mt-2 text-blue-600">{plan.price}</p>
+                <div className="space-y-2 mt-4">
+                  {plan.list.map((point) => (
+                    <p key={point} className="text-sm text-secondary flex items-start gap-2">
+                      <CheckCircle2 size={14} className="mt-0.5 text-blue-600 shrink-0" />
+                      {point}
+                    </p>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-4 items-stretch">
+            <article className="premium-card h-full">
+              <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold">Obuna jarayoni</p>
+              <h3 className="text-2xl font-extrabold mt-2">4 qadamli aniq tartib</h3>
+              <div className="grid sm:grid-cols-2 gap-3 mt-4">
+                {SUBSCRIPTION_FLOW.map((step) => (
+                  <div key={step.title} className="rounded-xl border border-primary bg-accent p-3">
+                    <p className="text-sm font-bold text-primary">{step.title}</p>
+                    <p className="text-xs text-secondary mt-1">{step.desc}</p>
+                  </div>
+                ))}
               </div>
-              <ul className="space-y-6 text-sm font-medium text-gray-400">
-                <li className="flex items-start gap-3">
-                  <Send size={18} className="text-indigo-500 mt-1" />
-                  <span>dostonbeksolijonov.uz@gmail.com</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Zap size={18} className="text-indigo-500 mt-1" />
-                  <span>+998 91 660 56 06</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Globe size={18} className="text-indigo-500 mt-1" />
-                  <span className="leading-relaxed text-xs">@Dostonbek_Solijonov</span>
-                </li>
-              </ul>
+            </article>
+
+            <article className="premium-card h-full flex flex-col">
+              <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold">Qaysi tarif sizga mos?</p>
+              <div className="space-y-2 mt-3 flex-1">
+                {PLAN_GUIDE.map((item) => (
+                  <p key={item} className="text-sm text-secondary flex items-start gap-2">
+                    <CheckCircle2 size={14} className="mt-0.5 text-blue-600 shrink-0" />
+                    {item}
+                  </p>
+                ))}
+              </div>
+              <div className="grid sm:grid-cols-2 gap-2 mt-4">
+                <button type="button" className="btn-primary" onClick={() => navigate("/teacher/register")}>
+                  Bepul boshlash
+                </button>
+                <button type="button" className="btn-secondary" onClick={() => navigate("/guide")}>
+                  Qo'llanma ochish
+                </button>
+              </div>
+            </article>
+          </div>
+
+          <article className="premium-card">
+            <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold">Teacher Pro funksiyalari</p>
+            <h3 className="text-2xl font-extrabold mt-2">Birma-bir to'liq ro'yxat</h3>
+            <div className="grid md:grid-cols-2 gap-2 mt-4">
+              {PRO_FEATURES_FULL.map((item, index) => (
+                <p key={item} className="text-sm text-secondary flex items-start gap-2">
+                  <CheckCircle2 size={14} className="mt-0.5 text-blue-600 shrink-0" />
+                  {index + 1}. {item}
+                </p>
+              ))}
+            </div>
+          </article>
+        </ScreenSection>
+
+        <ScreenSection className="space-y-6" delay={160}>
+          <SectionTitle
+            badge="Ishonch"
+            title="Foydalanuvchi fikrlari va tez-tez beriladigan savollar"
+            subtitle="Platformadan foydalanish bo'yicha asosiy savollar uchun qisqa va aniq javoblar."
+          />
+
+          <div className="grid lg:grid-cols-[1fr_1fr] gap-4 items-start">
+            <div className="space-y-4">
+              {TESTIMONIALS.map((item) => (
+                <article key={item.author} className="premium-card h-full">
+                  <div className="flex items-center gap-1 text-amber-500">
+                    <Star size={14} fill="currentColor" />
+                    <Star size={14} fill="currentColor" />
+                    <Star size={14} fill="currentColor" />
+                    <Star size={14} fill="currentColor" />
+                    <Star size={14} fill="currentColor" />
+                  </div>
+                  <p className="text-sm text-secondary mt-3">"{item.text}"</p>
+                  <p className="text-xs font-bold text-primary mt-3 uppercase tracking-[0.12em]">{item.author}</p>
+                </article>
+              ))}
             </div>
 
-            {/* Column 2: Quick Links */}
-            <div>
-              <h5 className="text-base font-black uppercase tracking-widest mb-10 text-white italic">Platforma</h5>
-              <ul className="space-y-6 text-sm font-bold text-gray-400">
-                <li><a href="/" className="hover:text-indigo-500 transition-colors uppercase tracking-widest text-[10px]">Asosiy</a></li>
-                <li><a href="#features" className="hover:text-indigo-500 transition-colors uppercase tracking-widest text-[10px]">Xizmatlar</a></li>
-                <li><a href="#pricing" className="hover:text-indigo-500 transition-colors uppercase tracking-widest text-[10px]">Tariflar</a></li>
-                <li><a href="#faq" className="hover:text-indigo-500 transition-colors uppercase tracking-widest text-[10px]">Savollar</a></li>
-                <li><a href="#roles" className="hover:text-indigo-500 transition-colors uppercase tracking-widest text-indigo-500 font-black text-[10px]">Kirish</a></li>
-              </ul>
-            </div>
-
-            {/* Column 3: Socials */}
-            <div>
-              <h5 className="text-base font-black uppercase tracking-widest mb-10 text-white italic">Ijtimoiy</h5>
-              <div className="flex gap-4">
-                {[Instagram, Send, Play, Globe].map((Icon, i) => (
-                  <a key={i} href="#" className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center hover:bg-indigo-600 transition-all border border-white/10 group">
-                    <Icon size={20} className="text-gray-400 group-hover:text-white transition-colors" />
-                  </a>
+            <div className="premium-card h-fit">
+              <div className="space-y-2">
+                {FAQS.map((item) => (
+                  <details key={item.q} className="group rounded-xl border border-primary bg-accent px-4 py-3">
+                    <summary className="cursor-pointer list-none text-sm font-bold flex items-center justify-between gap-3">
+                      {item.q}
+                      <span className="text-blue-600 group-open:rotate-90 transition-transform">›</span>
+                    </summary>
+                    <p className="text-sm text-secondary mt-2">{item.a}</p>
+                  </details>
                 ))}
               </div>
             </div>
+          </div>
+        </ScreenSection>
 
-            {/* Column 4: App Store (Minimalist) */}
-            <div className="space-y-8">
-              <h5 className="text-base font-black uppercase tracking-widest text-white italic text-xs">Mobil Ilova</h5>
-              <div className="flex flex-col gap-3">
-                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl flex items-center gap-3 cursor-pointer hover:bg-white/10 transition-colors">
-                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center"><Zap size={18} /></div>
-                  <div>
-                    <p className="text-[7px] font-black opacity-50 uppercase">Yuklab olish</p>
-                    <p className="text-sm font-black italic">Google Play</p>
-                  </div>
+        <ScreenSection id="contact" className="space-y-6" delay={180}>
+          <SectionTitle
+            badge="Bog'lanish"
+            title="Hamkorlik va qo'llab-quvvatlash uchun aloqalar"
+            subtitle="Loyiha bo'yicha savollar, texnik yordam va hamkorlik takliflari uchun quyidagi kanallar ochiq."
+          />
+          <div className="grid md:grid-cols-3 gap-4 items-stretch">
+            {CONTACTS.map((item) => (
+              <a
+                key={item.channel}
+                href={item.href}
+                target={item.href.startsWith("http") ? "_blank" : undefined}
+                rel={item.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                className="premium-card h-full group"
+              >
+                <div className="w-11 h-11 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <item.icon size={19} />
+                </div>
+                <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold mt-4">{item.channel}</p>
+                <p className="text-xl font-extrabold mt-1">{item.value}</p>
+                <p className="text-sm text-secondary mt-2">{item.note}</p>
+              </a>
+            ))}
+          </div>
+
+          <div className="grid lg:grid-cols-[1fr_1fr] gap-4 items-stretch">
+            <article className="premium-card h-full">
+              <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold">Aloqa tartibi</p>
+              <h3 className="text-xl font-extrabold mt-2">Javob vaqti va qo'llab-quvvatlash</h3>
+              <div className="space-y-2 mt-4">
+                {CONTACT_INFO.map((item) => (
+                  <p key={item} className="text-sm text-secondary flex items-start gap-2">
+                    <CheckCircle2 size={14} className="mt-0.5 text-blue-600 shrink-0" />
+                    {item}
+                  </p>
+                ))}
+              </div>
+            </article>
+
+            <article className="premium-card h-full">
+              <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold">Platforma yo'nalishlari</p>
+              <h3 className="text-xl font-extrabold mt-2">Qaysi mavzuda yozishingiz mumkin?</h3>
+              <div className="grid sm:grid-cols-2 gap-2 mt-4">
+                <div className="rounded-xl border border-primary bg-accent p-3">
+                  <p className="text-sm font-bold text-primary">Texnik yordam</p>
+                  <p className="text-xs text-secondary mt-1">Kirish, test, eksport va obuna oqimi bo'yicha yordam.</p>
+                </div>
+                <div className="rounded-xl border border-primary bg-accent p-3">
+                  <p className="text-sm font-bold text-primary">Hamkorlik</p>
+                  <p className="text-xs text-secondary mt-1">O'quv markaz va maktablar uchun hamkorlik takliflari.</p>
+                </div>
+                <div className="rounded-xl border border-primary bg-accent p-3">
+                  <p className="text-sm font-bold text-primary">Integratsiya</p>
+                  <p className="text-xs text-secondary mt-1">Katta jamoalar uchun moslash va ishga tushirish rejasi.</p>
+                </div>
+                <div className="rounded-xl border border-primary bg-accent p-3">
+                  <p className="text-sm font-bold text-primary">Konsultatsiya</p>
+                  <p className="text-xs text-secondary mt-1">Qaysi tarif va qaysi oqim sizga mosligi bo'yicha maslahat.</p>
                 </div>
               </div>
-            </div>
+            </article>
           </div>
-          
-          <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] font-black uppercase tracking-widest text-gray-500">
-            <p>© {new Date().getFullYear()} OsonTestOl Platformasi. Barcha huquqlar himoyalangan.</p>
-            <p>Developed by <a href="https://soliyev.uz" target="_blank" rel="noopener noreferrer" className="text-indigo-500 underline">Soliyev.uz</a></p>
-          </div>
-        </div>
-      </footer>
+        </ScreenSection>
+      </main>
+
+      <SiteFooter />
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import {
-  FaShoppingCart,
   FaBolt,
   FaGem,
   FaStore
@@ -8,7 +7,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import { toast } from "react-toastify";
-import { Loader2, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 export default function TeacherShop() {
   const navigate = useNavigate();
@@ -37,7 +36,7 @@ export default function TeacherShop() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-primary pb-8 mb-12">
           <div>
             <h2 className="text-4xl font-black tracking-tight text-primary mb-2 uppercase italic">
-              Test<span className="text-indigo-600 dark:text-indigo-400">Onlinee</span> Shop
+              Oson<span className="text-indigo-600 dark:text-indigo-400">TestOl</span> Shop
             </h2>
             <p className="text-secondary font-medium uppercase tracking-widest text-xs opacity-70">
               Platforma imkoniyatlarini kengaytiring — Hozirda barcha xizmatlar BEPUL

@@ -9,18 +9,28 @@ import {
   FaPlus,
   FaUsers,
   FaGlobe,
-  FaCogs
+  FaCogs,
+  FaArchive,
+  FaInbox,
+  FaDownload,
+  FaFileCode,
+  FaFileAlt,
+  FaFileCsv,
+  FaFileWord,
+  FaFilePdf
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
 import DashboardLayout from "../components/DashboardLayout";
 import ConfirmationModal from "../components/ConfirmationModal";
+import RichTextMath from "../components/RichTextMath";
 import { 
   teacherUploadTest, 
   parseTextApi,
   parsePreviewApi,
   uploadPreviewApi,
+  createManualTestApi,
   getTeacherTests, 
   getTeacherGroups,
   startTestApi, 
@@ -31,9 +41,35 @@ import {
   updateTestApi, // ✅
   BASE_URL
 } from "../api/api";
+import {
+  downloadTestTemplate,
+  exportTestByFormat,
+  normalizeFormulaInput,
+  validateFormulaSyntax,
+} from "../utils/academicTools";
+import { formatLimit, getTeacherSubscription } from "../utils/subscriptionTools";
+import { getAssignedStudentsByTest } from "../utils/studentTestAssignments";
+import { isTeacherProActive } from "../utils/teacherAccessTools";
+import {
+  getAllPaymentRequests,
+  PAYMENT_CONFIG,
+  submitPaymentRequest,
+} from "../utils/billingTools";
+import {
+  incrementTeacherTestUsage,
+  syncTeacherTestUsageWithCurrent,
+} from "../utils/testUsageTools";
+import { getTeacherSolveLimitSnapshot } from "../utils/teacherSolveUsageTools";
 
 
 const socket = io(BASE_URL, { transports: ["polling", "websocket"] });
+const createEmptyBlockItem = () => ({
+  id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  subject: "",
+  sourceType: "file", // "file" | "text"
+  file: null,
+  text: "",
+});
 
 export default function TeacherTests() {
   const navigate = useNavigate();
@@ -51,11 +87,19 @@ export default function TeacherTests() {
     groupId: "",
   });
   const [groups, setGroups] = useState([]);
-  const [createMode, setCreateMode] = useState("file"); // "file" or "text"
+  const [createMode, setCreateMode] = useState("file"); // "file" | "text" | "block"
   const [pasteText, setPasteText] = useState("");
+  const [blockItems, setBlockItems] = useState(() => [createEmptyBlockItem()]);
   const [previewData, setPreviewData] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [editModal, setEditModal] = useState({ open: false, test: null }); // ✅
+  const [archivedTestIds, setArchivedTestIds] = useState([]);
+  const [testUsageCount, setTestUsageCount] = useState(0);
+  const [solveUsageCount, setSolveUsageCount] = useState(0);
+  const [paymentReceipt, setPaymentReceipt] = useState("");
+  const [paymentReceiptImage, setPaymentReceiptImage] = useState(null);
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [latestPaymentId, setLatestPaymentId] = useState("");
 
   const [modalConfig, setModalConfig] = useState({
     isOpen: false,
@@ -69,6 +113,23 @@ export default function TeacherTests() {
     setModalConfig({ isOpen: true, title, message, onConfirm, type });
   };
 
+  const getArchiveStorageKey = (teacherId) => `teacher_test_archive_${teacherId}`;
+
+  const loadArchivedIds = (teacherId) => {
+    try {
+      const raw = localStorage.getItem(getArchiveStorageKey(teacherId));
+      const ids = JSON.parse(raw || "[]");
+      setArchivedTestIds(Array.isArray(ids) ? ids : []);
+    } catch {
+      setArchivedTestIds([]);
+    }
+  };
+
+  const persistArchivedIds = (teacherId, ids) => {
+    localStorage.setItem(getArchiveStorageKey(teacherId), JSON.stringify(ids));
+    setArchivedTestIds(ids);
+  };
+
   useEffect(() => {
     const name = localStorage.getItem("teacherName");
     const id = localStorage.getItem("teacherId");
@@ -77,8 +138,158 @@ export default function TeacherTests() {
       setTeacherName(name);
       loadTests(id);
       loadGroups(id);
+      loadArchivedIds(id);
     }
+    // Initial bootstrap only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
+
+  const activeTests = tests.filter((test) => !archivedTestIds.includes(test._id));
+  const archivedTests = tests.filter((test) => archivedTestIds.includes(test._id));
+  const teacherId = localStorage.getItem("teacherId");
+  const isProPlan = isTeacherProActive(teacherId);
+  const subscription = getTeacherSubscription(teacherId);
+  const hasTestLimit = Number.isFinite(subscription.maxTests);
+  const remainingTestSlots = hasTestLimit
+    ? Math.max(subscription.maxTests - testUsageCount, 0)
+    : null;
+  const testLimitReached = hasTestLimit && testUsageCount >= subscription.maxTests;
+  const hasSolveLimit = Number.isFinite(subscription.maxSolved);
+  const remainingSolveSlots = hasSolveLimit
+    ? Math.max(subscription.maxSolved - solveUsageCount, 0)
+    : null;
+  const solveLimitReached = hasSolveLimit && solveUsageCount >= subscription.maxSolved;
+  const usageBlocked = testLimitReached || solveLimitReached;
+  const pendingTeacherPayment = getAllPaymentRequests().find(
+    (request) =>
+      request.userType === "teacher" &&
+      String(request.userId) === String(teacherId) &&
+      request.status === "pending"
+  );
+
+  const getFileExt = (file) => String(file?.name || "").toLowerCase().split(".").pop();
+  const isDocFile = (ext) => ext === "docx";
+  const isTextFile = (ext) => ext === "txt" || ext === "csv";
+
+  const getLimitBlockMessage = () => {
+    if (testLimitReached) {
+      return `Yangi test qo'shish limiti tugagan (${formatLimit(subscription.maxTests)} ta).`;
+    }
+    if (solveLimitReached) {
+      return `Yechish limiti tugagan (${formatLimit(subscription.maxSolved)} ta). Davom etish uchun obuna kerak.`;
+    }
+    return "Bu amal uchun faol limit mavjud emas.";
+  };
+
+  const ensureProForHelpers = () => {
+    if (isProPlan) return true;
+    toast.info("Bu funksiya faqat Oylik Pro tarifida ishlaydi.");
+    navigate("/teacher/subscription");
+    return false;
+  };
+
+  const readTextFileContent = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("Faylni o'qib bo'lmadi"));
+      reader.readAsText(file, "utf-8");
+    });
+
+  const resetCreateDraft = () => {
+    setNewTest({
+      title: "",
+      description: "",
+      username: "",
+      password: "",
+      duration: 20,
+      file: null,
+      accessType: "public",
+      groupId: "",
+    });
+    setPasteText("");
+    setBlockItems([createEmptyBlockItem()]);
+    setPreviewData(null);
+  };
+
+  const addBlockItem = () => {
+    setBlockItems((prev) => [...prev, createEmptyBlockItem()]);
+  };
+
+  const updateBlockItem = (blockId, patch) => {
+    setBlockItems((prev) =>
+      prev.map((item) => (item.id === blockId ? { ...item, ...patch } : item))
+    );
+  };
+
+  const removeBlockItem = (blockId) => {
+    setBlockItems((prev) => (prev.length <= 1 ? prev : prev.filter((item) => item.id !== blockId)));
+  };
+
+  const parseSourceQuestions = async ({ sourceType, file, text }) => {
+    if (sourceType === "file") {
+      if (!file) throw new Error("Fayl tanlanmagan");
+      const ext = getFileExt(file);
+      if (isTextFile(ext)) {
+        const fileText = await readTextFileContent(file);
+        const normalizedText = normalizeFormulaInput(fileText);
+        const formulaCheck = validateFormulaSyntax(normalizedText);
+        if (!formulaCheck.isValid) throw new Error(formulaCheck.issues[0]);
+        const res = await parsePreviewApi({ text: normalizedText });
+        return Array.isArray(res.data?.questions) ? res.data.questions : [];
+      }
+      if (isDocFile(ext)) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await uploadPreviewApi(formData);
+        return Array.isArray(res.data?.questions) ? res.data.questions : [];
+      }
+      if (ext === "doc") {
+        throw new Error("`.doc` format qo'llanmaydi. Iltimos `.docx` formatga o'tkazing.");
+      }
+      throw new Error("Faqat .docx/.txt/.csv fayl yuklang");
+    }
+
+    const normalizedText = normalizeFormulaInput(String(text || ""));
+    const formulaCheck = validateFormulaSyntax(normalizedText);
+    if (!formulaCheck.isValid) throw new Error(formulaCheck.issues[0]);
+    const res = await parsePreviewApi({ text: normalizedText });
+    return Array.isArray(res.data?.questions) ? res.data.questions : [];
+  };
+
+  const parseBlockQuestions = async () => {
+    const parsedBlocks = [];
+    for (let index = 0; index < blockItems.length; index += 1) {
+      const block = blockItems[index];
+      const subject = String(block.subject || "").trim() || `Fan ${index + 1}`;
+      if (block.sourceType === "file" && !block.file) {
+        throw new Error(`${subject}: fayl tanlang`);
+      }
+      if (block.sourceType === "text" && !String(block.text || "").trim()) {
+        throw new Error(`${subject}: matnni kiriting`);
+      }
+      const questions = await parseSourceQuestions(block);
+      if (!questions.length) {
+        throw new Error(`${subject}: savollar topilmadi`);
+      }
+      parsedBlocks.push({ subject, questions });
+    }
+    return parsedBlocks;
+  };
+
+  const buildManualQuestionsFromBlocks = (parsedBlocks) =>
+    parsedBlocks.flatMap(({ subject, questions }) =>
+      questions.map((question) => ({
+        text: `[${subject}] ${String(question?.text || "").trim()}`,
+        points: Number(question?.points || 1),
+        options: Array.isArray(question?.options)
+          ? question.options.map((option) => ({
+              text: String(option?.text || "").trim(),
+              isCorrect: Boolean(option?.isCorrect),
+            }))
+          : [],
+      }))
+    );
 
   const loadGroups = async (id) => {
     try {
@@ -94,31 +305,127 @@ export default function TeacherTests() {
       const { data } = await getTeacherTests(
         id || localStorage.getItem("teacherId")
       );
-      setTests(Array.isArray(data) ? data : []);
+      const normalized = Array.isArray(data) ? data : [];
+      setTests(normalized);
+      const resolvedUsage = syncTeacherTestUsageWithCurrent(
+        id || localStorage.getItem("teacherId"),
+        normalized.length
+      );
+      setTestUsageCount(resolvedUsage);
+      const solveSnapshot = await getTeacherSolveLimitSnapshot(
+        id || localStorage.getItem("teacherId"),
+        normalized
+      );
+      setSolveUsageCount(Number(solveSnapshot.usedSolved || 0));
+      localStorage.setItem("teacherTestCount", String(normalized.length));
     } catch {
       toast.error("Testlarni yuklashda xatolik");
       setTests([]);
     }
   };
 
+  const handleSendTeacherPayment = async () => {
+    if (!teacherId) return toast.warning("Teacher ID topilmadi");
+    if (pendingTeacherPayment) {
+      toast.info("Sizda allaqachon pending to'lov so'rovi bor.");
+      return;
+    }
+    if (!paymentReceiptImage) {
+      toast.warning("Chek rasmini yuklang");
+      return;
+    }
+
+    try {
+      setPaymentSubmitting(true);
+      const requestId = await submitPaymentRequest({
+        userType: "teacher",
+        userId: teacherId,
+        planId: "teacher_monthly",
+        amount: PAYMENT_CONFIG.teacherMonthlyAmount,
+        fullName: teacherName,
+        email: localStorage.getItem("teacherEmail") || "",
+        receipt: paymentReceipt.trim(),
+        receiptFile: paymentReceiptImage,
+      });
+
+      setLatestPaymentId(requestId);
+      setPaymentReceipt("");
+      setPaymentReceiptImage(null);
+      toast.success(`To'lov so'rovi yuborildi. ID: ${requestId}`);
+    } catch (err) {
+      toast.error(err.message || "To'lov so'rovini yuborishda xatolik");
+    } finally {
+      setPaymentSubmitting(false);
+    }
+  };
+
+  const handleDownloadTemplate = (format) => {
+    if (!ensureProForHelpers()) return;
+    downloadTestTemplate(format);
+    toast.success(`Shablon yuklandi: ${format.toUpperCase()}`);
+  };
+
+  const handleExportTest = (test, format) => {
+    try {
+      if (!ensureProForHelpers()) return;
+      exportTestByFormat(test, format);
+      toast.success(format === "pdf" ? "Print oynasi ochildi. PDF saqlashni tanlang." : `Test ${format.toUpperCase()} formatida yuklandi`);
+    } catch {
+      toast.error("Yuklab olishda xatolik");
+    }
+  };
+
+  const toggleArchive = (testId) => {
+    const teacherId = localStorage.getItem("teacherId");
+    if (!teacherId) return;
+
+    const exists = archivedTestIds.includes(testId);
+    const nextIds = exists
+      ? archivedTestIds.filter((id) => id !== testId)
+      : [...archivedTestIds, testId];
+
+    persistArchivedIds(teacherId, nextIds);
+    toast.info(exists ? "Test arxivdan chiqarildi" : "Test arxivga olindi");
+  };
+
   const handlePreview = async () => {
+    if (!ensureProForHelpers()) return;
     if (createMode === "file" && !newTest.file) return toast.warning("Fayl tanlang");
     if (createMode === "text" && !pasteText.trim()) return toast.warning("Matnni kiriting");
+    if (createMode === "block" && !blockItems.length) return toast.warning("Kamida bitta fan bloki qo'shing");
 
     try {
       setPreviewLoading(true);
-      let res;
-      if (createMode === "file") {
-        const formData = new FormData();
-        formData.append("file", newTest.file);
-        res = await uploadPreviewApi(formData);
-      } else {
-        res = await parsePreviewApi({ text: pasteText });
+      if (createMode === "block") {
+        const parsedBlocks = await parseBlockQuestions();
+        const mergedQuestions = buildManualQuestionsFromBlocks(parsedBlocks);
+        setPreviewData({
+          questions: mergedQuestions,
+          blockMeta: parsedBlocks.map((block) => ({
+            subject: block.subject,
+            count: block.questions.length,
+          })),
+        });
+        toast.success(
+          `Blok preview: ${parsedBlocks.length} ta fan, ${mergedQuestions.length} ta savol topildi`
+        );
+        return;
       }
-      setPreviewData(res.data);
-      toast.success(`${res.data.questions.length} ta savol topildi`);
+
+      const questions = await parseSourceQuestions(
+        createMode === "file"
+          ? { sourceType: "file", file: newTest.file }
+          : { sourceType: "text", text: pasteText }
+      );
+      setPreviewData({ questions });
+      toast.success(`${questions.length} ta savol topildi`);
     } catch (err) {
-      toast.error(err.response?.data?.msg || "Tahlil qilishda xatolik");
+      const msg = err.response?.data?.msg || err.message || "Tahlil qilishda xatolik";
+      if (String(msg).toLowerCase().includes("doc")) {
+        toast.error("Word faylni o'qishda xatolik. .docx formatga o'tkazib qayta yuklang.");
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setPreviewLoading(false);
     }
@@ -126,6 +433,15 @@ export default function TeacherTests() {
 
   const addTest = async (e) => {
     e.preventDefault();
+    if (usageBlocked) {
+      toast.warning(getLimitBlockMessage());
+      return;
+    }
+    if (!isProPlan && newTest.accessType === "group") {
+      toast.info("Guruhga yopiq testlar faqat Pro tarifda ochiladi.");
+      navigate("/teacher/subscription");
+      return;
+    }
     if (!newTest.title || !newTest.username || !newTest.password) {
       toast.warning("Asosiy maydonlarni to'ldiring!");
       return;
@@ -140,29 +456,106 @@ export default function TeacherTests() {
       toast.warning("Matnni kiriting!");
       return;
     }
+    if (createMode === "block" && !isProPlan) {
+      toast.info("Blok imtihon funksiyasi faqat Pro tarifda ishlaydi.");
+      navigate("/teacher/subscription");
+      return;
+    }
+    if (createMode === "block" && !blockItems.length) {
+      toast.warning("Kamida bitta fan bloki qo'shing.");
+      return;
+    }
 
     try {
       setLoading(true);
-      
-      if (createMode === "file") {
-        const formData = new FormData();
-        Object.entries({
-          file: newTest.file,
+
+      if (createMode === "block") {
+        const parsedBlocks = await parseBlockQuestions();
+        const manualQuestions = buildManualQuestionsFromBlocks(parsedBlocks);
+        if (!manualQuestions.length) {
+          toast.warning("Blok savollari topilmadi");
+          setLoading(false);
+          return;
+        }
+
+        await createManualTestApi({
           title: newTest.title,
-          description: newTest.description,
+          description: [
+            newTest.description,
+            `Blok imtihon fanlari: ${parsedBlocks.map((block) => block.subject).join(", ")}`,
+          ]
+            .filter(Boolean)
+            .join(" | "),
           duration: newTest.duration,
           testLogin: newTest.username,
           testPassword: newTest.password,
           accessType: newTest.accessType,
           groupId: newTest.groupId,
           teacherId: localStorage.getItem("teacherId"),
-        }).forEach(([k, v]) => formData.append(k, v));
+          questions: manualQuestions,
+        });
 
-        const res = await teacherUploadTest(formData);
-        toast.success(`${res.data.count || ""} ta savol yuklandi!`);
+        toast.success(
+          `Blok imtihon saqlandi: ${parsedBlocks.length} ta fan, ${manualQuestions.length} ta savol`
+        );
+      } else if (createMode === "file") {
+        const ext = getFileExt(newTest.file);
+        if (isTextFile(ext)) {
+          const fileText = await readTextFileContent(newTest.file);
+          const normalizedText = normalizeFormulaInput(fileText);
+          const formulaCheck = validateFormulaSyntax(normalizedText);
+          if (!formulaCheck.isValid) {
+            toast.warning(formulaCheck.issues[0]);
+            setLoading(false);
+            return;
+          }
+          const payload = {
+            text: normalizedText,
+            title: newTest.title,
+            description: newTest.description,
+            duration: newTest.duration,
+            testLogin: newTest.username,
+            testPassword: newTest.password,
+            accessType: newTest.accessType,
+            groupId: newTest.groupId,
+            teacherId: localStorage.getItem("teacherId"),
+          };
+          const res = await parseTextApi(payload);
+          toast.success(`${res.data.count || ""} ta savol muvaffaqiyatli saqlandi!`);
+        } else if (isDocFile(ext)) {
+          const formData = new FormData();
+          Object.entries({
+            file: newTest.file,
+            title: newTest.title,
+            description: newTest.description,
+            duration: newTest.duration,
+            testLogin: newTest.username,
+            testPassword: newTest.password,
+            accessType: newTest.accessType,
+            groupId: newTest.groupId,
+            teacherId: localStorage.getItem("teacherId"),
+          }).forEach(([k, v]) => formData.append(k, v));
+          const res = await teacherUploadTest(formData);
+          toast.success(`${res.data.count || ""} ta savol yuklandi!`);
+        } else {
+            if (ext === "doc") {
+              toast.warning("`.doc` format qo'llanmaydi. Iltimos `.docx` formatga o'tkazing.");
+            } else {
+              toast.warning("Fayl formati noto'g'ri. .docx/.txt/.csv yuklang.");
+            }
+            setLoading(false);
+            return;
+        }
       } else {
+        const normalizedText = normalizeFormulaInput(pasteText);
+        const formulaCheck = validateFormulaSyntax(normalizedText);
+        if (!formulaCheck.isValid) {
+          toast.warning(formulaCheck.issues[0]);
+          setLoading(false);
+          return;
+        }
         const payload = {
-          text: pasteText,
+          text: normalizedText,
           title: newTest.title,
           description: newTest.description,
           duration: newTest.duration,
@@ -176,21 +569,18 @@ export default function TeacherTests() {
         toast.success(`${res.data.count || ""} ta savol muvaffaqiyatli saqlandi!`);
       }
 
-      setNewTest({
-        title: "",
-        description: "",
-        username: "",
-        password: "",
-        duration: 20,
-        file: null,
-        accessType: "public",
-        groupId: "",
-      });
-      setPasteText("");
-      setPreviewData(null);
+      resetCreateDraft();
+      setTestUsageCount(
+        incrementTeacherTestUsage(localStorage.getItem("teacherId"), 1, tests.length)
+      );
       loadTests(localStorage.getItem("teacherId"));
     } catch (err) {
-      toast.error(err.response?.data?.msg || err.message || "Xatolik yuz berdi");
+      const msg = err.response?.data?.msg || err.message || "Xatolik yuz berdi";
+      if (String(msg).toLowerCase().includes("doc")) {
+        toast.error("Word fayl xatosi. .docx formatda yuklashni tavsiya qilamiz.");
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -214,6 +604,10 @@ export default function TeacherTests() {
   };
 
   const startTest = async (testId, testLogin) => {
+    if (usageBlocked) {
+      toast.warning(getLimitBlockMessage());
+      return;
+    }
     try {
       await startTestApi(testId);
       socket.emit("start-test", testLogin);
@@ -237,24 +631,17 @@ export default function TeacherTests() {
       socket.emit("force-stop-test", testLogin);
       toast.info("Test to'xtatildi!");
       loadTests(localStorage.getItem("teacherId"));
-    } catch (socketErr) {
+    } catch {
       toast.error("Xatolik yuz berdi");
     }
   };
 
-  const handleForceStop = (testLogin) => {
-    showConfirm(
-      "Barcha o'quvchilar uchun testni majburiy to'xtatmoqchimisiz?",
-      () => {
-        socket.emit("force-stop-test", testLogin);
-        toast.warning("Test majburiy to'xtatildi!");
-      },
-      "danger",
-      "Testni to'xtatish"
-    );
-  };
-
   const handleUpdateAccess = async (testId, accessType, groupId = null) => {
+    if (!isProPlan && accessType === "group") {
+      toast.info("Guruhga cheklash funksiyasi faqat Pro tarifda ishlaydi.");
+      navigate("/teacher/subscription");
+      return;
+    }
     try {
       await updateTestAccess(testId, { accessType, groupId });
       toast.success("Ruxsat holati yangilandi");
@@ -265,9 +652,16 @@ export default function TeacherTests() {
   };
 
   const handleDuplicate = async (testId) => {
+    if (usageBlocked) {
+      toast.warning(getLimitBlockMessage());
+      return;
+    }
     try {
       setLoading(true);
       await duplicateTestApi(testId);
+      setTestUsageCount(
+        incrementTeacherTestUsage(localStorage.getItem("teacherId"), 1, tests.length)
+      );
       toast.success("Test nusxalandi");
       loadTests(localStorage.getItem("teacherId"));
     } catch {
@@ -279,6 +673,11 @@ export default function TeacherTests() {
 
   const handleUpdateTest = async (e) => {
     e.preventDefault();
+    if (!isProPlan && editModal.test.accessType === "group") {
+      toast.info("Guruhga cheklash funksiyasi faqat Pro tarifda ishlaydi.");
+      navigate("/teacher/subscription");
+      return;
+    }
     try {
       setLoading(true);
       await updateTestApi(editModal.test._id, editModal.test);
@@ -308,28 +707,144 @@ export default function TeacherTests() {
               Yangi testlar yuklash va mavjudlarini boshqarish
             </p>
           </div>
-          <button 
-            onClick={() => navigate("/teacher/create-test")}
-            className="px-6 py-3 bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-indigo-500 hover:text-white transition-all shadow-lg shadow-indigo-500/5 group"
-          >
-            <FaPlus className="group-hover:rotate-90 transition-transform duration-300" /> Qo'lda Yaratish
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate("/teacher/subscription")}
+              className="px-5 py-3 border rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500 hover:text-white"
+            >
+              Obuna
+            </button>
+            <button 
+              onClick={() => {
+                if (usageBlocked) {
+                  toast.warning(getLimitBlockMessage());
+                  return;
+                }
+                navigate("/teacher/create-test");
+              }}
+              className={`px-6 py-3 border rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg group ${
+                usageBlocked
+                  ? "bg-slate-500/10 text-slate-500 border-slate-500/20 cursor-not-allowed"
+                  : "bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white shadow-indigo-500/5"
+              }`}
+            >
+              <FaPlus className="group-hover:rotate-90 transition-transform duration-300" /> Qo'lda Yaratish
+            </button>
+          </div>
         </div>
       </section>
 
       <main className="relative z-10 px-6 max-w-7xl mx-auto space-y-12 pb-20">
+        <div className={`p-4 rounded-2xl border ${usageBlocked ? "bg-red-500/10 border-red-500/20" : "bg-indigo-500/5 border-indigo-500/20"}`}>
+          <p className="text-[11px] font-black uppercase tracking-widest text-primary">
+            Obuna: <span className="text-indigo-600">{subscription.label}</span> | Test limiti:{" "}
+            <span className="text-indigo-600">{formatLimit(subscription.maxTests)}</span> | Yechish limiti:{" "}
+            <span className="text-indigo-600">{formatLimit(subscription.maxSolved)}</span>
+          </p>
+          <p className={`text-xs mt-1 font-semibold ${usageBlocked ? "text-red-600" : "text-secondary"}`}>
+            {hasTestLimit
+              ? `Joriy testlar: ${tests.length}. Umumiy qo'shilgan: ${testUsageCount}. Qolgan imkon: ${remainingTestSlots}.`
+              : `Joriy testlar: ${tests.length}. Umumiy qo'shilgan: ${testUsageCount}. Sizda test yuklash cheksiz.`}
+          </p>
+          <p className={`text-xs mt-1 font-semibold ${usageBlocked ? "text-red-600" : "text-secondary"}`}>
+            {hasSolveLimit
+              ? `Yechilgan jami: ${solveUsageCount}. Qolgan yechish imkoni: ${remainingSolveSlots}.`
+              : `Yechilgan jami: ${solveUsageCount}. Sizda yechish limiti cheksiz.`}
+          </p>
+          <p className="text-xs mt-1 font-semibold text-secondary">
+            {isProPlan
+              ? "Pro tarif: blok imtihon, preview, shablon, eksport va guruhga yopiq test funksiyalari ochiq."
+              : "Bepul tarif: test yaratish va boshlash ochiq. Blok imtihon, preview, shablon, eksport va guruh funksiyalari Pro tarifda."}
+          </p>
+        </div>
+
+        {!isProPlan && (
+          <div className="premium-card border border-blue-500/20 bg-blue-500/5">
+            <h4 className="text-lg font-black text-primary">Bepul rejim faol</h4>
+            <p className="text-sm text-secondary mt-2">
+              Siz test yaratish, boshlash, tahrirlash va to'xtatishdan foydalanasiz. Qo'shimcha funksiyalar Pro tarifga
+              o'tgandan keyin ochiladi.
+            </p>
+            <button type="button" className="btn-primary mt-4" onClick={() => navigate("/teacher/subscription")}>
+              Pro tarifga o'tish
+            </button>
+          </div>
+        )}
+
+        {usageBlocked && (
+          <div className="premium-card border border-amber-500/30 bg-amber-500/5">
+            <h4 className="text-lg font-black text-primary">
+              Bepul tarif limiti tugagan. Oylik obuna kerak.
+            </h4>
+            <p className="text-sm text-secondary mt-2">
+              Summa:{" "}
+              <span className="font-bold text-amber-600">
+                {PAYMENT_CONFIG.teacherMonthlyAmount.toLocaleString("uz-UZ")} {PAYMENT_CONFIG.currency}
+              </span>{" "}
+              | Karta: <span className="font-bold">{PAYMENT_CONFIG.cardNumber}</span>
+            </p>
+
+            {pendingTeacherPayment ? (
+              <div className="mt-4 rounded-xl border border-indigo-500/20 bg-indigo-500/10 p-3 text-sm">
+                Pending so'rov mavjud. ID: <span className="font-bold">{pendingTeacherPayment.requestId}</span>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                <input
+                  type="text"
+                  className="input-clean"
+                  placeholder="To'lov izohi (ixtiyoriy)"
+                  value={paymentReceipt}
+                  onChange={(e) => setPaymentReceipt(e.target.value)}
+                />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="input-clean"
+                  onChange={(e) => setPaymentReceiptImage(e.target.files?.[0] || null)}
+                />
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={handleSendTeacherPayment}
+                  disabled={paymentSubmitting}
+                >
+                  {paymentSubmitting ? "Yuborilmoqda..." : "Chekni botga yuborish"}
+                </button>
+              </div>
+            )}
+
+            {latestPaymentId && (
+              <p className="mt-3 text-xs text-muted">Yangi so'rov ID: {latestPaymentId}</p>
+            )}
+          </div>
+        )}
+
         {/* Upload Section */}
-        <div className="premium-card">
+        <div className={`premium-card ${usageBlocked ? "opacity-70" : ""}`}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-indigo-500/10 rounded-2xl text-indigo-500"><FaFileUpload size={24} /></div>
               <div>
-                <h3 className="text-xl font-black text-primary uppercase italic tracking-tighter">Yangi test {createMode === "file" ? "yuklash" : "yaratish"}</h3>
-                <p className="text-xs text-muted font-bold uppercase tracking-widest">{createMode === "file" ? "Word (.docx) fayl tanlang" : "Matnni nusxalab joylashtiring"}</p>
+                <h3 className="text-xl font-black text-primary uppercase italic tracking-tighter">
+                  Yangi test{" "}
+                  {createMode === "file"
+                    ? "yuklash"
+                    : createMode === "text"
+                      ? "yaratish"
+                      : "blok imtihon yaratish"}
+                </h3>
+                <p className="text-xs text-muted font-bold uppercase tracking-widest">
+                  {createMode === "file"
+                    ? "Word/TXT/CSV fayl tanlang"
+                    : createMode === "text"
+                      ? "Matnni nusxalab joylashtiring"
+                      : "Bir test ichida 1-2-3+ fan bo'limlari va umumiy vaqt"}
+                </p>
               </div>
             </div>
             
-            <div className="flex bg-primary/30 p-1 rounded-xl border border-primary/50 self-start">
+            <div className="flex flex-wrap bg-primary/30 p-1 rounded-xl border border-primary/50 self-start gap-1">
               <button 
                 type="button"
                 onClick={() => setCreateMode("file")}
@@ -344,7 +859,67 @@ export default function TeacherTests() {
               >
                 Matnli Test
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isProPlan) {
+                    toast.info("Blok imtihon funksiyasi faqat Pro tarifda.");
+                    navigate("/teacher/subscription");
+                    return;
+                  }
+                  setCreateMode("block");
+                }}
+                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                  createMode === "block"
+                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+                    : "text-muted hover:text-primary"
+                }`}
+              >
+                Blok Imtihon (Pro)
+              </button>
             </div>
+          </div>
+
+          <div className="mb-8 p-5 rounded-2xl border border-indigo-500/20 bg-indigo-500/5">
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+              <p className="text-[11px] font-black uppercase tracking-widest text-indigo-600">
+                Shablonlar va formulalar
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadTemplate("txt")}
+                  disabled={!isProPlan}
+                  className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 ${
+                    isProPlan
+                      ? "bg-primary border-primary hover:border-indigo-500 hover:text-indigo-600"
+                      : "bg-primary/50 border-primary text-muted cursor-not-allowed"
+                  }`}
+                >
+                  <FaFileAlt /> TXT shablon
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadTemplate("csv")}
+                  disabled={!isProPlan}
+                  className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 ${
+                    isProPlan
+                      ? "bg-primary border-primary hover:border-indigo-500 hover:text-indigo-600"
+                      : "bg-primary/50 border-primary text-muted cursor-not-allowed"
+                  }`}
+                >
+                  <FaFileCsv /> CSV shablon
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-muted font-semibold leading-relaxed">
+              Matematika uchun tavsiya: <code>x^2</code>, <code>x_1</code>, <code>\frac{"{a}"}{"{b}"}</code>, <code>\sqrt{"{16}"}</code> yoki <code>$...$</code> formatidan foydalaning.
+            </p>
+            {!isProPlan && (
+              <p className="text-xs mt-2 text-amber-600 font-semibold">
+                Eslatma: Shablon yuklash va preview funksiyalari Pro tarifda ishlaydi.
+              </p>
+            )}
           </div>
           <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" onSubmit={addTest}>
             <div className="space-y-2">
@@ -397,23 +972,112 @@ export default function TeacherTests() {
               />
             </div>
             <div className="col-span-full space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-muted ml-2">{createMode === "file" ? "Fayl (.docx)" : "Matnni shu yerga joylashtiring"}</label>
-              {createMode === "file" ? (
-                <input
-                  required
-                  type="file"
-                  accept=".docx"
-                  className="w-full p-3.5 rounded-2xl bg-secondary border border-primary focus:border-indigo-500 transition-all outline-none font-bold text-primary shadow-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-indigo-500/10 file:text-indigo-500 hover:file:bg-indigo-500/20"
-                  onChange={(e) => setNewTest({ ...newTest, file: e.target.files[0] })}
-                />
+              {createMode !== "block" ? (
+                <>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted ml-2">
+                    {createMode === "file" ? "Fayl (.docx/.txt/.csv)" : "Matnni shu yerga joylashtiring"}
+                  </label>
+                  {createMode === "file" ? (
+                    <input
+                      required
+                      type="file"
+                      accept=".docx,.txt,.csv,text/plain,text/csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      className="w-full p-3.5 rounded-2xl bg-secondary border border-primary focus:border-indigo-500 transition-all outline-none font-bold text-primary shadow-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-indigo-500/10 file:text-indigo-500 hover:file:bg-indigo-500/20"
+                      onChange={(e) => setNewTest({ ...newTest, file: e.target.files[0] })}
+                    />
+                  ) : (
+                    <textarea
+                      required
+                      placeholder="1. Savol... A) Javob... B) Javob..."
+                      className="w-full h-48 p-6 rounded-2xl bg-secondary border border-primary focus:border-indigo-500 transition-all outline-none font-bold text-primary shadow-sm resize-none text-sm leading-relaxed"
+                      value={pasteText}
+                      onChange={(e) => setPasteText(e.target.value)}
+                    />
+                  )}
+                </>
               ) : (
-                <textarea
-                  required
-                  placeholder="1. Savol... A) Javob... B) Javob..."
-                  className="w-full h-48 p-6 rounded-2xl bg-secondary border border-primary focus:border-indigo-500 transition-all outline-none font-bold text-primary shadow-sm resize-none text-sm leading-relaxed"
-                  value={pasteText}
-                  onChange={(e) => setPasteText(e.target.value)}
-                />
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600">
+                      Blok fanlari (umumiy vaqt: {newTest.duration} daqiqa)
+                    </p>
+                    <button
+                      type="button"
+                      onClick={addBlockItem}
+                      className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-indigo-600 text-white"
+                    >
+                      + Fan qo'shish
+                    </button>
+                  </div>
+
+                  {blockItems.map((block, idx) => (
+                    <div key={block.id} className="rounded-2xl border border-primary bg-primary/30 p-4 space-y-3">
+                      <div className="flex flex-col md:flex-row md:items-center gap-3">
+                        <input
+                          type="text"
+                          value={block.subject}
+                          onChange={(e) => updateBlockItem(block.id, { subject: e.target.value })}
+                          placeholder={`Fan nomi ${idx + 1} (masalan: Matematika)`}
+                          className="flex-1 p-3 rounded-xl bg-secondary border border-primary outline-none focus:border-indigo-500 text-sm font-semibold"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => updateBlockItem(block.id, { sourceType: "file", text: "" })}
+                            className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border ${
+                              block.sourceType === "file"
+                                ? "bg-indigo-600 text-white border-indigo-600"
+                                : "bg-secondary border-primary text-muted"
+                            }`}
+                          >
+                            Fayl
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateBlockItem(block.id, { sourceType: "text", file: null })}
+                            className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border ${
+                              block.sourceType === "text"
+                                ? "bg-indigo-600 text-white border-indigo-600"
+                                : "bg-secondary border-primary text-muted"
+                            }`}
+                          >
+                            Matn
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeBlockItem(block.id)}
+                            disabled={blockItems.length <= 1}
+                            className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border ${
+                              blockItems.length <= 1
+                                ? "bg-secondary/50 border-primary text-muted cursor-not-allowed"
+                                : "bg-red-500/10 border-red-500/30 text-red-600"
+                            }`}
+                          >
+                            O'chirish
+                          </button>
+                        </div>
+                      </div>
+
+                      {block.sourceType === "file" ? (
+                        <input
+                          type="file"
+                          accept=".docx,.txt,.csv,text/plain,text/csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                          className="w-full p-3 rounded-xl bg-secondary border border-primary outline-none focus:border-indigo-500 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-indigo-500/10 file:text-indigo-500"
+                          onChange={(e) =>
+                            updateBlockItem(block.id, { file: e.target.files?.[0] || null })
+                          }
+                        />
+                      ) : (
+                        <textarea
+                          value={block.text}
+                          onChange={(e) => updateBlockItem(block.id, { text: e.target.value })}
+                          placeholder="Fan savollarini shu yerga joylashtiring..."
+                          className="w-full h-36 p-4 rounded-xl bg-secondary border border-primary outline-none focus:border-indigo-500 text-sm resize-none"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 
@@ -431,15 +1095,27 @@ export default function TeacherTests() {
                   </button>
                   <button 
                     type="button"
-                    onClick={() => setNewTest({...newTest, accessType: "group"})}
-                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${newTest.accessType === 'group' ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20' : 'bg-secondary text-muted border-primary hover:text-primary'}`}
+                    onClick={() => {
+                      if (!isProPlan) {
+                        toast.info("Guruhga yopiq testlar faqat Pro tarifda.");
+                        navigate("/teacher/subscription");
+                        return;
+                      }
+                      setNewTest({ ...newTest, accessType: "group" });
+                    }}
+                    disabled={!isProPlan}
+                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                      newTest.accessType === "group"
+                        ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20"
+                        : "bg-secondary text-muted border-primary hover:text-primary"
+                    } ${!isProPlan ? "opacity-60 cursor-not-allowed" : ""}`}
                   >
-                    Faqat Guruhga
+                    Faqat Guruhga {!isProPlan ? "(Pro)" : ""}
                   </button>
                 </div>
               </div>
 
-              {newTest.accessType === "group" && (
+              {newTest.accessType === "group" && isProPlan && (
                 <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300">
                   <label className="text-[10px] font-black uppercase tracking-widest text-indigo-600 block ml-2">Guruhni Tanlang</label>
                   <select 
@@ -460,25 +1136,29 @@ export default function TeacherTests() {
               <button
                 type="button"
                 onClick={handlePreview}
-                disabled={previewLoading || loading}
+                disabled={previewLoading || loading || !isProPlan}
                 className="flex-1 py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-indigo-500 bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500 hover:text-white transition group flex items-center justify-center gap-3 disabled:opacity-50"
               >
                 {previewLoading ? "Tahlil qilinmoqda..." : (
                   <>
                     <FaCheckCircle className="group-hover:scale-110 transition-transform" />
-                    Tahlil Qilish (Preview)
+                    {isProPlan
+                      ? createMode === "block"
+                        ? "Blokni Tahlil Qilish"
+                        : "Tahlil Qilish (Preview)"
+                      : "Preview (Pro)"}
                   </>
                 )}
               </button>
               <button
-                disabled={loading || previewLoading}
+                disabled={loading || previewLoading || usageBlocked}
                 className={`flex-[2] py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-white transition transform ${
-                  loading
+                  loading || usageBlocked
                     ? "bg-gray-500 cursor-not-allowed"
                     : "bg-gradient-to-r from-indigo-500 to-indigo-700 hover:scale-[1.02] shadow-xl shadow-indigo-500/20 active:scale-[0.98]"
                 }`}
               >
-                {loading ? "Saqlanmoqda..." : "Testni Yaratish va Saqlash"}
+                {loading ? "Saqlanmoqda..." : usageBlocked ? "Limit Tugagan" : "Testni Yaratish va Saqlash"}
               </button>
             </div>
           </form>
@@ -495,17 +1175,36 @@ export default function TeacherTests() {
                   {previewData.questions.length} Savol Aniqlanadi
                 </div>
               </div>
+
+              {Array.isArray(previewData.blockMeta) && previewData.blockMeta.length > 0 && (
+                <div className="mb-6 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600 mb-2">
+                    Blok fanlar kesimi
+                  </p>
+                  <div className="grid sm:grid-cols-2 gap-2">
+                    {previewData.blockMeta.map((item, idx) => (
+                      <p key={`${item.subject}-${idx}`} className="text-xs font-semibold text-secondary">
+                        {item.subject}: <span className="text-primary font-bold">{item.count} ta savol</span>
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
               
               <div className="space-y-6 max-h-[400px] overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-indigo-500/20">
                 {previewData.questions.map((q, idx) => (
                   <div key={idx} className="p-6 bg-secondary/50 border border-primary/50 rounded-2xl">
-                    <p className="text-sm font-bold text-primary mb-4 flex gap-3">
-                      <span className="text-indigo-500">#{idx + 1}</span> {q.text}
-                    </p>
+                    <div className="text-sm font-bold text-primary mb-4 flex gap-3">
+                      <span className="text-indigo-500">#{idx + 1}</span>
+                      <RichTextMath text={q.text} as="p" className="flex-1" />
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {q.options.map((opt, oIdx) => (
                         <div key={oIdx} className={`px-4 py-2 rounded-xl text-[10px] font-bold flex items-center justify-between ${opt.isCorrect ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-primary/20 text-muted border border-primary/20'}`}>
-                          <span>{String.fromCharCode(65 + oIdx)}) {opt.text}</span>
+                          <span className="flex-1">
+                            {String.fromCharCode(65 + oIdx)}){" "}
+                            <RichTextMath text={opt.text} as="span" preserveLines={false} />
+                          </span>
                           {opt.isCorrect && <FaCheckCircle size={10} />}
                         </div>
                       ))}
@@ -519,18 +1218,30 @@ export default function TeacherTests() {
 
         {/* Tests List Section */}
         <div className="premium-card">
-          <div className="flex items-center gap-4 mb-8">
-            <div className="p-3 bg-indigo-500/10 rounded-2xl text-indigo-500"><FaBolt size={24} /></div>
-            <h3 className="text-xl font-black text-primary uppercase italic tracking-tighter">Mavjud Testlar Ro'yxati</h3>
+          <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-indigo-500/10 rounded-2xl text-indigo-500"><FaBolt size={24} /></div>
+              <h3 className="text-xl font-black text-primary uppercase italic tracking-tighter">Mavjud Testlar Ro'yxati</h3>
+            </div>
+            <div className="flex gap-2">
+              <span className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-green-500/10 text-green-600 border border-green-500/20">
+                Aktiv: {activeTests.length}
+              </span>
+              <span className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-500/10 text-slate-600 border border-slate-500/20">
+                Arxiv: {archivedTests.length}
+              </span>
+            </div>
           </div>
           <div className="grid lg:grid-cols-2 gap-6">
-            {tests.length > 0 ? (
-              tests.map((t) => (
+            {activeTests.length > 0 ? (
+              activeTests.map((t) => {
+                const assignedStudentsCount = getAssignedStudentsByTest(t._id).length;
+                return (
                 <div key={t._id} className="group relative p-5 md:p-6 rounded-[2rem] bg-solid-secondary border border-primary hover:border-indigo-500/50 transition-all flex flex-col h-full shadow-sm">
                   <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
                     <div className="flex items-start gap-3 md:gap-4 w-full">
                       <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-primary border border-primary flex items-center justify-center text-indigo-500 font-black text-lg md:text-xl shadow-inner shrink-0 mt-1">
-                        {t.title.charAt(0)}
+                        {(t.title || "T").charAt(0)}
                       </div>
                       <div className="min-w-0 flex-1">
                         <h4 className="font-black text-primary uppercase tracking-tight text-sm md:text-base break-words leading-tight">{t.title}</h4>
@@ -551,6 +1262,11 @@ export default function TeacherTests() {
                            <div className="px-2 py-1 bg-indigo-500/10 rounded-lg text-indigo-500 text-[9px] font-black uppercase tracking-widest flex items-center border border-indigo-500/10">
                               {t.duration} Daq
                            </div>
+                          {assignedStudentsCount > 0 && (
+                            <span className="px-2 py-1 bg-blue-500/10 rounded-lg text-blue-600 text-[9px] font-black uppercase tracking-widest border border-blue-500/20">
+                              Biriktirilgan: {assignedStudentsCount}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -572,63 +1288,214 @@ export default function TeacherTests() {
                            </button>
                            <div className="border-t border-primary">
                               <p className="px-4 py-2 text-[8px] font-black uppercase text-muted tracking-widest bg-secondary/10">Guruhga yo'naltirish</p>
-                              {groups.map(g => (
-                                <button 
-                                  key={g._id}
-                                  onClick={() => handleUpdateAccess(t._id, "group", g._id)}
-                                  className={`w-full text-left px-4 py-2 text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-indigo-500/10 hover:text-indigo-500 transition-all ${t.groupId === g._id ? 'text-indigo-500 bg-indigo-500/5' : 'text-muted'}`}
-                                >
-                                  <FaUsers /> {g.name}
-                                </button>
-                              ))}
+                              {isProPlan ? (
+                                groups.map((g) => (
+                                  <button
+                                    key={g._id}
+                                    onClick={() => handleUpdateAccess(t._id, "group", g._id)}
+                                    className={`w-full text-left px-4 py-2 text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-indigo-500/10 hover:text-indigo-500 transition-all ${
+                                      t.groupId === g._id ? "text-indigo-500 bg-indigo-500/5" : "text-muted"
+                                    }`}
+                                  >
+                                    <FaUsers /> {g.name}
+                                  </button>
+                                ))
+                              ) : (
+                                <p className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-amber-600">
+                                  Faqat Pro tarifda
+                                </p>
+                              )}
                            </div>
                         </div>
                      </div>
                   </div>
 
-                  <div className="mt-auto flex flex-col sm:flex-row gap-3 pt-4 border-t border-primary/50">
-                    {t.isStarted ? (
+                  <div className="mt-auto space-y-3 pt-4 border-t border-primary/50">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      {t.isStarted ? (
+                        <button
+                          onClick={() => stopTest(t._id, t.testLogin)}
+                          className="w-full sm:flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-500/20"
+                        >
+                          <FaStop /> TO'XTATISH
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => startTest(t._id, t.testLogin)}
+                          disabled={usageBlocked}
+                          className={`w-full sm:flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 transition-all ${
+                            usageBlocked
+                              ? "bg-slate-500/20 text-slate-500 cursor-not-allowed border border-slate-400/30"
+                              : "bg-gradient-to-r from-indigo-500 to-indigo-700 text-white hover:scale-[1.02] active:scale-95 shadow-lg shadow-indigo-500/20"
+                          }`}
+                        >
+                          <FaPlay size={10} /> BOSHLASH
+                        </button>
+                      )}
                       <button
-                        onClick={() => stopTest(t._id, t.testLogin)}
-                        className="w-full sm:flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-500/20"
+                        onClick={() => setEditModal({ open: true, test: t })}
+                        className="w-full sm:w-12 h-10 sm:h-auto bg-secondary border border-primary text-indigo-500 rounded-xl flex items-center justify-center hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
+                        title="Tahrirlash"
                       >
-                        <FaStop /> TO'XTATISH
+                        <FaCogs size={14} />
                       </button>
-                    ) : (
                       <button
-                        onClick={() => startTest(t._id, t.testLogin)}
-                        className="w-full sm:flex-1 py-3 bg-gradient-to-r from-indigo-500 to-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-indigo-500/20"
+                        onClick={() => handleDuplicate(t._id)}
+                        disabled={usageBlocked || !isProPlan}
+                        className={`w-full sm:w-12 h-10 sm:h-auto border rounded-xl flex items-center justify-center transition-all shadow-sm ${
+                          usageBlocked || !isProPlan
+                            ? "bg-slate-200/40 border-slate-300 text-slate-400 cursor-not-allowed"
+                            : "bg-secondary border-primary text-green-500 hover:bg-green-500 hover:text-white"
+                        }`}
+                        title="Nusxa olish"
                       >
-                        <FaPlay size={10} /> BOSHLASH
+                        <FaPlus size={14} />
                       </button>
-                    )}
-                    <button
-                      onClick={() => setEditModal({ open: true, test: t })}
-                      className="w-full sm:w-12 h-10 sm:h-auto bg-secondary border border-primary text-indigo-500 rounded-xl flex items-center justify-center hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
-                    >
-                      <FaCogs size={14} />
-                    </button>
-                    <button
-                      onClick={() => handleDuplicate(t._id)}
-                      className="w-full sm:w-12 h-10 sm:h-auto bg-secondary border border-primary text-green-500 rounded-xl flex items-center justify-center hover:bg-green-500 hover:text-white transition-all shadow-sm"
-                    >
-                      <FaPlus size={14} />
-                    </button>
-                    <button
-                      onClick={() => removeTest(t._id)}
-                      className="w-full sm:w-12 h-10 sm:h-auto bg-secondary border border-primary text-red-500 rounded-xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-sm"
-                    >
-                      <FaTrash size={14} />
-                    </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => handleExportTest(t, "json")}
+                        disabled={!isProPlan}
+                        className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 ${
+                          isProPlan
+                            ? "bg-primary border-primary hover:border-indigo-500 hover:text-indigo-600"
+                            : "bg-primary/50 border-primary text-muted cursor-not-allowed"
+                        }`}
+                      >
+                        <FaFileCode /> JSON
+                      </button>
+                      <button
+                        onClick={() => handleExportTest(t, "txt")}
+                        disabled={!isProPlan}
+                        className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 ${
+                          isProPlan
+                            ? "bg-primary border-primary hover:border-indigo-500 hover:text-indigo-600"
+                            : "bg-primary/50 border-primary text-muted cursor-not-allowed"
+                        }`}
+                      >
+                        <FaFileAlt /> TXT
+                      </button>
+                      <button
+                        onClick={() => handleExportTest(t, "csv")}
+                        disabled={!isProPlan}
+                        className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 ${
+                          isProPlan
+                            ? "bg-primary border-primary hover:border-indigo-500 hover:text-indigo-600"
+                            : "bg-primary/50 border-primary text-muted cursor-not-allowed"
+                        }`}
+                      >
+                        <FaFileCsv /> CSV
+                      </button>
+                      <button
+                        onClick={() => handleExportTest(t, "word")}
+                        disabled={!isProPlan}
+                        className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 ${
+                          isProPlan
+                            ? "bg-primary border-primary hover:border-indigo-500 hover:text-indigo-600"
+                            : "bg-primary/50 border-primary text-muted cursor-not-allowed"
+                        }`}
+                      >
+                        <FaFileWord /> WORD
+                      </button>
+                      <button
+                        onClick={() => handleExportTest(t, "pdf")}
+                        disabled={!isProPlan}
+                        className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 ${
+                          isProPlan
+                            ? "bg-primary border-primary hover:border-indigo-500 hover:text-indigo-600"
+                            : "bg-primary/50 border-primary text-muted cursor-not-allowed"
+                        }`}
+                      >
+                        <FaFilePdf /> PDF
+                      </button>
+                      <button
+                        onClick={() => toggleArchive(t._id)}
+                        className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-primary border border-primary hover:border-slate-500 hover:text-slate-600 transition-all flex items-center gap-2"
+                      >
+                        <FaArchive /> Arxiv
+                      </button>
+                      <button
+                        onClick={() => removeTest(t._id)}
+                        className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-primary border border-primary hover:border-red-500 hover:text-red-600 transition-all flex items-center gap-2"
+                      >
+                        <FaTrash /> O'chirish
+                      </button>
+                    </div>
                   </div>
                 </div>
-              ))
+              );
+              })
             ) : (
               <div className="col-span-full py-20 text-center border-2 border-dashed border-primary rounded-[2.5rem]">
-                <p className="text-muted font-bold uppercase tracking-widest italic opacity-40">Testlar yuklanmagan</p>
+                <p className="text-muted font-bold uppercase tracking-widest italic opacity-40">Aktiv testlar yo'q</p>
               </div>
             )}
           </div>
+
+          {archivedTests.length > 0 && (
+            <div className="mt-10 pt-8 border-t border-primary/50">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-slate-500/10 text-slate-600 flex items-center justify-center">
+                  <FaInbox />
+                </div>
+                <h4 className="text-lg font-black text-primary uppercase tracking-tight italic">Testlar Arxivi</h4>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                {archivedTests.map((test) => (
+                  <div key={test._id} className="p-5 rounded-2xl border border-primary bg-primary/30 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-black text-primary uppercase">{test.title}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-muted mt-1">Login: {test.testLogin}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleExportTest(test, "json")}
+                        disabled={!isProPlan}
+                        className={`w-9 h-9 rounded-lg border flex items-center justify-center ${
+                          isProPlan
+                            ? "border-primary bg-secondary text-indigo-500"
+                            : "border-primary bg-secondary/50 text-muted cursor-not-allowed"
+                        }`}
+                        title="JSON yuklash"
+                      >
+                        <FaDownload size={12} />
+                      </button>
+                      <button
+                        onClick={() => handleExportTest(test, "word")}
+                        disabled={!isProPlan}
+                        className={`w-9 h-9 rounded-lg border flex items-center justify-center ${
+                          isProPlan
+                            ? "border-primary bg-secondary text-indigo-500"
+                            : "border-primary bg-secondary/50 text-muted cursor-not-allowed"
+                        }`}
+                        title="WORD yuklash"
+                      >
+                        <FaFileWord size={12} />
+                      </button>
+                      <button
+                        onClick={() => handleExportTest(test, "pdf")}
+                        disabled={!isProPlan}
+                        className={`w-9 h-9 rounded-lg border flex items-center justify-center ${
+                          isProPlan
+                            ? "border-primary bg-secondary text-indigo-500"
+                            : "border-primary bg-secondary/50 text-muted cursor-not-allowed"
+                        }`}
+                        title="PDF yuklash"
+                      >
+                        <FaFilePdf size={12} />
+                      </button>
+                      <button
+                        onClick={() => toggleArchive(test._id)}
+                        className="px-3 py-2 rounded-lg border border-primary bg-secondary text-[10px] font-black uppercase tracking-widest text-slate-600"
+                      >
+                        Qaytarish
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
@@ -697,13 +1564,25 @@ export default function TeacherTests() {
                   </button>
                   <button 
                     type="button"
-                    onClick={() => setEditModal({ ...editModal, test: { ...editModal.test, accessType: "group" } })}
-                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${editModal.test.accessType === 'group' ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20' : 'bg-secondary text-muted border-primary hover:text-primary'}`}
+                    onClick={() => {
+                      if (!isProPlan) {
+                        toast.info("Guruhga yopiq testlar faqat Pro tarifda.");
+                        navigate("/teacher/subscription");
+                        return;
+                      }
+                      setEditModal({ ...editModal, test: { ...editModal.test, accessType: "group" } });
+                    }}
+                    disabled={!isProPlan}
+                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                      editModal.test.accessType === "group"
+                        ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20"
+                        : "bg-secondary text-muted border-primary hover:text-primary"
+                    } ${!isProPlan ? "opacity-60 cursor-not-allowed" : ""}`}
                   >
-                    Guruhga
+                    Guruhga {!isProPlan ? "(Pro)" : ""}
                   </button>
                 </div>
-                {editModal.test.accessType === "group" && (
+                {editModal.test.accessType === "group" && isProPlan && (
                   <select 
                     required
                     value={editModal.test.groupId || ""}

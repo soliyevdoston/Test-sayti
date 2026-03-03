@@ -63,7 +63,7 @@ export default function TeacherSubjects() {
       setLoading(true);
       const { data } = await getTeacherSubjects(id || localStorage.getItem("teacherId"));
       setSubjects(Array.isArray(data) ? data : []);
-    } catch (err) {
+    } catch {
       toast.error("Fanlarni yuklashda xatolik");
     } finally {
       setLoading(false);

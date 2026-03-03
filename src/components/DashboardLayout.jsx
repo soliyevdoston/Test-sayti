@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import React, { useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
@@ -8,236 +8,276 @@ import {
   LogOut,
   Menu,
   X,
-  Bell,
-  Search,
-  ChevronRight,
-  User,
-  CreditCard,
-  Briefcase,
   BookOpen,
   ClipboardList,
-  ShoppingBag,
-  Zap,
+  CreditCard,
   BarChart3,
-  MessageSquare, // Added
-  Home // Added Home icon
+  MessageSquare,
+  Home,
+  User,
+  BookMarked,
+  GraduationCap,
+  ShieldCheck,
 } from "lucide-react";
+import { clearUserSession } from "../utils/authSession";
+import { logUserActivity } from "../utils/activityLog";
+import { isTeacherProActive } from "../utils/teacherAccessTools";
 import logo from "../assets/logo.svg";
+import SiteFooter from "./SiteFooter";
 
-const SidebarItem = ({ icon: Icon, label, path, active, onClick }) => (
+const ItemButton = ({ icon, label, active, onClick }) => (
   <button
+    type="button"
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group ${
+    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold border transition-all ${
       active
-        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
-        : "text-primary/70 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 hover:text-indigo-600"
+        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-500/60 shadow-md shadow-blue-600/20"
+        : "text-secondary border-transparent hover:text-primary hover:bg-accent hover:border-primary"
     }`}
   >
-    <Icon size={20} className={`${active ? "scale-110" : "group-hover:scale-110"} transition-transform`} />
-    <span className="font-bold text-sm tracking-tight">{label}</span>
-    {active && <ChevronRight size={16} className="ml-auto animate-pulse" />}
+    {React.createElement(icon, { size: 18 })}
+    <span className="min-w-0 truncate">{label}</span>
+    {active && <span className="ml-auto inline-block w-1.5 h-1.5 rounded-full bg-white/90" />}
   </button>
 );
 
-export default function DashboardLayout({ children, role = "student", userName = "Foydalanuvchi", showBottomNav = true }) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+export default function DashboardLayout({
+  children,
+  role = "student",
+  userName = "Foydalanuvchi",
+  showBottomNav = true,
+  showFooter = true,
+}) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const teacherId = localStorage.getItem("teacherId");
+  const teacherProActive = role === "teacher" ? isTeacherProActive(teacherId) : false;
+  const profilePath = role === "teacher" && !teacherProActive ? "/teacher/subscription" : `/${role}/settings`;
+  const teacherBottomNavPath = teacherProActive ? "/teacher/results" : "/teacher/subscription";
+  const teacherBottomNavLabel = teacherProActive ? "Natija" : "Obuna";
 
-  const menuItems = {
-    admin: [
-      { icon: LayoutDashboard, label: "Dashboard", path: "/admin/dashboard" },
-      { icon: Users, label: "O'qituvchilar", path: "/admin/dashboard" },
-      { icon: Settings, label: "Sozlamalar", path: "/admin/settings" },
-    ],
-    teacher: [
-      { icon: LayoutDashboard, label: "Asosiy Panel", path: "/teacher/dashboard" },
-      { icon: BookOpen, label: "Fanlar (Tez orada)", path: "/teacher/dashboard" },
-      { icon: ClipboardList, label: "Testlar", path: "/teacher/tests" },
-      { icon: Users, label: "Guruhlar", path: "/teacher/groups" },
-      { icon: MessageSquare, label: "Chatlar", path: "/teacher/chats" },
-      { icon: BarChart3, label: "Natijalar", path: "/teacher/results" },
-      { icon: ShoppingBag, label: "Do'kon", path: "/teacher/shop" },
-      { icon: Zap, label: "Resurslar", path: "/teacher/resources" },
-      { icon: Settings, label: "Sozlamalar", path: "/teacher/settings" },
-    ],
-    student: [
-      { icon: LayoutDashboard, label: "Asosiy", path: "/student/dashboard" },
-      { icon: FileText, label: "Testlar", path: "/student/tests" },
-      { icon: Settings, label: "Sozlamalar", path: "/student/settings" },
-    ],
+  const menus = useMemo(
+    () => ({
+      admin: [
+        { icon: LayoutDashboard, label: "Dashboard", path: "/admin/dashboard" },
+        { icon: Users, label: "O'qituvchilar", path: "/admin/teachers" },
+        { icon: GraduationCap, label: "O'quvchilar", path: "/admin/students" },
+        { icon: CreditCard, label: "To'lovlar", path: "/admin/billing" },
+        { icon: BookOpen, label: "Katalog", path: "/admin/catalog" },
+        { icon: ShieldCheck, label: "Kirish nazorati", path: "/admin/access" },
+        { icon: Settings, label: "Sozlamalar", path: "/admin/settings" },
+      ],
+      teacher: [
+        { icon: LayoutDashboard, label: "Asosiy", path: "/teacher/dashboard" },
+        { icon: ClipboardList, label: "Testlar", path: "/teacher/tests" },
+        ...(teacherProActive
+          ? [
+              { icon: Users, label: "Guruhlar", path: "/teacher/groups" },
+              { icon: MessageSquare, label: "Chatlar", path: "/teacher/chats" },
+              { icon: BarChart3, label: "Natijalar", path: "/teacher/results" },
+            ]
+          : []),
+        { icon: CreditCard, label: "Obuna", path: "/teacher/subscription" },
+        { icon: BookOpen, label: "Qo'llanma", path: "/guide" },
+        ...(teacherProActive ? [{ icon: Settings, label: "Sozlamalar", path: "/teacher/settings" }] : []),
+      ],
+      student: [
+        { icon: LayoutDashboard, label: "Asosiy", path: "/student/dashboard" },
+        { icon: FileText, label: "Testlar", path: "/student/tests" },
+        { icon: CreditCard, label: "Obuna", path: "/student/subscription" },
+        { icon: BookMarked, label: "Qo'llanma", path: "/guide" },
+        { icon: Settings, label: "Sozlamalar", path: "/student/settings" },
+      ],
+    }),
+    [teacherProActive]
+  );
+
+  const currentMenu = menus[role] || menus.student;
+
+  const titleByRole = {
+    admin: "Admin kabineti",
+    teacher: "O'qituvchi kabineti",
+    student: "O'quvchi kabineti",
   };
 
-  const currentItems = menuItems[role] || menuItems.student;
-
-  const handleLogout = () => {
-    localStorage.clear();
+  const logout = () => {
+    logUserActivity({
+      action: "logout",
+      area: "auth",
+      status: "success",
+      message: "Foydalanuvchi tizimdan chiqdi",
+    });
+    clearUserSession();
     navigate("/");
   };
 
+  const SidebarContent = ({ mobile = false }) => (
+    <div className={`h-full flex flex-col ${mobile ? "p-4" : "p-5"}`}>
+      <button
+        type="button"
+        onClick={() => {
+          navigate("/");
+          setMobileOpen(false);
+        }}
+        className="flex items-center gap-3 px-2.5 py-2.5 mb-4 rounded-xl border border-primary bg-accent/45 hover:bg-accent transition-colors"
+      >
+        <img src={logo} alt="OsonTestOl logo" className="w-9 h-9 rounded-lg" />
+        <div className="text-left">
+          <p className="text-xs uppercase tracking-[0.22em] text-muted font-bold">testonlinee.uz</p>
+          <p className="text-base font-extrabold text-primary">OsonTestOl</p>
+        </div>
+      </button>
+
+      <nav className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-1.5">
+        {currentMenu.map((item) => (
+          <ItemButton
+            key={`${item.label}-${item.path}`}
+            {...item}
+            active={location.pathname === item.path}
+            onClick={() => {
+              navigate(item.path);
+              setMobileOpen(false);
+            }}
+          />
+        ))}
+      </nav>
+
+      <div className="mt-4 border-t border-primary pt-4 space-y-2">
+        <button
+          type="button"
+          onClick={() => {
+            navigate(profilePath);
+            setMobileOpen(false);
+          }}
+          className="w-full flex items-center gap-3 p-3 rounded-xl bg-accent text-primary hover:bg-blue-100 dark:hover:bg-slate-700 transition-colors"
+        >
+          <User size={18} />
+          <div className="text-left min-w-0">
+            <p className="text-sm font-semibold truncate">{userName}</p>
+            <p className="text-[11px] uppercase tracking-widest text-muted">{role}</p>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={logout}
+          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-sm font-semibold"
+        >
+          <LogOut size={18} />
+          <span>Chiqish</span>
+        </button>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-primary flex overflow-hidden font-['Outfit']">
-      {/* Sidebar - Desktop */}
-      <aside className={`hidden lg:flex flex-col w-72 h-screen glass border-r border-primary p-6 transition-all duration-500 sticky top-0`}>
-        <div className="flex items-center gap-3 mb-8 px-2 cursor-pointer group" onClick={() => navigate("/")}>
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-indigo-500/20 group-hover:rotate-12 transition-transform">
-            T
-          </div>
-          <span className="text-2xl font-black tracking-tighter uppercase text-primary">
-            OsonTestOl
-          </span>
-        </div>
-
-        {/* Sidebar Search - New Position */}
-        <div className="mb-6 px-2">
-          <div className="flex items-center gap-2 bg-secondary/80 border border-primary px-4 py-2.5 rounded-2xl focus-within:border-indigo-500/50 transition-all">
-            <Search size={16} className="text-muted" />
-            <input
-              type="text"
-              placeholder="Qidiruv..."
-              className="bg-transparent border-none outline-none text-xs w-full text-primary placeholder:text-muted/50"
-            />
-          </div>
-        </div>
-
-        <nav className="flex-grow space-y-2 overflow-y-auto pr-2 custom-scrollbar">
-          {currentItems.map((item) => (
-            <SidebarItem
-              key={item.label}
-              {...item}
-              active={location.pathname === item.path}
-              onClick={() => navigate(item.path)}
-            />
-          ))}
-        </nav>
-
-        <div className="mt-auto pt-6 space-y-4 border-t border-primary/50">
-          <div 
-            className="p-4 rounded-3xl bg-secondary border border-primary flex items-center gap-3 cursor-pointer hover:bg-indigo-500/5 transition-colors"
-            onClick={() => navigate(`/${role}/settings`)}
-          >
-            <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-600">
-              <User size={20} />
-            </div>
-            <div className="flex-grow min-w-0">
-              <p className="text-xs font-black truncate text-primary">{userName}</p>
-              <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-widest">{role}</p>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-red-500 hover:bg-red-500/10 transition-colors font-bold text-sm"
-          >
-            <LogOut size={20} />
-            <span>Chiqish</span>
-          </button>
-        </div>
+    <div className="min-h-screen bg-primary text-primary lg:flex">
+      <aside className="hidden lg:block w-72 shrink-0 h-screen sticky top-0 border-r border-primary bg-secondary/95 backdrop-blur-xl">
+        <SidebarContent />
       </aside>
 
-      <div className="flex-grow flex flex-col min-w-0 h-screen overflow-y-auto relative">
-        <main className="p-4 lg:p-8 flex-grow relative pb-24 lg:pb-8">
-          {/* Subtle background glow */}
-          <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-[600px] h-[600px] bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none" />
-          <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-indigo-500/5 dark:bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none" />
-          
-          <div className="relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {children}
+      <div className="flex-1 min-w-0 flex flex-col">
+        <header className="sticky top-0 z-30 border-b border-primary bg-secondary/95 backdrop-blur-xl shadow-sm">
+          <div className="h-[4.25rem] px-4 md:px-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                className="lg:hidden w-9 h-9 rounded-lg border border-primary bg-secondary flex items-center justify-center"
+                onClick={() => setMobileOpen(true)}
+              >
+                <Menu size={18} />
+              </button>
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-muted font-bold">OsonTestOl</p>
+                <h1 className="text-sm md:text-base font-extrabold">{titleByRole[role] || "Kabinet"}</h1>
+              </div>
+            </div>
+
+            <button type="button" onClick={() => navigate("/")} className="btn-secondary">
+              <Home size={14} /> Asosiy
+            </button>
           </div>
-        </main>
+        </header>
+
+        <main className="flex-1 px-4 md:px-6 py-6 pb-24 lg:pb-8">{children}</main>
+        {showFooter && (
+          <SiteFooter
+            compact
+            className={`mt-auto ${showBottomNav && role !== "admin" ? "pb-16 lg:pb-0" : ""}`}
+          />
+        )}
       </div>
 
-      {/* Mobile Sidebar Overlay */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm lg:hidden transition-all duration-300"
-          onClick={() => setIsSidebarOpen(false)}
-        >
-          <aside 
-            className="w-72 h-full bg-primary border-r border-primary p-6 animate-in slide-in-from-left shadow-2xl duration-300"
+      {mobileOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 bg-slate-950/45 cursor-clickable" onClick={() => setMobileOpen(false)}>
+          <aside
+            className="w-72 max-w-[90vw] h-full bg-secondary/95 backdrop-blur-sm border-r border-primary"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Same sidebar content for mobile */}
-            <div className="flex items-center gap-3 mb-12 cursor-pointer group" onClick={() => {navigate("/"); setIsSidebarOpen(false);}}>
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-indigo-500/20 group-hover:rotate-12 transition-transform">
-                T
-              </div>
-              <span className="text-2xl font-black tracking-tighter uppercase text-primary">
-                OsonTestOl
-              </span>
+            <div className="flex items-center justify-end p-3">
+              <button
+                type="button"
+                onClick={() => setMobileOpen(false)}
+                className="w-8 h-8 rounded-md border border-primary flex items-center justify-center"
+              >
+                <X size={16} />
+              </button>
             </div>
-            <nav className="flex-grow space-y-2 mb-8">
-              {currentItems.map((item) => (
-                <SidebarItem
-                  key={item.label}
-                  {...item}
-                  active={location.pathname === item.path}
-                  onClick={() => {navigate(item.path); setIsSidebarOpen(false);}}
-                />
-              ))}
-            </nav>
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-red-500 hover:bg-red-500/10 transition-colors font-bold text-sm"
-            >
-              <LogOut size={20} />
-              <span>Chiqish</span>
-            </button>
+            <SidebarContent mobile />
           </aside>
         </div>
       )}
 
-      
-      {/* Mobile Bottom Navigation */}
-      {showBottomNav && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-lg border-t border-primary lg:hidden safe-area-bottom">
-          <div className="flex items-center justify-around p-2">
-            {/* Home */}
-            <button 
+      {showBottomNav && role !== "admin" && (
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-primary bg-secondary/95 backdrop-blur-sm safe-area-bottom">
+          <div className="grid grid-cols-5 gap-1 px-2 py-2">
+            <button
+              type="button"
               onClick={() => navigate("/")}
-              className={`flex flex-col items-center p-2 rounded-xl transition-all ${location.pathname === "/" ? "text-indigo-600" : "text-muted"}`}
+              className="flex flex-col items-center justify-center py-1 text-[10px] font-semibold text-muted"
             >
-              <Home size={24} className={location.pathname === "/" ? "fill-current" : ""} />
-              <span className="text-[10px] font-bold mt-1">Asosiy</span>
+              <Home size={18} />
+              Asosiy
             </button>
 
-            {/* Tests/Dashboard specific based on role */}
-            <button 
-               onClick={() => navigate(role === 'teacher' ? '/teacher/tests' : '/student/tests')}
-               className={`flex flex-col items-center p-2 rounded-xl transition-all ${location.pathname.includes('tests') ? "text-indigo-600" : "text-muted"}`}
+            <button
+              type="button"
+              onClick={() => navigate(role === "teacher" ? "/teacher/tests" : "/student/tests")}
+              className="flex flex-col items-center justify-center py-1 text-[10px] font-semibold text-muted"
             >
-              <ClipboardList size={24} />
-              <span className="text-[10px] font-bold mt-1">Testlar</span>
+              <ClipboardList size={18} />
+              Testlar
             </button>
 
-             {/* Menu Trigger */}
-             <div className="relative -top-5">
-              <button 
-                onClick={() => setIsSidebarOpen(true)}
-                className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30"
-              >
-                <Menu size={24} />
-              </button>
-            </div>
-
-            {/* Results/Stats */}
-            <button 
-               onClick={() => navigate(role === 'teacher' ? '/teacher/results' : '/student/dashboard')}
-               className={`flex flex-col items-center p-2 rounded-xl transition-all ${location.pathname.includes('results') ? "text-indigo-600" : "text-muted"}`}
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              className="flex flex-col items-center justify-center py-1 text-[10px] font-semibold text-primary"
             >
-              <BarChart3 size={24} />
-              <span className="text-[10px] font-bold mt-1">Natijalar</span>
+              <Menu size={18} />
+              Menyu
             </button>
 
-            {/* Profile */}
-            <button 
-               onClick={() => navigate(`/${role}/settings`)}
-               className={`flex flex-col items-center p-2 rounded-xl transition-all ${location.pathname.includes('settings') ? "text-indigo-600" : "text-muted"}`}
+            <button
+              type="button"
+              onClick={() => navigate(role === "teacher" ? teacherBottomNavPath : "/student/dashboard")}
+              className="flex flex-col items-center justify-center py-1 text-[10px] font-semibold text-muted"
             >
-              <User size={24} />
-              <span className="text-[10px] font-bold mt-1">Profil</span>
+              <BarChart3 size={18} />
+              {role === "teacher" ? teacherBottomNavLabel : "Natija"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate(profilePath)}
+              className="flex flex-col items-center justify-center py-1 text-[10px] font-semibold text-muted"
+            >
+              <User size={18} />
+              Profil
             </button>
           </div>
-        </div>
+        </nav>
       )}
     </div>
   );
