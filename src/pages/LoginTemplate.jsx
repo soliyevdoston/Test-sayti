@@ -2,7 +2,13 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { ArrowLeft, CheckCircle2, Sparkles } from "lucide-react";
-import { getTeachers, loginUser, requestRetake, studentIndividualLogin } from "../api/api";
+import {
+  getTeachers,
+  loginUser,
+  releaseDeviceSession,
+  requestRetake,
+  studentIndividualLogin,
+} from "../api/api";
 import { canUseDeviceForPrincipal, lockDeviceForPrincipal, registerOauthUser } from "../utils/billingTools";
 import { clearUserSession } from "../utils/authSession";
 import {
@@ -66,6 +72,7 @@ export default function LoginTemplate({
           return;
         }
 
+        await releaseDeviceSession();
         clearUserSession();
         let resolvedData = null;
         if (studentMode === "personal") {
@@ -128,6 +135,7 @@ export default function LoginTemplate({
       }
 
       if (role === "Teacher" || role === "Admin") {
+        await releaseDeviceSession();
         clearUserSession();
       }
 

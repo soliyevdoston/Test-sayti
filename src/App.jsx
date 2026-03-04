@@ -58,10 +58,19 @@ function ProtectedRoute({ children, allowedRoles, requireTeacherPro = false }) {
   return children;
 }
 
-function PublicOnlyRoute({ children }) {
-  const role = getStoredRole();
-  if (ROLE_HOME[role] && hasValidSessionForRole(role)) {
-    return <Navigate to={ROLE_HOME[role]} replace />;
+function PublicOnlyRoute({ children, role = "" }) {
+  const requestedRole = String(role || "").toLowerCase();
+  const activeRole = getStoredRole();
+
+  if (!requestedRole) {
+    if (ROLE_HOME[activeRole] && hasValidSessionForRole(activeRole)) {
+      return <Navigate to={ROLE_HOME[activeRole]} replace />;
+    }
+    return children;
+  }
+
+  if (activeRole === requestedRole && ROLE_HOME[activeRole] && hasValidSessionForRole(activeRole)) {
+    return <Navigate to={ROLE_HOME[activeRole]} replace />;
   }
   return children;
 }
@@ -80,7 +89,7 @@ function App() {
           <Route path="/guide" element={<Guide />} />
           
           {/* Admin Routes */}
-          <Route path="/admin/login" element={<PublicOnlyRoute><AdminLogin /></PublicOnlyRoute>} />
+          <Route path="/admin/login" element={<PublicOnlyRoute role="admin"><AdminLogin /></PublicOnlyRoute>} />
           <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard initialSection="overview" /></ProtectedRoute>} />
           <Route path="/admin/teachers" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard initialSection="teachers" /></ProtectedRoute>} />
           <Route path="/admin/students" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard initialSection="students" /></ProtectedRoute>} />
@@ -92,8 +101,8 @@ function App() {
           <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={["admin"]}><Profile /></ProtectedRoute>} />
           
           {/* Teacher Routes */}
-          <Route path="/teacher/login" element={<PublicOnlyRoute><TeacherLogin /></PublicOnlyRoute>} />
-          <Route path="/teacher/register" element={<PublicOnlyRoute><TeacherRegister /></PublicOnlyRoute>} />
+          <Route path="/teacher/login" element={<PublicOnlyRoute role="teacher"><TeacherLogin /></PublicOnlyRoute>} />
+          <Route path="/teacher/register" element={<PublicOnlyRoute role="teacher"><TeacherRegister /></PublicOnlyRoute>} />
           <Route path="/teacher/dashboard" element={<ProtectedRoute allowedRoles={["teacher"]}><TeacherDashboard /></ProtectedRoute>} />
           <Route path="/teacher/tests" element={<ProtectedRoute allowedRoles={["teacher"]}><TeacherTests /></ProtectedRoute>} />
           <Route path="/teacher/subscription" element={<ProtectedRoute allowedRoles={["teacher"]}><TeacherSubscription /></ProtectedRoute>} />
@@ -105,7 +114,7 @@ function App() {
           <Route path="/teacher/settings" element={<ProtectedRoute allowedRoles={["teacher"]} requireTeacherPro><Profile /></ProtectedRoute>} />
           
           {/* Student Routes */}
-          <Route path="/student/login" element={<PublicOnlyRoute><StudentLogin /></PublicOnlyRoute>} />
+          <Route path="/student/login" element={<PublicOnlyRoute role="student"><StudentLogin /></PublicOnlyRoute>} />
           <Route path="/student/dashboard" element={<ProtectedRoute allowedRoles={["student"]}><StudentDashboard /></ProtectedRoute>} />
           <Route path="/student/tests" element={<ProtectedRoute allowedRoles={["student"]}><AvailableTests /></ProtectedRoute>} />
           <Route path="/student/roadmap" element={<ProtectedRoute allowedRoles={["student"]}><StudentRoadmap /></ProtectedRoute>} />

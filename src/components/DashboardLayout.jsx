@@ -33,6 +33,7 @@ import {
   markNotificationAsRead,
   subscribeNotifications,
 } from "../utils/notificationTools";
+import { releaseDeviceSession } from "../api/api";
 
 const ItemButton = ({ icon, label, active, onClick }) => (
   <button
@@ -140,7 +141,8 @@ export default function DashboardLayout({
     return () => document.removeEventListener("mousedown", closeOnOutside);
   }, [notificationsOpen]);
 
-  const logout = () => {
+  const logout = async () => {
+    await releaseDeviceSession();
     logUserActivity({
       action: "logout",
       area: "auth",

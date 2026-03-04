@@ -1,9 +1,11 @@
 import axios from "axios";
 import { logUserActivity } from "../utils/activityLog";
 import { getTeacherApiAccessState } from "../utils/teacherAccessTools";
+import { getDeviceFingerprint } from "../utils/billingTools";
 
 const normalizeBaseUrl = (value) => String(value || "").trim().replace(/\/+$/, "");
 const FALLBACK_BASE_URL = "https://online-test-backend-2.onrender.com";
+const DEVICE_FINGERPRINT_HEADER = "x-device-fingerprint";
 
 export const BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL) || FALLBACK_BASE_URL;
 const API_URL = `${BASE_URL}/api`;
@@ -32,6 +34,31 @@ const buildTeacherPlanError = (message) => {
   error.code = "TEACHER_PLAN_BLOCKED";
   error.isAccessDenied = true;
   return error;
+};
+
+const resolveCurrentSessionPayload = () => {
+  const role = String(localStorage.getItem("userRole") || "").toLowerCase();
+  if (!role) return null;
+
+  if (role === "admin") {
+    const accountId = String(localStorage.getItem("schoolId") || "").trim();
+    if (!accountId) return null;
+    return { role, accountId };
+  }
+
+  if (role === "teacher") {
+    const accountId = String(localStorage.getItem("teacherId") || "").trim();
+    if (!accountId) return null;
+    return { role, accountId };
+  }
+
+  if (role === "student") {
+    const accountId = String(localStorage.getItem("studentId") || "").trim();
+    if (!accountId) return null;
+    return { role, accountId };
+  }
+
+  return null;
 };
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -68,6 +95,18 @@ api.interceptors.request.use(
     const next = config;
     next.metadata = { startedAt: Date.now() };
 
+    try {
+      const fingerprint = String(getDeviceFingerprint() || "").trim();
+      if (fingerprint) {
+        next.headers = {
+          ...(next.headers || {}),
+          [DEVICE_FINGERPRINT_HEADER]: fingerprint,
+        };
+      }
+    } catch {
+      // no-op: fingerprint ixtiyoriy fallback
+    }
+
     const role = String(localStorage.getItem("userRole") || "").toLowerCase();
     if (role === "teacher") {
       const teacherId = localStorage.getItem("teacherId");
@@ -93,6 +132,21 @@ api.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
+
+export const releaseDeviceSession = async (payload = null) => {
+  const resolvedPayload = payload && payload.role ? payload : resolveCurrentSessionPayload();
+  if (!resolvedPayload?.role || !resolvedPayload?.accountId) return false;
+
+  try {
+    await api.post("/auth/logout", {
+      role: String(resolvedPayload.role || "").toLowerCase(),
+      accountId: String(resolvedPayload.accountId || "").trim(),
+    });
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 api.interceptors.response.use(
   (response) => {
