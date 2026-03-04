@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
@@ -27,6 +27,7 @@ import { getAssignedTestsByStudent } from "../utils/studentTestAssignments";
 import {
   getAllPaymentRequests,
   hasActiveStudentSubscription,
+  getStudentPurchasedTests,
   PAYMENT_CONFIG,
   submitPaymentRequest,
 } from "../utils/billingTools";
@@ -37,6 +38,7 @@ import {
 import { getAssignedCatalogIds } from "../utils/personalAssignmentsTools";
 import { clearUserSession } from "../utils/authSession";
 import { getTeacherSolveLimitSnapshot } from "../utils/teacherSolveUsageTools";
+import { startProctoringSession } from "../utils/proctoringTools";
 
 const socket = io(BASE_URL, {
   transports: ["polling", "websocket"],
@@ -98,7 +100,10 @@ export default function StudentDashboard() {
   const [selectedDirection, setSelectedDirection] = useState("all");
   const [availableDirections, setAvailableDirections] = useState([]);
   const [teacherSolveLimits, setTeacherSolveLimits] = useState({});
+  const [proctoringWarnings, setProctoringWarnings] = useState(0);
+  const [proctoringEvents, setProctoringEvents] = useState([]);
   const questionRefs = useRef({});
+  const executeSubmitRef = useRef(() => {});
 
   const [modalConfig, setModalConfig] = useState({
     isOpen: false,
@@ -110,6 +115,12 @@ export default function StudentDashboard() {
 
   const showConfirm = (message, onConfirm, type = "info", title = "Tasdiqlash") => {
     setModalConfig({ isOpen: true, title, message, onConfirm, type });
+  };
+
+  const getPersonalAllowance = (studentId, hasSubscription) => {
+    if (hasSubscription) return Number.POSITIVE_INFINITY;
+    const purchased = getStudentPurchasedTests(studentId);
+    return PERSONAL_FREE_TEST_LIMIT + Math.max(Number(purchased || 0), 0);
   };
 
   const primeTeacherSolveLimits = async (teacherIds = []) => {
@@ -294,7 +305,7 @@ export default function StudentDashboard() {
     executeSubmit(true);
   };
 
-  const executeSubmit = async (isAuto = false) => {
+  const executeSubmit = useCallback(async (isAuto = false) => {
     try {
       const payload = {
         testId: studentData.testId,
@@ -313,17 +324,44 @@ export default function StudentDashboard() {
       console.error(err);
       toast.error("Natijani saqlashda xatolik! Internetni tekshiring.");
     }
-  };
+  }, [answers, studentData]);
+
+  useEffect(() => {
+    executeSubmitRef.current = () => executeSubmit(true);
+  }, [executeSubmit]);
+
+  useEffect(() => {
+    if (status !== "started" || !testData) return undefined;
+
+    setProctoringWarnings(0);
+    setProctoringEvents([]);
+    const stopSession = startProctoringSession({
+      maxWarnings: 3,
+      onViolation: ({ count, reason, at }) => {
+        setProctoringWarnings(count);
+        setProctoringEvents((prev) => [{ reason, at }, ...prev].slice(0, 5));
+        toast.warning(`Nazorat: ${reason} (${count}/3)`);
+      },
+      onLimitReached: () => {
+        toast.error("Xavfsizlik limiti oshdi. Test avtomatik yakunlandi.");
+        executeSubmitRef.current();
+      },
+    });
+
+    return () => stopSession();
+  }, [status, testData]);
 
   const handleJoinTest = async (test) => {
     const currentStudentId = localStorage.getItem("studentId");
     const accessMode = localStorage.getItem("studentAccessMode");
+    const hasSubscription = hasActiveStudentSubscription(currentStudentId);
+    const personalAllowance = getPersonalAllowance(currentStudentId, hasSubscription);
     const personalLimitReached =
       accessMode === "personal" &&
-      history.length >= PERSONAL_FREE_TEST_LIMIT &&
-      !hasActiveStudentSubscription(currentStudentId);
+      history.length >= personalAllowance &&
+      !hasSubscription;
     if (personalLimitReached) {
-      toast.warning(`${PERSONAL_FREE_TEST_LIMIT} ta bepul test tugagan. Davom etish uchun obuna kerak.`);
+      toast.warning(`Bepul va sotib olingan test limiti tugagan. Davom etish uchun yangi paket yoki obuna kerak.`);
       return;
     }
 
@@ -427,6 +465,7 @@ export default function StudentDashboard() {
         const assignedCatalogIds = getAssignedCatalogIds(studentId);
         const assignedCatalogUiIds = assignedCatalogIds.map((id) => `catalog_${id}`);
         const hasSubscription = hasActiveStudentSubscription(studentId);
+        const personalAllowance = getPersonalAllowance(studentId, hasSubscription);
 
         let visibleCatalog = [...catalogTests];
         if (hasSubscription && assignedCatalogIds.length) {
@@ -435,7 +474,7 @@ export default function StudentDashboard() {
             assignedSet.has(String(item.catalogId || "").toLowerCase())
           );
         } else if (!hasSubscription) {
-          visibleCatalog = pickMixedDirectionTests(visibleCatalog, PERSONAL_FREE_TEST_LIMIT);
+          visibleCatalog = pickMixedDirectionTests(visibleCatalog, personalAllowance);
         }
 
         const directions = getStudentCatalogDirections(visibleCatalog);
@@ -566,6 +605,7 @@ export default function StudentDashboard() {
 
   const renderGlobalChat = () => {
     if (!localStorage.getItem("studentId")) return null;
+    if (!localStorage.getItem("teacherId")) return null;
     return (
       <div className="fixed bottom-32 right-8 z-[60]">
         {chatOpen ? (
@@ -605,6 +645,10 @@ export default function StudentDashboard() {
     const isPersonalMode = accessMode === "personal";
     const studentId = localStorage.getItem("studentId");
     const personalSubscriptionActive = hasActiveStudentSubscription(studentId);
+    const personalPurchasedTests = getStudentPurchasedTests(studentId);
+    const personalAllowance = getPersonalAllowance(studentId, personalSubscriptionActive);
+    const personalBonusUsed = Math.max(history.length - PERSONAL_FREE_TEST_LIMIT, 0);
+    const personalBonusRemaining = Math.max(personalPurchasedTests - personalBonusUsed, 0);
     const pendingStudentPayment = getAllPaymentRequests().find(
       (request) =>
         request.userType === "student" &&
@@ -613,7 +657,7 @@ export default function StudentDashboard() {
     );
     const personalFreeLimitReached =
       isPersonalMode &&
-      history.length >= PERSONAL_FREE_TEST_LIMIT &&
+      history.length >= personalAllowance &&
       !personalSubscriptionActive;
     const directionFilteredTests =
       isPersonalMode && selectedDirection !== "all"
@@ -695,7 +739,7 @@ export default function StudentDashboard() {
             {personalFreeLimitReached && (
               <div className="mb-8 premium-card border border-amber-500/30 bg-amber-500/5">
                 <h4 className="text-lg font-black text-primary">
-                  Shaxsiy kabinetda bepul {PERSONAL_FREE_TEST_LIMIT} test tugadi
+                  Shaxsiy kabinet limiti tugadi
                 </h4>
                 <p className="text-sm text-secondary mt-2">
                   Summa:{" "}
@@ -754,7 +798,7 @@ export default function StudentDashboard() {
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Yo'nalish bo'yicha testlar</p>
                     <p className="text-sm text-secondary mt-1">
-                      Bepul limit: {Math.min(history.length, PERSONAL_FREE_TEST_LIMIT)}/{PERSONAL_FREE_TEST_LIMIT}
+                      Bepul: {Math.min(history.length, PERSONAL_FREE_TEST_LIMIT)}/{PERSONAL_FREE_TEST_LIMIT} | Paket qolgan: {personalBonusRemaining}
                     </p>
                   </div>
                   <select
@@ -848,7 +892,7 @@ export default function StudentDashboard() {
                         {teacherLimitReached
                           ? "Limit tugagan"
                           : personalFreeLimitReached
-                            ? "Obuna kerak"
+                            ? "Paket yoki obuna"
                             : "Kirish"}
                       </button>
                     </div>
@@ -1104,6 +1148,24 @@ export default function StudentDashboard() {
              </div>
           </div>
 
+          {proctoringWarnings > 0 && (
+            <div className="mb-8 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-amber-600">
+                Nazorat ogohlantirishlari: {proctoringWarnings}/3
+              </p>
+              <div className="mt-2 space-y-1.5">
+                {proctoringEvents.slice(0, 3).map((event, idx) => (
+                  <p key={`${event.at}_${idx}`} className="text-xs text-secondary">
+                    {idx + 1}. {event.reason}{" "}
+                    <span className="text-muted">
+                      ({event.at ? new Date(event.at).toLocaleTimeString("uz-UZ") : ""})
+                    </span>
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Reading Material if exists */}
           {testData.readingText && (
              <div className="bg-secondary/30 border border-primary rounded-[2.5rem] p-8 mb-12 shadow-inner">
@@ -1121,6 +1183,9 @@ export default function StudentDashboard() {
           <div className="space-y-8">
             {testData.questions.map((q, index) => {
               const selected = answers.find((a) => a.questionId === q.id)?.selectedText;
+              const questionText = q.imageUrl
+                ? `${q.text || ""}${q.text ? "\n" : ""}[img:${q.imageUrl}]`
+                : q.text;
               return (
                 <div
                   key={q.id}
@@ -1132,7 +1197,7 @@ export default function StudentDashboard() {
                       <span className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 font-black text-sm transition-all shadow-md ${selected ? 'bg-indigo-600 text-white' : 'bg-primary text-indigo-500 border border-primary'}`}>
                         {index + 1}
                       </span>
-                      <RichTextMath text={q.text} as="span" className="flex-1" />
+                      <RichTextMath text={questionText} as="span" className="flex-1" />
                     </h3>
                     <span className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-primary/40 text-muted border border-primary whitespace-nowrap italic">
                       {q.points} ball
@@ -1140,42 +1205,46 @@ export default function StudentDashboard() {
                   </div>
 
                   <div className="space-y-4 pl-0 md:pl-14">
-                    {q.options.map((opt, i) => (
+                    {q.options.map((opt, i) => {
+                      const optionText = opt.imageUrl
+                        ? `${opt.text || ""}${opt.text ? "\n" : ""}[img:${opt.imageUrl}]`
+                        : opt.text;
+                      return (
                       <label 
-                        key={i}
+                        key={`${q.id}_${i}_${optionText}`}
                         className={`group flex items-center gap-4 p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300 relative overflow-hidden ${
-                          selected === opt.text
+                          selected === optionText
                             ? "border-indigo-600 bg-indigo-500/5 shadow-md"
                             : "border-primary bg-solid-primary hover:border-indigo-500/40 hover:bg-secondary/5"
                         }`}
                       >
-                        {selected === opt.text && (
+                        {selected === optionText && (
                           <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-indigo-600" />
                         )}
                         <input
                           type="radio"
                           className="sr-only"
                           name={`q-${q.id}`}
-                          checked={selected === opt.text}
-                          onChange={() => handleSelect(q.id, opt.text)}
+                          checked={selected === optionText}
+                          onChange={() => handleSelect(q.id, optionText)}
                         />
                         <div
                           className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
-                            selected === opt.text
+                            selected === optionText
                               ? "border-indigo-600 bg-indigo-600"
                               : "border-secondary group-hover:border-indigo-500"
                           }`}
                         >
-                          {selected === opt.text && <div className="w-2.5 h-2.5 bg-white rounded-full animate-in zoom-in duration-300"></div>}
+                          {selected === optionText && <div className="w-2.5 h-2.5 bg-white rounded-full animate-in zoom-in duration-300"></div>}
                         </div>
                         <RichTextMath
-                          text={opt.text}
+                          text={optionText}
                           as="span"
-                          className={`text-lg transition-colors font-medium ${selected === opt.text ? "text-primary italic font-bold" : "text-muted"}`}
+                          className={`text-lg transition-colors font-medium ${selected === optionText ? "text-primary italic font-bold" : "text-muted"}`}
                           preserveLines={false}
                         />
                       </label>
-                    ))}
+                    )})}
                   </div>
                 </div>
               );

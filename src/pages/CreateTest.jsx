@@ -79,7 +79,9 @@ export default function CreateTest() {
       maxSolved: subscription.maxSolved,
     }));
 
-    Promise.all([getTeacherGroups(id), getTeacherTests(id)])
+    const groupsPromise = isProPlan ? getTeacherGroups(id) : Promise.resolve({ data: [] });
+
+    Promise.all([groupsPromise, getTeacherTests(id)])
       .then(async ([groupsRes, testsRes]) => {
         const groupsData = Array.isArray(groupsRes.data) ? groupsRes.data : [];
         const testsData = Array.isArray(testsRes.data) ? testsRes.data : [];
@@ -107,7 +109,7 @@ export default function CreateTest() {
         setGroups([]);
         setTestCapacity((prev) => ({ ...prev, loading: false }));
       });
-  }, []);
+  }, [isProPlan]);
 
   const parseBulkText = async () => {
     if (!bulkText.trim()) return toast.warning("Matnni kiriting");

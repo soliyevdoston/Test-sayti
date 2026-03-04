@@ -36,6 +36,11 @@ import {
   parseBulkStudents,
   prepareStudentRecord,
 } from "../utils/academicTools";
+import {
+  checkLoginAvailability,
+  isLoginConflictMessage,
+  normalizeLoginPrincipal,
+} from "../utils/authIdentityTools";
 import { isTeacherProActive } from "../utils/teacherAccessTools";
 
 const socket = io(BASE_URL, { transports: ["polling", "websocket"] }); // ✅
@@ -47,6 +52,7 @@ export default function TeacherGroups() {
   const [loading, setLoading] = useState(false);
   const [studentModal, setStudentModal] = useState({ open: false, group: null });
   const [students, setStudents] = useState([]);
+  const [allTeacherStudents, setAllTeacherStudents] = useState([]);
   const [studentLoading, setStudentLoading] = useState(false);
   const [newStudent, setNewStudent] = useState({ fullName: "", username: "", password: "" });
   const [manualCredentials, setManualCredentials] = useState(false);
@@ -119,7 +125,9 @@ export default function TeacherGroups() {
     try {
       const subscription = getTeacherSubscription(teacherId);
       const { data } = await getTeacherStudents(teacherId);
-      const totalStudents = Array.isArray(data) ? data.length : 0;
+      const studentRows = Array.isArray(data) ? data : [];
+      const totalStudents = studentRows.length;
+      setAllTeacherStudents(studentRows);
       const hasLimit = Number.isFinite(subscription.maxStudents);
       setStudentCapacity({
         loading: false,
@@ -203,8 +211,28 @@ export default function TeacherGroups() {
     }
   };
 
-  const getUsedUsernameSet = () =>
-    new Set(students.map((student) => student.username).filter(Boolean));
+  const getUsedTeacherUsernameSet = () =>
+    new Set(allTeacherStudents.map((student) => student.username).filter(Boolean));
+
+  const buildUniqueStudentRecord = (fullName = "") => {
+    const usedSet = getUsedTeacherUsernameSet();
+    let candidate = prepareStudentRecord({ fullName }, usedSet);
+    let attempts = 0;
+
+    while (attempts < 40) {
+      const availability = checkLoginAvailability(candidate.username, {
+        studentRows: allTeacherStudents,
+      });
+      if (availability.ok) {
+        return candidate;
+      }
+      usedSet.add(candidate.username);
+      candidate = prepareStudentRecord({ fullName }, usedSet);
+      attempts += 1;
+    }
+
+    return candidate;
+  };
 
   const copyCredentials = async (records) => {
     const text = buildCredentialsText(records);
@@ -226,7 +254,7 @@ export default function TeacherGroups() {
       toast.warning("Avval o'quvchi F.I.Sh kiriting");
       return;
     }
-    const generated = prepareStudentRecord({ fullName: newStudent.fullName }, getUsedUsernameSet());
+    const generated = buildUniqueStudentRecord(newStudent.fullName);
     setNewStudent(generated);
     toast.info("Auto login-parol yaratildi");
   };
@@ -255,14 +283,49 @@ export default function TeacherGroups() {
     }
 
     const teacherId = localStorage.getItem("teacherId");
-    const usedSet = getUsedUsernameSet();
+    const usedSet = getUsedTeacherUsernameSet();
     const prepared = parsedRecords.map((record) => prepareStudentRecord(record, usedSet));
+    const batchLogins = new Set();
+    const accepted = [];
+    let blockedByLogin = 0;
+
+    prepared.forEach((record) => {
+      const normalizedLogin = normalizeLoginPrincipal(record.username);
+      if (!normalizedLogin) {
+        blockedByLogin += 1;
+        return;
+      }
+
+      if (batchLogins.has(normalizedLogin)) {
+        blockedByLogin += 1;
+        return;
+      }
+
+      const availability = checkLoginAvailability(normalizedLogin, {
+        studentRows: allTeacherStudents,
+      });
+      if (!availability.ok) {
+        blockedByLogin += 1;
+        return;
+      }
+
+      batchLogins.add(normalizedLogin);
+      accepted.push({
+        ...record,
+        username: normalizedLogin,
+      });
+    });
+
+    if (!accepted.length) {
+      toast.warning("Kiritilgan loginlar band yoki takrorlangan. Iltimos boshqa loginlardan foydalaning.");
+      return;
+    }
 
     setBulkLoading(true);
     const success = [];
     let failedCount = 0;
 
-    for (const record of prepared) {
+    for (const record of accepted) {
       try {
         await addStudentApi({
           ...record,
@@ -287,7 +350,8 @@ export default function TeacherGroups() {
     }
 
     if (!success.length || failedCount) {
-      toast.warning(`Xatoliklar: ${failedCount} ta satr qo'shilmadi`);
+      const totalFailed = failedCount + blockedByLogin;
+      toast.warning(`Xatoliklar: ${totalFailed} ta satr qo'shilmadi`);
     }
   };
 
@@ -309,21 +373,35 @@ export default function TeacherGroups() {
           username: newStudent.username.trim(),
           password: newStudent.password.trim(),
         }
-      : prepareStudentRecord({ fullName: newStudent.fullName }, getUsedUsernameSet());
+      : buildUniqueStudentRecord(newStudent.fullName);
+
+    const normalizedLogin = normalizeLoginPrincipal(record.username);
+    const availability = checkLoginAvailability(normalizedLogin, {
+      studentRows: allTeacherStudents,
+    });
+    if (!availability.ok) {
+      return toast.warning("Bu login band. Boshqa login kiriting.");
+    }
 
     try {
       await addStudentApi({
         ...record,
+        username: normalizedLogin,
         groupId: studentModal.group._id,
         teacherId: localStorage.getItem("teacherId")
       });
-      toast.success(`O'quvchi qo'shildi: ${record.username} / ${record.password}`);
+      toast.success(`O'quvchi qo'shildi: ${normalizedLogin} / ${record.password}`);
       setNewStudent({ fullName: "", username: "", password: "" });
       fetchStudents(studentModal.group._id);
       loadGroups(); // Update count
       refreshStudentCapacity(localStorage.getItem("teacherId"));
     } catch (err) {
-      toast.error(err.response?.data?.msg || err.message || "Xatolik");
+      const backendMessage = err.response?.data?.msg || err.message || "";
+      toast.error(
+        isLoginConflictMessage(backendMessage)
+          ? "Bu login band. Boshqa login kiriting."
+          : (backendMessage || "Xatolik")
+      );
     }
   };
 

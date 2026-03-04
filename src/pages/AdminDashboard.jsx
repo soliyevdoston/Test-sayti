@@ -20,6 +20,7 @@ import {
   XCircle,
   BarChart3,
   CreditCard,
+  ShieldCheck,
 } from "lucide-react";
 import {
   addStudentApi,
@@ -68,6 +69,29 @@ import {
   setStudentCatalogTestActive,
   upsertStudentCatalogTest,
 } from "../utils/studentCatalogTools";
+import { buildAuditRiskSummary, buildAuditTimeline } from "../utils/adminInsightsTools";
+import {
+  buildSystemBackupPayload,
+  downloadBackupFile,
+  getSystemHealthSnapshot,
+  importSystemBackupPayload,
+} from "../utils/systemBackupTools";
+import { getMarketingUsageRows, getMarketingUsageSummary } from "../utils/marketingTools";
+import { checkLoginAvailability, isLoginConflictMessage } from "../utils/authIdentityTools";
+import {
+  canCurrentAdminManageAdmins,
+  createSubAdmin,
+  getCurrentAdminPrincipal,
+  listSubAdmins,
+  removeSubAdmin,
+} from "../utils/adminAccessTools";
+import {
+  decideTeacherSaleRequest,
+  getTeacherBonusMap,
+  getTeacherMarketTests,
+  getTeacherTestSaleRequests,
+  TEACHER_TEST_SALE_BONUS,
+} from "../utils/teacherMarketplaceTools";
 
 const safeArray = (value) => (Array.isArray(value) ? value : []);
 const formatMoney = (amount) => `${Number(amount || 0).toLocaleString("uz-UZ")} ${PAYMENT_CONFIG.currency}`;
@@ -102,7 +126,7 @@ const StatCard = ({ title, value, icon: Icon, loading = false }) => (
   </div>
 );
 
-const ADMIN_SECTIONS = ["overview", "teachers", "students", "billing", "catalog", "access"];
+const ADMIN_SECTIONS = ["overview", "teachers", "students", "billing", "market", "catalog", "admins", "access"];
 const resolveAdminSection = (section) =>
   ADMIN_SECTIONS.includes(section) ? section : "overview";
 
@@ -171,6 +195,14 @@ export default function AdminDashboard({ initialSection = "overview" }) {
   const [selectedPersonalStudentId, setSelectedPersonalStudentId] = useState("");
   const [selectedAssignedCatalogIds, setSelectedAssignedCatalogIds] = useState([]);
   const [refreshingAll, setRefreshingAll] = useState(false);
+  const [backupImporting, setBackupImporting] = useState(false);
+  const [subAdmins, setSubAdmins] = useState([]);
+  const [adminForm, setAdminForm] = useState({ fullName: "", login: "", password: "" });
+  const [currentAdminPrincipal, setCurrentAdminPrincipal] = useState(getCurrentAdminPrincipal());
+  const [ownerAccess, setOwnerAccess] = useState(canCurrentAdminManageAdmins());
+  const [teacherSaleRequests, setTeacherSaleRequests] = useState([]);
+  const [marketTests, setMarketTests] = useState([]);
+  const [teacherBonusMap, setTeacherBonusMap] = useState({});
 
   const buildTeacherAnalytics = async (teacherId) => {
     const [groupsRes, studentsRes, testsRes] = await Promise.all([
@@ -277,16 +309,39 @@ export default function AdminDashboard({ initialSection = "overview" }) {
     setActivityLogs(getActivityLogs());
   };
 
+  const refreshAdminManagementData = () => {
+    setSubAdmins(listSubAdmins());
+    setCurrentAdminPrincipal(getCurrentAdminPrincipal());
+    setOwnerAccess(canCurrentAdminManageAdmins());
+  };
+
+  const refreshMarketData = () => {
+    setTeacherSaleRequests(getTeacherTestSaleRequests());
+    setMarketTests(getTeacherMarketTests());
+    setTeacherBonusMap(getTeacherBonusMap());
+  };
+
   useEffect(() => {
     refreshCatalogData();
     refreshBillingData();
     refreshActivityData();
+    refreshAdminManagementData();
+    refreshMarketData();
   }, []);
 
   useEffect(() => {
-    if (activeSection !== "access") return;
-    refreshBillingData();
-    refreshActivityData();
+    if (activeSection === "access") {
+      refreshBillingData();
+      refreshActivityData();
+      return;
+    }
+    if (activeSection === "admins") {
+      refreshAdminManagementData();
+      return;
+    }
+    if (activeSection === "market") {
+      refreshMarketData();
+    }
   }, [activeSection]);
 
   const loadTeacherManagementData = async (teacherId) => {
@@ -413,7 +468,20 @@ export default function AdminDashboard({ initialSection = "overview" }) {
       return;
     }
     const usedSet = new Set(managerStudents.map((student) => student.username).filter(Boolean));
-    const generated = prepareStudentRecord({ fullName: studentForm.fullName }, usedSet);
+    let generated = prepareStudentRecord({ fullName: studentForm.fullName }, usedSet);
+    let attempts = 0;
+    while (attempts < 40) {
+      const availability = checkLoginAvailability(generated.username, {
+        teacherRows: teachers,
+        studentRows: managerStudents,
+      });
+      if (availability.ok) {
+        break;
+      }
+      usedSet.add(generated.username);
+      generated = prepareStudentRecord({ fullName: studentForm.fullName }, usedSet);
+      attempts += 1;
+    }
     setStudentForm((prev) => ({ ...prev, username: generated.username, password: generated.password }));
     toast.info("Auto login/parol tayyorlandi");
   };
@@ -443,18 +511,33 @@ export default function AdminDashboard({ initialSection = "overview" }) {
       return toast.warning("Login va parolni to'ldiring");
     }
 
+    const loginAvailability = checkLoginAvailability(payload.username, {
+      teacherRows: teachers,
+      studentRows: managerStudents,
+    });
+    if (!loginAvailability.ok) {
+      return toast.warning("Bu login band. Boshqa login kiriting.");
+    }
+
     try {
       await addStudentApi({
         ...payload,
+        username: loginAvailability.normalized,
         teacherId: manageTeacherId,
         groupId: studentGroupId,
       });
-      toast.success(`O'quvchi qo'shildi: ${payload.username} / ${payload.password}`);
-      copyCredentials([payload]);
+      const savedRecord = { ...payload, username: loginAvailability.normalized };
+      toast.success(`O'quvchi qo'shildi: ${savedRecord.username} / ${savedRecord.password}`);
+      copyCredentials([savedRecord]);
       setStudentForm({ fullName: "", username: "", password: "" });
       await Promise.all([fetchTeachers(), loadTeacherManagementData(manageTeacherId)]);
     } catch (err) {
-      toast.error(err.response?.data?.msg || "O'quvchi qo'shishda xatolik");
+      const backendMessage = err.response?.data?.msg || err.message || "";
+      toast.error(
+        isLoginConflictMessage(backendMessage)
+          ? "Bu login band. Boshqa login kiriting."
+          : (backendMessage || "O'quvchi qo'shishda xatolik")
+      );
     }
   };
 
@@ -495,6 +578,8 @@ export default function AdminDashboard({ initialSection = "overview" }) {
       refreshBillingData();
       refreshCatalogData();
       refreshActivityData();
+      refreshAdminManagementData();
+      refreshMarketData();
       toast.success("Admin ma'lumotlari yangilandi");
     } finally {
       setRefreshingAll(false);
@@ -522,9 +607,10 @@ export default function AdminDashboard({ initialSection = "overview" }) {
       const testLimitReached = Number.isFinite(plan.maxTests) && usedForLimit >= plan.maxTests;
       const solvedLimitReached = Number.isFinite(plan.maxSolved) && Number(analytics.totalSolved || 0) >= plan.maxSolved;
       const limitReached = testLimitReached || solvedLimitReached;
-      return { teacher, analytics, plan, usedForLimit, testLimitReached, solvedLimitReached, limitReached };
+      const bonusBalance = Number(teacherBonusMap?.[teacher._id] || 0);
+      return { teacher, analytics, plan, usedForLimit, testLimitReached, solvedLimitReached, limitReached, bonusBalance };
     });
-  }, [teachers, teacherAnalytics]);
+  }, [teachers, teacherAnalytics, teacherBonusMap]);
 
   const teacherStatusSummary = useMemo(() => {
     return teachersWithStats.reduce(
@@ -563,6 +649,32 @@ export default function AdminDashboard({ initialSection = "overview" }) {
   const pendingPaymentRequests = useMemo(
     () => paymentRequests.filter((request) => request.status === "pending"),
     [paymentRequests]
+  );
+
+  const pendingSaleRequests = useMemo(
+    () => teacherSaleRequests.filter((request) => String(request.status || "").toLowerCase() === "pending"),
+    [teacherSaleRequests]
+  );
+
+  const saleSummary = useMemo(
+    () =>
+      teacherSaleRequests.reduce(
+        (acc, row) => {
+          const status = String(row.status || "").toLowerCase();
+          acc.total += 1;
+          if (status === "approved") {
+            acc.approved += 1;
+            acc.bonusPaid += Number(row.bonusAmount || TEACHER_TEST_SALE_BONUS);
+          } else if (status === "rejected") {
+            acc.rejected += 1;
+          } else {
+            acc.pending += 1;
+          }
+          return acc;
+        },
+        { total: 0, approved: 0, rejected: 0, pending: 0, bonusPaid: 0 }
+      ),
+    [teacherSaleRequests]
   );
 
   const filteredPaymentRequests = useMemo(() => {
@@ -685,6 +797,10 @@ export default function AdminDashboard({ initialSection = "overview" }) {
   }, [activityLogs, activitySearch, activityAreaFilter, activityRoleFilter]);
 
   const activityStats = useMemo(() => getActivityStats(filteredActivityLogs), [filteredActivityLogs]);
+  const auditRiskSummary = useMemo(() => buildAuditRiskSummary(activityLogs), [activityLogs]);
+  const auditTimeline = useMemo(() => buildAuditTimeline(activityLogs, 7), [activityLogs]);
+  const marketingUsageRows = getMarketingUsageRows();
+  const marketingUsageSummary = getMarketingUsageSummary();
 
   const filteredDeviceLocks = useMemo(() => {
     const query = deviceLockSearch.trim().toLowerCase();
@@ -694,6 +810,18 @@ export default function AdminDashboard({ initialSection = "overview" }) {
       return haystack.includes(query);
     });
   }, [deviceLocks, deviceLockSearch]);
+
+  const systemHealth = useMemo(
+    () =>
+      getSystemHealthSnapshot({
+        teachers,
+        paymentRequests,
+        activityLogs,
+        catalogEntries,
+        deviceLocks,
+      }),
+    [teachers, paymentRequests, activityLogs, catalogEntries, deviceLocks]
+  );
 
   const recentActivity = useMemo(() => {
     const paymentEvents = paymentRequests.map((request) => ({
@@ -798,7 +926,11 @@ export default function AdminDashboard({ initialSection = "overview" }) {
       "Email/Login",
       "Rol",
       "Tarif",
+      "Asl summa",
+      "Chegirma",
       "Summa",
+      "Promo",
+      "Referral",
       "Holat",
       "Bot",
       "Vaqt",
@@ -809,7 +941,11 @@ export default function AdminDashboard({ initialSection = "overview" }) {
       request.email || "-",
       request.userType || "-",
       request.planId || "-",
+      request.baseAmount || request.amount || 0,
+      request.discountAmount || 0,
       request.amount || 0,
+      request.promoCode || "-",
+      request.referralCode || "-",
       request.status || "-",
       request.botDelivered ? "Yuborilgan" : "Yo'q",
       request.updatedAt || request.createdAt || "",
@@ -902,6 +1038,31 @@ export default function AdminDashboard({ initialSection = "overview" }) {
     );
   };
 
+  const handleExportBackup = () => {
+    const payload = buildSystemBackupPayload();
+    const fileDate = new Date().toISOString().slice(0, 10);
+    downloadBackupFile(payload, `osontestol-backup-${fileDate}.json`);
+    toast.success("Backup JSON yuklandi");
+  };
+
+  const handleImportBackup = async (file) => {
+    if (!file) return;
+    try {
+      setBackupImporting(true);
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const imported = importSystemBackupPayload(parsed, "replace");
+      refreshBillingData();
+      refreshCatalogData();
+      refreshActivityData();
+      toast.success(`Backup import bajarildi (${imported} ta bo'lim)`);
+    } catch (err) {
+      toast.error(err.message || "Backup importda xatolik");
+    } finally {
+      setBackupImporting(false);
+    }
+  };
+
   const handleUnlockDevice = (role, principal) => {
     const ok = unlockDevicePrincipal(role, principal);
     if (!ok) {
@@ -971,6 +1132,23 @@ export default function AdminDashboard({ initialSection = "overview" }) {
     refreshBillingData();
     refreshActivityData();
     toast.success(status === "approved" ? "To'lov tasdiqlandi" : "To'lov rad etildi");
+  };
+
+  const handleSaleDecision = (requestId, status) => {
+    const updated = decideTeacherSaleRequest(
+      requestId,
+      status,
+      status === "approved"
+        ? "Admin testni tekshirib tasdiqladi"
+        : "Admin testni sotuvga qabul qilmadi"
+    );
+    if (!updated) {
+      toast.warning("So'rov topilmadi");
+      return;
+    }
+    refreshMarketData();
+    refreshActivityData();
+    toast.success(status === "approved" ? "Test sotuvga tasdiqlandi" : "Test so'rovi rad etildi");
   };
 
   const handleSaveBotConfig = () => {
@@ -1060,6 +1238,60 @@ export default function AdminDashboard({ initialSection = "overview" }) {
     });
     refreshActivityData();
     toast.success("O'quvchiga obuna ulab berildi");
+  };
+
+  const handleCreateAdmin = () => {
+    const payload = {
+      fullName: adminForm.fullName.trim(),
+      login: adminForm.login.trim(),
+      password: adminForm.password,
+    };
+
+    if (!payload.login || !payload.password) {
+      toast.warning("Yangi admin uchun login va parol majburiy.");
+      return;
+    }
+
+    const loginAvailability = checkLoginAvailability(payload.login, {
+      teacherRows: teachers,
+      studentRows: managerStudents,
+    });
+    if (!loginAvailability.ok) {
+      toast.warning("Bu login band. Boshqa login kiriting.");
+      return;
+    }
+
+    try {
+      createSubAdmin({ ...payload, login: loginAvailability.normalized });
+      setAdminForm({ fullName: "", login: "", password: "" });
+      refreshAdminManagementData();
+      refreshActivityData();
+      toast.success("Yangi admin qo'shildi");
+    } catch (err) {
+      toast.error(err.message || "Admin qo'shishda xatolik");
+    }
+  };
+
+  const handleRemoveAdmin = (adminId) => {
+    showConfirm(
+      "Sub adminni o'chirishni tasdiqlaysizmi?",
+      () => {
+        try {
+          const removed = removeSubAdmin(adminId);
+          if (!removed) {
+            toast.warning("Admin topilmadi");
+            return;
+          }
+          refreshAdminManagementData();
+          refreshActivityData();
+          toast.success("Sub admin o'chirildi");
+        } catch (err) {
+          toast.error(err.message || "Adminni o'chirishda xatolik");
+        }
+      },
+      "danger",
+      "Sub adminni o'chirish"
+    );
   };
 
   const selectedManualTeacher = teachers.find(
@@ -1240,6 +1472,123 @@ export default function AdminDashboard({ initialSection = "overview" }) {
           </section>
         )}
 
+        {activeSection === "admins" && (
+          <section className="space-y-6">
+            <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <StatCard title="Joriy admin turi" value={ownerAccess ? "Owner" : "Sub admin"} icon={Users} />
+              <StatCard title="Joriy login" value={currentAdminPrincipal.login || "-"} icon={BookOpen} />
+              <StatCard title="Sub adminlar" value={subAdmins.length} icon={ShieldCheck} />
+            </section>
+
+            <section className="grid grid-cols-1 xl:grid-cols-[1.05fr_0.95fr] gap-6">
+              <div className="premium-card">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div>
+                    <h2 className="text-xl font-extrabold">Admin boshqaruvi</h2>
+                    <p className="text-xs text-secondary mt-1">
+                      Adminlar bazasi alohida saqlanadi va faqat owner boshqaradi.
+                    </p>
+                  </div>
+                  <button type="button" className="btn-secondary" onClick={refreshAdminManagementData}>
+                    <RefreshCcw size={14} /> Yangilash
+                  </button>
+                </div>
+
+                {ownerAccess ? (
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      className="input-clean"
+                      placeholder="Admin F.I.Sh (ixtiyoriy)"
+                      value={adminForm.fullName}
+                      onChange={(e) => setAdminForm((prev) => ({ ...prev, fullName: e.target.value }))}
+                    />
+                    <input
+                      type="text"
+                      className="input-clean"
+                      placeholder="Login"
+                      value={adminForm.login}
+                      onChange={(e) => setAdminForm((prev) => ({ ...prev, login: e.target.value }))}
+                    />
+                    <input
+                      type="password"
+                      className="input-clean"
+                      placeholder="Parol"
+                      value={adminForm.password}
+                      onChange={(e) => setAdminForm((prev) => ({ ...prev, password: e.target.value }))}
+                    />
+                    <button type="button" className="btn-primary w-full" onClick={handleCreateAdmin}>
+                      Sub admin qo'shish
+                    </button>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
+                    <p className="text-sm font-semibold text-amber-700">
+                      Siz sub-adminsiz. Yangi admin qo'shish huquqi faqat owner adminda.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="premium-card">
+                <h2 className="text-xl font-extrabold">Qoidalar</h2>
+                <div className="space-y-2 mt-3">
+                  <p className="text-sm text-secondary">1. Owner admin birinchi kirishda avtomatik biriktiriladi.</p>
+                  <p className="text-sm text-secondary">2. Sub-admin boshqa admin qo'sha olmaydi.</p>
+                  <p className="text-sm text-secondary">3. Adminlar bazasi umumiy foydalanuvchi ma'lumotlaridan ajratilgan.</p>
+                  <p className="text-sm text-secondary">4. Qurilma nazorati admin roli bo'yicha alohida ishlaydi.</p>
+                </div>
+              </div>
+            </section>
+
+            <section className="premium-card">
+              <h2 className="text-xl font-extrabold mb-4">Sub adminlar ro'yxati</h2>
+              {subAdmins.length ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-primary">
+                    <thead className="text-muted border-b border-primary uppercase text-[11px] tracking-widest font-bold">
+                      <tr>
+                        <th className="py-3 text-left">F.I.Sh</th>
+                        <th className="py-3 text-left">Login</th>
+                        <th className="py-3 text-left">Yaratilgan vaqt</th>
+                        <th className="py-3 text-left">Yaratgan</th>
+                        <th className="py-3 text-center">Amal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {subAdmins.map((item) => (
+                        <tr key={item.id} className="border-b border-primary">
+                          <td className="py-3 pr-2">{item.fullName}</td>
+                          <td className="py-3 pr-2 font-semibold text-blue-600">{item.login}</td>
+                          <td className="py-3 pr-2 text-xs">
+                            {item.createdAt ? new Date(item.createdAt).toLocaleString("uz-UZ") : "-"}
+                          </td>
+                          <td className="py-3 pr-2 text-xs">{item.createdBy || "-"}</td>
+                          <td className="py-3 text-center">
+                            {ownerAccess ? (
+                              <button
+                                type="button"
+                                className="px-3 py-1 rounded-md bg-red-500/10 text-red-600 text-xs font-semibold"
+                                onClick={() => handleRemoveAdmin(item.id)}
+                              >
+                                O'chirish
+                              </button>
+                            ) : (
+                              <span className="text-xs text-muted">Yopiq</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-muted">Hozircha sub-admin mavjud emas.</p>
+              )}
+            </section>
+          </section>
+        )}
+
         {activeSection === "teachers" && (
           <section className="space-y-6">
             <section className="grid grid-cols-2 xl:grid-cols-4 gap-4">
@@ -1307,7 +1656,7 @@ export default function AdminDashboard({ initialSection = "overview" }) {
                       </thead>
                       <tbody>
                         {filteredTeachers.map((item) => {
-                          const { teacher, analytics, plan, usedForLimit, limitReached } = item;
+                          const { teacher, analytics, plan, usedForLimit, limitReached, bonusBalance } = item;
                           return (
                             <tr key={teacher._id} className="border-b border-primary align-top">
                               <td className="py-4 pr-2 min-w-[170px]">
@@ -1360,6 +1709,9 @@ export default function AdminDashboard({ initialSection = "overview" }) {
                                   <p className="text-sm font-semibold text-primary">{plan.label}</p>
                                   <p className={`text-[11px] font-semibold ${limitReached ? "text-red-600" : "text-secondary"}`}>
                                     Test: {formatLimit(plan.maxTests)} / {usedForLimit} | Yechish: {formatLimit(plan.maxSolved)} / {analytics.totalSolved}
+                                  </p>
+                                  <p className="text-[11px] font-semibold text-indigo-600">
+                                    Bonus mablag': {formatMoney(bonusBalance)}
                                   </p>
                                 </div>
                               </td>
@@ -1791,6 +2143,7 @@ export default function AdminDashboard({ initialSection = "overview" }) {
                       <tr>
                         <th className="py-3 text-left">ID / Foydalanuvchi</th>
                         <th className="py-3 text-left">Reja / Summa</th>
+                        <th className="py-3 text-left">Promo/Referral</th>
                         <th className="py-3 text-left">Chek</th>
                         <th className="py-3 text-left">Bot</th>
                         <th className="py-3 text-left">Holat</th>
@@ -1807,8 +2160,22 @@ export default function AdminDashboard({ initialSection = "overview" }) {
                           </td>
                           <td className="py-4 pr-2 min-w-[150px]">
                             <p className="text-xs font-semibold">{request.planId || "-"}</p>
+                            <p className="text-[11px] text-muted">
+                              Asl: {Number(request.baseAmount || request.amount || 0).toLocaleString("uz-UZ")} {PAYMENT_CONFIG.currency}
+                            </p>
                             <p className="text-xs text-indigo-600 font-bold">
                               {Number(request.amount || 0).toLocaleString("uz-UZ")} {PAYMENT_CONFIG.currency}
+                            </p>
+                            {!!Number(request.discountAmount || 0) && (
+                              <p className="text-[11px] text-green-600 font-semibold">
+                                -{Number(request.discountAmount || 0).toLocaleString("uz-UZ")} ({Number(request.discountPercent || 0)}%)
+                              </p>
+                            )}
+                          </td>
+                          <td className="py-4 pr-2 min-w-[150px] text-xs text-secondary">
+                            <p>Promo: <span className="font-semibold text-primary">{request.promoCode || "-"}</span></p>
+                            <p className="mt-1">
+                              Referral: <span className="font-semibold text-primary">{request.referralCode || "-"}</span>
                             </p>
                           </td>
                           <td className="py-4 pr-2 min-w-[180px] text-xs text-secondary break-all">
@@ -1870,6 +2237,143 @@ export default function AdminDashboard({ initialSection = "overview" }) {
               )}
             </div>
           </div>
+        </section>
+        )}
+
+        {activeSection === "market" && (
+        <section className="space-y-6">
+          <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard title="Jami so'rov" value={saleSummary.total} icon={FileText} />
+            <StatCard title="Pending" value={saleSummary.pending} icon={Clock3} />
+            <StatCard title="Tasdiqlangan" value={saleSummary.approved} icon={CheckCircle} />
+            <StatCard title="Bonus to'langan" value={formatMoney(saleSummary.bonusPaid)} icon={Wallet} />
+          </section>
+
+          <section className="grid grid-cols-1 xl:grid-cols-[1.25fr_0.75fr] gap-6">
+            <div className="premium-card">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div>
+                  <h2 className="text-xl font-extrabold">Teacher test sotuv so'rovlari</h2>
+                  <p className="text-xs text-secondary mt-1">
+                    Har tasdiqlangan test uchun o'qituvchi bonusi: {TEACHER_TEST_SALE_BONUS.toLocaleString("uz-UZ")} so'm.
+                  </p>
+                </div>
+                <button type="button" className="btn-secondary" onClick={refreshMarketData}>
+                  <RefreshCcw size={14} /> Yangilash
+                </button>
+              </div>
+
+              {teacherSaleRequests.length ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-primary">
+                    <thead className="text-muted border-b border-primary uppercase text-[11px] tracking-widest font-bold">
+                      <tr>
+                        <th className="py-3 text-left">Teacher / Test</th>
+                        <th className="py-3 text-left">Parametr</th>
+                        <th className="py-3 text-left">Holat</th>
+                        <th className="py-3 text-center">Amal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {teacherSaleRequests.map((request) => (
+                        <tr key={request.requestId} className="border-b border-primary align-top">
+                          <td className="py-3 pr-2 min-w-[220px]">
+                            <p className="text-xs font-bold text-blue-600">{request.teacherName}</p>
+                            <p className="font-semibold">{request.testTitle}</p>
+                            <p className="text-[11px] text-muted">{request.requestId}</p>
+                          </td>
+                          <td className="py-3 pr-2 min-w-[200px] text-xs text-secondary">
+                            <p>Savollar: {request.questionCount || 0}</p>
+                            <p>Vaqt: {request.duration || 0} daqiqa</p>
+                            <p>Bonus: {formatMoney(request.bonusAmount || TEACHER_TEST_SALE_BONUS)}</p>
+                          </td>
+                          <td className="py-3 pr-2 min-w-[120px]">
+                            <span
+                              className={`px-2 py-1 rounded-md text-[11px] font-semibold ${
+                                request.status === "approved"
+                                  ? "bg-green-500/10 text-green-600"
+                                  : request.status === "rejected"
+                                    ? "bg-red-500/10 text-red-600"
+                                    : "bg-amber-500/10 text-amber-600"
+                              }`}
+                            >
+                              {request.status}
+                            </span>
+                            {request.adminNote && (
+                              <p className="text-[11px] text-muted mt-1">{request.adminNote}</p>
+                            )}
+                          </td>
+                          <td className="py-3 text-center min-w-[170px]">
+                            {request.status === "pending" ? (
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  type="button"
+                                  className="px-3 py-1 rounded-md bg-green-500/10 text-green-600 text-xs font-semibold"
+                                  onClick={() => handleSaleDecision(request.requestId, "approved")}
+                                >
+                                  Tasdiqlash
+                                </button>
+                                <button
+                                  type="button"
+                                  className="px-3 py-1 rounded-md bg-red-500/10 text-red-600 text-xs font-semibold"
+                                  onClick={() => handleSaleDecision(request.requestId, "rejected")}
+                                >
+                                  Rad etish
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted">Yakunlangan</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-muted">Hozircha test sotuv so'rovi yo'q.</p>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <div className="premium-card">
+                <h2 className="text-xl font-extrabold">Pending navbat</h2>
+                {pendingSaleRequests.length ? (
+                  <div className="space-y-2 mt-3">
+                    {pendingSaleRequests.slice(0, 6).map((item) => (
+                      <div key={item.requestId} className="rounded-lg border border-primary bg-accent px-3 py-2">
+                        <p className="text-xs font-semibold">{item.teacherName}</p>
+                        <p className="text-xs text-secondary mt-0.5">{item.testTitle}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted mt-3">Pending so'rov yo'q.</p>
+                )}
+              </div>
+
+              <div className="premium-card">
+                <h2 className="text-xl font-extrabold">Admin market bazasi</h2>
+                <p className="text-xs text-secondary mt-1">
+                  Tasdiqlangan testlar alohida admin bazasiga shu bo'limda yig'iladi.
+                </p>
+                {marketTests.length ? (
+                  <div className="space-y-2 mt-3 max-h-80 overflow-auto custom-scrollbar pr-1">
+                    {marketTests.map((item) => (
+                      <div key={item.marketId} className="rounded-lg border border-primary bg-accent px-3 py-2">
+                        <p className="text-xs font-semibold text-primary">{item.title}</p>
+                        <p className="text-[11px] text-secondary mt-0.5">
+                          {item.teacherName} • {item.questionCount || 0} savol • {item.duration || 0} daqiqa
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted mt-3">Tasdiqlangan testlar hali yo'q.</p>
+                )}
+              </div>
+            </div>
+          </section>
         </section>
         )}
 
@@ -2147,6 +2651,165 @@ export default function AdminDashboard({ initialSection = "overview" }) {
 
         {activeSection === "access" && (
         <section className="space-y-6">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div className="premium-card xl:col-span-2">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div>
+                  <h2 className="text-xl font-extrabold">Audit risk paneli</h2>
+                  <p className="text-xs text-secondary mt-1">
+                    So'nggi 24 soatdagi failed/security faoliyatlar asosida.
+                  </p>
+                </div>
+                <span
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold uppercase ${
+                    auditRiskSummary.riskLevel === "high"
+                      ? "bg-red-500/10 text-red-600"
+                      : auditRiskSummary.riskLevel === "medium"
+                        ? "bg-amber-500/10 text-amber-600"
+                        : "bg-green-500/10 text-green-600"
+                  }`}
+                >
+                  {auditRiskSummary.riskLevel}
+                </span>
+              </div>
+              <div className="grid sm:grid-cols-4 gap-3">
+                <div className="rounded-xl border border-primary bg-accent p-3">
+                  <p className="text-[11px] text-muted">Risk ball</p>
+                  <p className="text-2xl font-extrabold">{auditRiskSummary.score}</p>
+                </div>
+                <div className="rounded-xl border border-primary bg-accent p-3">
+                  <p className="text-[11px] text-muted">Failed</p>
+                  <p className="text-2xl font-extrabold">{auditRiskSummary.failedCount}</p>
+                </div>
+                <div className="rounded-xl border border-primary bg-accent p-3">
+                  <p className="text-[11px] text-muted">Security</p>
+                  <p className="text-2xl font-extrabold">{auditRiskSummary.securityCount}</p>
+                </div>
+                <div className="rounded-xl border border-primary bg-accent p-3">
+                  <p className="text-[11px] text-muted">Device block</p>
+                  <p className="text-2xl font-extrabold">{auditRiskSummary.blockedCount}</p>
+                </div>
+              </div>
+              <div className="grid md:grid-cols-7 gap-2 mt-4">
+                {auditTimeline.map((row) => {
+                  const total = row.success + row.failed;
+                  const failedPercent = total ? Math.round((row.failed / total) * 100) : 0;
+                  return (
+                    <div key={row.key} className="rounded-lg border border-primary bg-accent p-2">
+                      <p className="text-[10px] font-semibold text-muted">{row.label}</p>
+                      <div className="h-2 rounded-full bg-secondary mt-2 overflow-hidden">
+                        <div className="h-full bg-red-500/70" style={{ width: `${failedPercent}%` }} />
+                      </div>
+                      <p className="text-[10px] text-secondary mt-1">F: {row.failed} | S: {row.success}</p>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-4">
+                <p className="text-xs font-semibold text-muted mb-1">Shubhali actorlar</p>
+                {auditRiskSummary.topActors.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {auditRiskSummary.topActors.map((item) => (
+                      <span key={item.key} className="px-2.5 py-1 rounded-md text-xs bg-amber-500/10 text-amber-700">
+                        {item.key} · {item.count}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted">Yuqori riskli actorlar aniqlanmadi.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="premium-card">
+              <h2 className="text-xl font-extrabold mb-3">Backup va monitoring</h2>
+              <div className="space-y-2 text-xs">
+                <p>
+                  Holat:{" "}
+                  <span
+                    className={`font-semibold ${
+                      systemHealth.status === "critical"
+                        ? "text-red-600"
+                        : systemHealth.status === "warning"
+                          ? "text-amber-600"
+                          : "text-green-600"
+                    }`}
+                  >
+                    {systemHealth.status}
+                  </span>
+                </p>
+                <p>Pending to'lov: <span className="font-semibold">{systemHealth.pendingPayments}</span></p>
+                <p>24h failed: <span className="font-semibold">{systemHealth.failedToday}</span></p>
+                <p>Nofaol teacher: <span className="font-semibold">{systemHealth.inactiveTeachers}</span></p>
+                <p>Qurilma lock: <span className="font-semibold">{systemHealth.deviceLocks}</span></p>
+              </div>
+              {systemHealth.warnings.length > 0 && (
+                <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-2.5">
+                  {systemHealth.warnings.map((item) => (
+                    <p key={item} className="text-xs text-amber-700">- {item}</p>
+                  ))}
+                </div>
+              )}
+              <div className="mt-4 space-y-2">
+                <button type="button" className="btn-secondary w-full" onClick={handleExportBackup}>
+                  <Download size={14} /> JSON backup
+                </button>
+                <label className="btn-primary w-full">
+                  {backupImporting ? "Import qilinmoqda..." : "Backup import"}
+                  <input
+                    type="file"
+                    accept="application/json"
+                    className="hidden"
+                    onChange={(event) => handleImportBackup(event.target.files?.[0] || null)}
+                    disabled={backupImporting}
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="premium-card">
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <h2 className="text-xl font-extrabold">Promo va referral statistikasi</h2>
+              <p className="text-xs text-secondary">Jami: {marketingUsageSummary.total}</p>
+            </div>
+            <div className="grid sm:grid-cols-4 gap-3 mb-4">
+              <div className="rounded-xl border border-primary bg-accent p-3">
+                <p className="text-[11px] text-muted">Promo ishlatilgan</p>
+                <p className="text-2xl font-extrabold">{marketingUsageSummary.promoCount}</p>
+              </div>
+              <div className="rounded-xl border border-primary bg-accent p-3">
+                <p className="text-[11px] text-muted">Referral ishlatilgan</p>
+                <p className="text-2xl font-extrabold">{marketingUsageSummary.referralCount}</p>
+              </div>
+              <div className="rounded-xl border border-primary bg-accent p-3 sm:col-span-2">
+                <p className="text-[11px] text-muted">Jami chegirma</p>
+                <p className="text-2xl font-extrabold text-indigo-600">
+                  {formatMoney(marketingUsageSummary.totalDiscountAmount)}
+                </p>
+              </div>
+            </div>
+            {marketingUsageRows.length ? (
+              <div className="max-h-56 overflow-auto custom-scrollbar space-y-2">
+                {marketingUsageRows.slice(0, 30).map((row, idx) => (
+                  <div key={`${row.requestId}_${idx}`} className="rounded-lg border border-primary bg-accent px-3 py-2 text-xs">
+                    <p className="font-semibold text-primary">
+                      {row.requestId || "-"} | {row.userType} | {row.planId || "-"}
+                    </p>
+                    <p className="text-secondary mt-0.5">
+                      Promo: {row.promoCode || "-"} | Referral: {row.referralCode || "-"}
+                    </p>
+                    <p className="text-indigo-600 font-semibold mt-0.5">
+                      Chegirma: {formatMoney(row.discountAmount)} ({row.discountPercent || 0}%)
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted">Promo/referral ishlatilishi hali yo'q.</p>
+            )}
+          </div>
+
           <div className="premium-card">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
               <h2 className="text-xl font-extrabold">Google foydalanuvchilar</h2>

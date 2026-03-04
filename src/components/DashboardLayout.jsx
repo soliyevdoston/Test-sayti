@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -15,15 +15,24 @@ import {
   MessageSquare,
   Home,
   User,
+  Wallet,
   BookMarked,
   GraduationCap,
   ShieldCheck,
+  Bell,
 } from "lucide-react";
 import { clearUserSession } from "../utils/authSession";
 import { logUserActivity } from "../utils/activityLog";
 import { isTeacherProActive } from "../utils/teacherAccessTools";
 import logo from "../assets/logo.svg";
 import SiteFooter from "./SiteFooter";
+import {
+  getNotificationsForCurrentUser,
+  getUnreadNotificationCount,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+  subscribeNotifications,
+} from "../utils/notificationTools";
 
 const ItemButton = ({ icon, label, active, onClick }) => (
   <button
@@ -51,6 +60,10 @@ export default function DashboardLayout({
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const notificationsRef = useRef(null);
   const teacherId = localStorage.getItem("teacherId");
   const teacherProActive = role === "teacher" ? isTeacherProActive(teacherId) : false;
   const profilePath = role === "teacher" && !teacherProActive ? "/teacher/subscription" : `/${role}/settings`;
@@ -64,7 +77,9 @@ export default function DashboardLayout({
         { icon: Users, label: "O'qituvchilar", path: "/admin/teachers" },
         { icon: GraduationCap, label: "O'quvchilar", path: "/admin/students" },
         { icon: CreditCard, label: "To'lovlar", path: "/admin/billing" },
+        { icon: Wallet, label: "Test sotuv", path: "/admin/market" },
         { icon: BookOpen, label: "Katalog", path: "/admin/catalog" },
+        { icon: ShieldCheck, label: "Adminlar", path: "/admin/admins" },
         { icon: ShieldCheck, label: "Kirish nazorati", path: "/admin/access" },
         { icon: Settings, label: "Sozlamalar", path: "/admin/settings" },
       ],
@@ -79,12 +94,14 @@ export default function DashboardLayout({
             ]
           : []),
         { icon: CreditCard, label: "Obuna", path: "/teacher/subscription" },
+        ...(teacherProActive ? [{ icon: BookMarked, label: "Savollar banki", path: "/teacher/resources" }] : []),
         { icon: BookOpen, label: "Qo'llanma", path: "/guide" },
         ...(teacherProActive ? [{ icon: Settings, label: "Sozlamalar", path: "/teacher/settings" }] : []),
       ],
       student: [
         { icon: LayoutDashboard, label: "Asosiy", path: "/student/dashboard" },
         { icon: FileText, label: "Testlar", path: "/student/tests" },
+        { icon: BarChart3, label: "Roadmap", path: "/student/roadmap" },
         { icon: CreditCard, label: "Obuna", path: "/student/subscription" },
         { icon: BookMarked, label: "Qo'llanma", path: "/guide" },
         { icon: Settings, label: "Sozlamalar", path: "/student/settings" },
@@ -100,6 +117,28 @@ export default function DashboardLayout({
     teacher: "O'qituvchi kabineti",
     student: "O'quvchi kabineti",
   };
+
+  const refreshNotifications = () => {
+    setNotifications(getNotificationsForCurrentUser({ includeRead: true, limit: 12 }));
+    setUnreadCount(getUnreadNotificationCount());
+  };
+
+  useEffect(() => {
+    refreshNotifications();
+    return subscribeNotifications(refreshNotifications);
+  }, []);
+
+  useEffect(() => {
+    const closeOnOutside = (event) => {
+      if (!notificationsRef.current) return;
+      if (notificationsRef.current.contains(event.target)) return;
+      setNotificationsOpen(false);
+    };
+    if (notificationsOpen) {
+      document.addEventListener("mousedown", closeOnOutside);
+    }
+    return () => document.removeEventListener("mousedown", closeOnOutside);
+  }, [notificationsOpen]);
 
   const logout = () => {
     logUserActivity({
@@ -194,9 +233,68 @@ export default function DashboardLayout({
               </div>
             </div>
 
-            <button type="button" onClick={() => navigate("/")} className="btn-secondary">
-              <Home size={14} /> Asosiy
-            </button>
+            <div className="flex items-center gap-2" ref={notificationsRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setNotificationsOpen((prev) => !prev);
+                }}
+                className="relative w-10 h-10 rounded-xl border border-primary bg-accent text-primary inline-flex items-center justify-center"
+                title="Bildirishnomalar"
+              >
+                <Bell size={17} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-5 h-5 rounded-full bg-red-600 text-white text-[10px] font-bold px-1 inline-flex items-center justify-center">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
+              <button type="button" onClick={() => navigate("/")} className="btn-secondary">
+                <Home size={14} /> Asosiy
+              </button>
+              {notificationsOpen && (
+                <div className="absolute right-4 md:right-6 top-[4.55rem] w-[min(96vw,24rem)] rounded-2xl border border-primary bg-secondary shadow-2xl p-3 z-50">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <p className="text-sm font-extrabold">Bildirishnomalar</p>
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-blue-600"
+                      onClick={() => {
+                        markAllNotificationsAsRead();
+                        refreshNotifications();
+                      }}
+                    >
+                      Barchasini o'qilgan qilish
+                    </button>
+                  </div>
+                  {notifications.length ? (
+                    <div className="max-h-80 overflow-auto custom-scrollbar space-y-2 pr-1">
+                      {notifications.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className="w-full text-left rounded-xl border border-primary bg-accent/50 px-3 py-2 hover:bg-accent transition-colors"
+                          onClick={() => {
+                            markNotificationAsRead(item.id);
+                            setNotificationsOpen(false);
+                            refreshNotifications();
+                            if (item.link) navigate(item.link);
+                          }}
+                        >
+                          <p className="text-xs font-bold text-primary">{item.title}</p>
+                          <p className="text-xs text-secondary mt-0.5">{item.message}</p>
+                          <p className="text-[10px] text-muted mt-1">
+                            {item.createdAt ? new Date(item.createdAt).toLocaleString("uz-UZ") : "-"}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted py-4 text-center">Hozircha bildirishnoma yo'q.</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </header>
 

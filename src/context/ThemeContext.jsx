@@ -3,8 +3,17 @@ import { ThemeContext } from "./themeContextValue";
 
 export const ThemeProvider = ({ children }) => {
   const resolveInitialTheme = () => {
+    const initKey = "themePreferenceInitialized";
+    const initialized = localStorage.getItem(initKey) === "1";
     const savedTheme = localStorage.getItem("theme");
-    if (savedTheme === "light" || savedTheme === "dark" || savedTheme === "system") {
+
+    if (!initialized) {
+      localStorage.setItem("theme", "dark");
+      localStorage.setItem(initKey, "1");
+      return "dark";
+    }
+
+    if (savedTheme === "light" || savedTheme === "dark") {
       return savedTheme;
     }
     return "dark";

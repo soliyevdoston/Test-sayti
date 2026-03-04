@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Send, User, Trash2, MessageSquare } from "lucide-react";
-import { getChatHistoryApi, sendMessageApi, BASE_URL } from "../api/api";
+import { Send, MessageSquare } from "lucide-react";
+import { getChatHistoryApi, sendMessageApi, BASE_URL, buildChatRoomId } from "../api/api";
 import { io } from "socket.io-client";
 
 const socket = io(BASE_URL, {
@@ -29,11 +29,14 @@ export default function ChatBox({ teacherId, studentId, role }) {
     fetchHistory();
     
     // Join a room specific to this teacher-student pair
-    const roomId = `chat_${teacherId}_${studentId}`;
+    const roomId = buildChatRoomId(teacherId, studentId);
     socket.emit("join-chat", roomId);
 
     socket.on("receive-message", (msg) => {
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) => {
+        const exists = prev.some((row) => String(row?._id || "") === String(msg?._id || ""));
+        return exists ? prev : [...prev, msg];
+      });
     });
 
     return () => {
@@ -58,10 +61,6 @@ export default function ChatBox({ teacherId, studentId, role }) {
 
     try {
       const { data } = await sendMessageApi(messageData);
-      socket.emit("send-message", {
-        roomId: `chat_${teacherId}_${studentId}`,
-        message: data
-      });
       setMessages((prev) => [...prev, data]);
       setNewMessage("");
     } catch (err) {

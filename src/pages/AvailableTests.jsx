@@ -9,6 +9,7 @@ import {
   getActiveStudentCatalogTests,
   getStudentCatalogDirections,
 } from "../utils/studentCatalogTools";
+import { getBlockExamMeta, stripBlockExamMetaFromDescription } from "../utils/blockExamTools";
 
 export default function AvailableTests() {
   const navigate = useNavigate();
@@ -147,51 +148,65 @@ export default function AvailableTests() {
           <div className="premium-card py-20 text-center text-muted">Yuklanmoqda...</div>
         ) : filteredTests.length ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {filteredTests.map((test) => (
-              <div key={test._id} className="premium-card">
-                <div className="flex items-start justify-between gap-3 mb-4">
-                  <div className="w-11 h-11 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
-                    <FileText size={20} />
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5">
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                        test.isStarted
-                          ? "bg-green-500/10 text-green-600 border-green-500/20"
-                          : "bg-red-500/10 text-red-600 border-red-500/20"
-                      }`}
-                    >
-                      {test.isStarted ? "Faol" : "Kutilmoqda"}
-                    </span>
-                    {assignedSet.has(test._id) && (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border bg-blue-500/10 text-blue-600 border-blue-500/20">
-                        Admin biriktirgan
+            {filteredTests.map((test) => {
+              const blockMeta = getBlockExamMeta(test);
+              const cleanDescription = stripBlockExamMetaFromDescription(test.description);
+              return (
+                <div key={test._id} className="premium-card">
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div className="w-11 h-11 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+                      <FileText size={20} />
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                          test.isStarted
+                            ? "bg-green-500/10 text-green-600 border-green-500/20"
+                            : "bg-red-500/10 text-red-600 border-red-500/20"
+                        }`}
+                      >
+                        {test.isStarted ? "Faol" : "Kutilmoqda"}
                       </span>
-                    )}
+                      {assignedSet.has(test._id) && (
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border bg-blue-500/10 text-blue-600 border-blue-500/20">
+                          Admin biriktirgan
+                        </span>
+                      )}
+                      {blockMeta.isBlockExam && (
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border bg-indigo-500/10 text-indigo-600 border-indigo-500/20">
+                          Blok imtihon: {blockMeta.subjects.length} fan
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <h3 className="text-lg font-black text-primary line-clamp-1">{test.title || "Nomsiz test"}</h3>
+                  {accessMode === "personal" && (
+                    <p className="text-[11px] text-blue-600 font-semibold mt-1 uppercase">
+                      Yo'nalish: {test.direction || "Umumiy"}
+                    </p>
+                  )}
+                  <p className="text-sm text-secondary mt-2 line-clamp-2 min-h-[40px]">
+                    {cleanDescription || "Tavsif mavjud emas"}
+                  </p>
+                  {blockMeta.isBlockExam && (
+                    <p className="text-[11px] text-secondary mt-1">
+                      Fanlar: <span className="font-bold text-primary">{blockMeta.subjects.join(", ")}</span>
+                    </p>
+                  )}
+
+                  <div className="mt-5 pt-4 border-t border-primary/20 flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1.5 text-xs text-muted font-semibold">
+                      <Clock size={14} className="text-indigo-500" />
+                      {test.duration || "-"} daqiqa
+                    </span>
+                    <button type="button" className="btn-secondary" onClick={() => navigate("/student/dashboard")}>
+                      Kabinetda ochish
+                    </button>
                   </div>
                 </div>
-
-                <h3 className="text-lg font-black text-primary line-clamp-1">{test.title || "Nomsiz test"}</h3>
-                {accessMode === "personal" && (
-                  <p className="text-[11px] text-blue-600 font-semibold mt-1 uppercase">
-                    Yo'nalish: {test.direction || "Umumiy"}
-                  </p>
-                )}
-                <p className="text-sm text-secondary mt-2 line-clamp-2 min-h-[40px]">
-                  {test.description || "Tavsif mavjud emas"}
-                </p>
-
-                <div className="mt-5 pt-4 border-t border-primary/20 flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1.5 text-xs text-muted font-semibold">
-                    <Clock size={14} className="text-indigo-500" />
-                    {test.duration || "-"} daqiqa
-                  </span>
-                  <button type="button" className="btn-secondary" onClick={() => navigate("/student/dashboard")}>
-                    Kabinetda ochish
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="premium-card py-20 text-center text-muted">

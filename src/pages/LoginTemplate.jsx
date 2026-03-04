@@ -5,8 +5,14 @@ import { ArrowLeft, CheckCircle2, Sparkles } from "lucide-react";
 import { getTeachers, loginUser, requestRetake, studentIndividualLogin } from "../api/api";
 import { canUseDeviceForPrincipal, lockDeviceForPrincipal, registerOauthUser } from "../utils/billingTools";
 import { clearUserSession } from "../utils/authSession";
+import {
+  authenticateManagedAdmin,
+  isOwnerAdminConfigured,
+  setupOwnerAdmin,
+} from "../utils/adminAccessTools";
 import logo from "../assets/logo.svg";
 import SiteFooter from "../components/SiteFooter";
+import PublicHeader from "../components/PublicHeader";
 
 export default function LoginTemplate({
   role,
@@ -61,10 +67,22 @@ export default function LoginTemplate({
         }
 
         clearUserSession();
-        const { data } = await studentIndividualLogin({
-          username: studentMode === "personal" ? normalizedStudentIdentity : username,
-          password,
-        });
+        let resolvedData = null;
+        if (studentMode === "personal") {
+          const { data } = await studentIndividualLogin({
+            username: normalizedStudentIdentity,
+            password,
+          });
+          resolvedData = data;
+        } else {
+          const { data } = await studentIndividualLogin({
+            username,
+            password,
+          });
+          resolvedData = data;
+        }
+
+        const data = resolvedData;
         localStorage.setItem("studentId", data._id);
         localStorage.setItem("fullName", data.fullName);
         localStorage.setItem("studentName", data.fullName);
@@ -111,6 +129,53 @@ export default function LoginTemplate({
 
       if (role === "Teacher" || role === "Admin") {
         clearUserSession();
+      }
+
+      if (role === "Admin") {
+        const principal = `${username}`.trim().toLowerCase();
+        if (!principal || !String(password || "").trim()) {
+          toast.warning("Admin login va parolni to'liq kiriting");
+          setLoading(false);
+          return;
+        }
+
+        if (!isOwnerAdminConfigured()) {
+          const bootstrapData = await loginUser("admin", username, password);
+          const owner = setupOwnerAdmin({
+            login: username,
+            password,
+            fullName: bootstrapData?.name || "Owner Admin",
+            schoolId: bootstrapData?.schoolId || "",
+            schoolName: bootstrapData?.name || "Admin",
+          });
+
+          localStorage.setItem("schoolId", owner.schoolId || bootstrapData?.schoolId || "local-owner-school");
+          localStorage.setItem("schoolName", owner.schoolName || bootstrapData?.name || "Admin");
+          localStorage.setItem("fullName", owner.fullName || bootstrapData?.name || "Owner Admin");
+          localStorage.setItem("adminPrincipalType", "owner");
+          localStorage.setItem("adminPrincipalLogin", owner.login || principal);
+          localStorage.setItem("userRole", "admin");
+          lockDeviceForPrincipal("admin", owner.login || principal);
+          toast.success("Owner admin faollashtirildi");
+          navigate(loginPath);
+          return;
+        }
+
+        const managed = authenticateManagedAdmin({ login: username, password });
+        if (!managed.ok) {
+          throw new Error(managed.reason || "Admin login yoki parol xato");
+        }
+
+        localStorage.setItem("schoolId", managed.schoolId || "local-owner-school");
+        localStorage.setItem("schoolName", managed.schoolName || "Admin");
+        localStorage.setItem("fullName", managed.fullName || "Admin");
+        localStorage.setItem("adminPrincipalType", managed.accountType || "sub");
+        localStorage.setItem("adminPrincipalLogin", managed.login || principal);
+        localStorage.setItem("userRole", "admin");
+        lockDeviceForPrincipal("admin", managed.login || principal);
+        toast.success(`Xush kelibsiz, ${managed.fullName || "Admin"}`);
+        navigate(loginPath);
+        return;
       }
 
       const data = await loginUser(
@@ -225,6 +290,8 @@ export default function LoginTemplate({
     <div className="min-h-screen bg-primary text-primary relative overflow-hidden flex flex-col">
       <div className="pointer-events-none absolute -top-24 -left-24 w-72 h-72 rounded-full bg-blue-500/10 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-indigo-500/10 blur-3xl" />
+
+      <PublicHeader />
 
       <div className="relative z-10 flex-1 w-full px-4 py-8 flex items-center justify-center">
         <div className="w-full max-w-5xl grid md:grid-cols-2 gap-5 items-stretch">

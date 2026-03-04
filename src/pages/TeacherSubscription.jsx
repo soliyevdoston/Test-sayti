@@ -10,6 +10,7 @@ import {
   PAYMENT_CONFIG,
   submitPaymentRequest,
 } from "../utils/billingTools";
+import { resolvePaymentPricing, validatePromoCode, validateReferralCode } from "../utils/marketingTools";
 import { syncTeacherTestUsageWithCurrent } from "../utils/testUsageTools";
 import { getTeacherSolveLimitSnapshot } from "../utils/teacherSolveUsageTools";
 
@@ -54,6 +55,8 @@ export default function TeacherSubscription() {
   const [paymentRequests, setPaymentRequests] = useState([]);
   const [receipt, setReceipt] = useState("");
   const [receiptImage, setReceiptImage] = useState(null);
+  const [promoCode, setPromoCode] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [lastRequestId, setLastRequestId] = useState("");
 
@@ -87,6 +90,18 @@ export default function TeacherSubscription() {
     [paymentRequests, teacherId]
   );
 
+  const pricing = useMemo(
+    () =>
+      resolvePaymentPricing({
+        baseAmount: PAYMENT_CONFIG.teacherMonthlyAmount,
+        userType: "teacher",
+        planId: "teacher_monthly",
+        promoCode,
+        referralCode,
+      }),
+    [promoCode, referralCode]
+  );
+
   const refresh = useCallback(async () => {
     if (!teacherId) return;
     try {
@@ -116,6 +131,17 @@ export default function TeacherSubscription() {
     if (!teacherId) return toast.warning("Teacher ID topilmadi");
     if (pendingRequest) return toast.info(`Pending so'rov bor: ${pendingRequest.requestId}`);
     if (!receiptImage) return toast.warning("Chek rasmini yuklang");
+    const promoValidation = validatePromoCode(promoCode, {
+      userType: "teacher",
+      planId: "teacher_monthly",
+    });
+    if (promoCode.trim() && !promoValidation.valid) {
+      return toast.warning(promoValidation.reason || "Promo kod noto'g'ri");
+    }
+    const referralValidation = validateReferralCode(referralCode);
+    if (referralCode.trim() && !referralValidation.valid) {
+      return toast.warning(referralValidation.reason || "Referral kod noto'g'ri");
+    }
 
     try {
       setSubmitting(true);
@@ -124,6 +150,8 @@ export default function TeacherSubscription() {
         userId: teacherId,
         planId: "teacher_monthly",
         amount: PAYMENT_CONFIG.teacherMonthlyAmount,
+        promoCode: pricing.promo.valid ? pricing.promo.code : "",
+        referralCode: pricing.referral.valid ? pricing.referral.code : "",
         fullName: teacherName,
         email: teacherEmail,
         receipt: receipt.trim(),
@@ -228,6 +256,17 @@ export default function TeacherSubscription() {
                 </span>
               </p>
               <p className="text-sm text-secondary">
+                Yakuniy summa:{" "}
+                <span className="font-bold text-green-600">
+                  {pricing.finalAmount.toLocaleString("uz-UZ")} {PAYMENT_CONFIG.currency}
+                </span>
+                {pricing.discountAmount > 0 && (
+                  <span className="ml-2 text-xs text-blue-600">
+                    (-{pricing.discountAmount.toLocaleString("uz-UZ")} {PAYMENT_CONFIG.currency})
+                  </span>
+                )}
+              </p>
+              <p className="text-sm text-secondary">
                 Karta: <span className="font-bold">{PAYMENT_CONFIG.cardNumber}</span>
               </p>
               <p className="text-sm text-secondary">
@@ -262,6 +301,32 @@ export default function TeacherSubscription() {
             </div>
           ) : (
             <div className="mt-4 space-y-3">
+              <div className="grid md:grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  className="input-clean"
+                  placeholder="Promo kod (masalan PROSTART10)"
+                  value={promoCode}
+                  onChange={(e) => setPromoCode(e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="input-clean"
+                  placeholder="Referral kod (masalan REF-ABITUR25)"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value)}
+                />
+              </div>
+              <p className="text-xs text-secondary">
+                Promo:{" "}
+                <span className={pricing.promo.valid ? "text-green-600 font-semibold" : "text-muted"}>
+                  {pricing.promo.valid ? `${pricing.promo.code} (${pricing.promo.discountPercent}%)` : "yo'q"}
+                </span>{" "}
+                | Referral:{" "}
+                <span className={pricing.referral.valid ? "text-green-600 font-semibold" : "text-muted"}>
+                  {pricing.referral.valid ? `${pricing.referral.code} (${pricing.referral.discountPercent}%)` : "yo'q"}
+                </span>
+              </p>
               <input
                 type="text"
                 className="input-clean"

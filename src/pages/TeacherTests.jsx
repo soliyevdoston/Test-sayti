@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   FaPlay,
   FaTrash,
@@ -47,6 +47,11 @@ import {
   normalizeFormulaInput,
   validateFormulaSyntax,
 } from "../utils/academicTools";
+import {
+  buildBlockExamDescription,
+  getBlockExamMeta,
+  stripBlockExamMetaFromDescription,
+} from "../utils/blockExamTools";
 import { formatLimit, getTeacherSubscription } from "../utils/subscriptionTools";
 import { getAssignedStudentsByTest } from "../utils/studentTestAssignments";
 import { isTeacherProActive } from "../utils/teacherAccessTools";
@@ -60,6 +65,12 @@ import {
   syncTeacherTestUsageWithCurrent,
 } from "../utils/testUsageTools";
 import { getTeacherSolveLimitSnapshot } from "../utils/teacherSolveUsageTools";
+import {
+  createTeacherTestSaleRequest,
+  getTeacherSaleRequestsByTeacher,
+  hasPendingSaleRequest,
+  TEACHER_TEST_SALE_BONUS,
+} from "../utils/teacherMarketplaceTools";
 
 
 const socket = io(BASE_URL, { transports: ["polling", "websocket"] });
@@ -100,6 +111,8 @@ export default function TeacherTests() {
   const [paymentReceiptImage, setPaymentReceiptImage] = useState(null);
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [latestPaymentId, setLatestPaymentId] = useState("");
+  const [saleRequests, setSaleRequests] = useState([]);
+  const [sellingTestId, setSellingTestId] = useState("");
 
   const [modalConfig, setModalConfig] = useState({
     isOpen: false,
@@ -130,6 +143,10 @@ export default function TeacherTests() {
     setArchivedTestIds(ids);
   };
 
+  const refreshSaleRequests = (targetTeacherId = localStorage.getItem("teacherId")) => {
+    setSaleRequests(getTeacherSaleRequestsByTeacher(targetTeacherId));
+  };
+
   useEffect(() => {
     const name = localStorage.getItem("teacherName");
     const id = localStorage.getItem("teacherId");
@@ -139,6 +156,7 @@ export default function TeacherTests() {
       loadTests(id);
       loadGroups(id);
       loadArchivedIds(id);
+      refreshSaleRequests(id);
     }
     // Initial bootstrap only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -160,6 +178,15 @@ export default function TeacherTests() {
     : null;
   const solveLimitReached = hasSolveLimit && solveUsageCount >= subscription.maxSolved;
   const usageBlocked = testLimitReached || solveLimitReached;
+  const saleStatusByTestId = useMemo(() => {
+    const map = {};
+    saleRequests.forEach((row) => {
+      const testId = String(row.testId || "");
+      if (!testId || map[testId]) return;
+      map[testId] = String(row.status || "pending").toLowerCase();
+    });
+    return map;
+  }, [saleRequests]);
   const pendingTeacherPayment = getAllPaymentRequests().find(
     (request) =>
       request.userType === "teacher" &&
@@ -168,7 +195,7 @@ export default function TeacherTests() {
   );
 
   const getFileExt = (file) => String(file?.name || "").toLowerCase().split(".").pop();
-  const isDocFile = (ext) => ext === "docx";
+  const isDocFile = (ext) => ext === "docx" || ext === "docm";
   const isTextFile = (ext) => ext === "txt" || ext === "csv";
 
   const getLimitBlockMessage = () => {
@@ -245,9 +272,9 @@ export default function TeacherTests() {
         return Array.isArray(res.data?.questions) ? res.data.questions : [];
       }
       if (ext === "doc") {
-        throw new Error("`.doc` format qo'llanmaydi. Iltimos `.docx` formatga o'tkazing.");
+        throw new Error("`.doc` format qo'llanmaydi. Iltimos Word faylni `.docx` yoki `.docm` qilib saqlang.");
       }
-      throw new Error("Faqat .docx/.txt/.csv fayl yuklang");
+      throw new Error("Faqat .docx/.docm/.txt/.csv fayl yuklang");
     }
 
     const normalizedText = normalizeFormulaInput(String(text || ""));
@@ -292,8 +319,13 @@ export default function TeacherTests() {
     );
 
   const loadGroups = async (id) => {
+    const activeTeacherId = id || localStorage.getItem("teacherId");
+    if (!isTeacherProActive(activeTeacherId)) {
+      setGroups([]);
+      return;
+    }
     try {
-      const { data } = await getTeacherGroups(id || localStorage.getItem("teacherId"));
+      const { data } = await getTeacherGroups(activeTeacherId);
       setGroups(Array.isArray(data) ? data : []);
     } catch {
       toast.error("Guruhlarni yuklashda xatolik");
@@ -356,6 +388,42 @@ export default function TeacherTests() {
       toast.error(err.message || "To'lov so'rovini yuborishda xatolik");
     } finally {
       setPaymentSubmitting(false);
+    }
+  };
+
+  const handleSubmitTestForSale = async (test) => {
+    if (!isProPlan) {
+      toast.info("Test sotish funksiyasi faqat Pro tarifda ochiladi.");
+      navigate("/teacher/subscription");
+      return;
+    }
+    if (!teacherId) {
+      toast.warning("Teacher ID topilmadi");
+      return;
+    }
+    if (!test?._id) {
+      toast.warning("Test ma'lumoti to'liq emas");
+      return;
+    }
+    if (hasPendingSaleRequest(teacherId, test._id)) {
+      toast.info("Bu test uchun pending so'rov allaqachon yuborilgan.");
+      refreshSaleRequests(teacherId);
+      return;
+    }
+
+    try {
+      setSellingTestId(test._id);
+      const requestId = createTeacherTestSaleRequest({
+        teacherId,
+        teacherName,
+        test,
+      });
+      refreshSaleRequests(teacherId);
+      toast.success(`So'rov yuborildi: ${requestId}`);
+    } catch (err) {
+      toast.error(err.message || "Test sotuvga yuborilmadi");
+    } finally {
+      setSellingTestId("");
     }
   };
 
@@ -422,7 +490,7 @@ export default function TeacherTests() {
     } catch (err) {
       const msg = err.response?.data?.msg || err.message || "Tahlil qilishda xatolik";
       if (String(msg).toLowerCase().includes("doc")) {
-        toast.error("Word faylni o'qishda xatolik. .docx formatga o'tkazib qayta yuklang.");
+        toast.error("Word fayl xatosi. Faylni qayta saqlang va `.docx` yoki `.docm` formatda yuklang.");
       } else {
         toast.error(msg);
       }
@@ -468,6 +536,7 @@ export default function TeacherTests() {
 
     try {
       setLoading(true);
+      const sanitizedDescription = stripBlockExamMetaFromDescription(newTest.description);
 
       if (createMode === "block") {
         const parsedBlocks = await parseBlockQuestions();
@@ -478,20 +547,20 @@ export default function TeacherTests() {
           return;
         }
 
+        const blockSubjects = parsedBlocks.map((block) => block.subject);
         await createManualTestApi({
           title: newTest.title,
-          description: [
-            newTest.description,
-            `Blok imtihon fanlari: ${parsedBlocks.map((block) => block.subject).join(", ")}`,
-          ]
-            .filter(Boolean)
-            .join(" | "),
+          description: buildBlockExamDescription(sanitizedDescription, blockSubjects),
           duration: newTest.duration,
           testLogin: newTest.username,
           testPassword: newTest.password,
           accessType: newTest.accessType,
           groupId: newTest.groupId,
           teacherId: localStorage.getItem("teacherId"),
+          blockExam: {
+            enabled: true,
+            subjects: blockSubjects,
+          },
           questions: manualQuestions,
         });
 
@@ -512,7 +581,7 @@ export default function TeacherTests() {
           const payload = {
             text: normalizedText,
             title: newTest.title,
-            description: newTest.description,
+            description: sanitizedDescription,
             duration: newTest.duration,
             testLogin: newTest.username,
             testPassword: newTest.password,
@@ -527,7 +596,7 @@ export default function TeacherTests() {
           Object.entries({
             file: newTest.file,
             title: newTest.title,
-            description: newTest.description,
+            description: sanitizedDescription,
             duration: newTest.duration,
             testLogin: newTest.username,
             testPassword: newTest.password,
@@ -539,9 +608,9 @@ export default function TeacherTests() {
           toast.success(`${res.data.count || ""} ta savol yuklandi!`);
         } else {
             if (ext === "doc") {
-              toast.warning("`.doc` format qo'llanmaydi. Iltimos `.docx` formatga o'tkazing.");
+              toast.warning("`.doc` format qo'llanmaydi. Iltimos `.docx` yoki `.docm` formatga o'tkazing.");
             } else {
-              toast.warning("Fayl formati noto'g'ri. .docx/.txt/.csv yuklang.");
+              toast.warning("Fayl formati noto'g'ri. .docx/.docm/.txt/.csv yuklang.");
             }
             setLoading(false);
             return;
@@ -557,7 +626,7 @@ export default function TeacherTests() {
         const payload = {
           text: normalizedText,
           title: newTest.title,
-          description: newTest.description,
+          description: sanitizedDescription,
           duration: newTest.duration,
           testLogin: newTest.username,
           testPassword: newTest.password,
@@ -577,7 +646,7 @@ export default function TeacherTests() {
     } catch (err) {
       const msg = err.response?.data?.msg || err.message || "Xatolik yuz berdi";
       if (String(msg).toLowerCase().includes("doc")) {
-        toast.error("Word fayl xatosi. .docx formatda yuklashni tavsiya qilamiz.");
+        toast.error("Word fayl xatosi. `.docx` yoki `.docm` formatda yuklashni tavsiya qilamiz.");
       } else {
         toast.error(msg);
       }
@@ -820,6 +889,43 @@ export default function TeacherTests() {
           </div>
         )}
 
+        <div className="premium-card border border-indigo-500/20 bg-indigo-500/5">
+          <h4 className="text-lg font-black text-primary">Test sotish bo'limi</h4>
+          <p className="text-sm text-secondary mt-2">
+            Bu bo'lim orqali testingizni boshqa o'quvchilar ham ishlashi uchun admin tasdig'iga yuborasiz.
+            Tasdiqlangan har bir test uchun hisobingizga {TEACHER_TEST_SALE_BONUS.toLocaleString("uz-UZ")} so'm bonus yoziladi.
+          </p>
+          <div className="grid sm:grid-cols-3 gap-2 mt-4 text-sm">
+            <div className="rounded-xl border border-primary bg-secondary/60 p-3">
+              <p className="text-xs text-muted uppercase tracking-[0.12em] font-bold">Jami so'rov</p>
+              <p className="text-xl font-extrabold mt-1">{saleRequests.length}</p>
+            </div>
+            <div className="rounded-xl border border-primary bg-secondary/60 p-3">
+              <p className="text-xs text-muted uppercase tracking-[0.12em] font-bold">Pending</p>
+              <p className="text-xl font-extrabold mt-1">
+                {saleRequests.filter((item) => item.status === "pending").length}
+              </p>
+            </div>
+            <div className="rounded-xl border border-primary bg-secondary/60 p-3">
+              <p className="text-xs text-muted uppercase tracking-[0.12em] font-bold">Tasdiqlangan</p>
+              <p className="text-xl font-extrabold mt-1">
+                {saleRequests.filter((item) => item.status === "approved").length}
+              </p>
+            </div>
+          </div>
+          <p className="text-xs text-secondary mt-2">
+            Jami bonus hisob-kitobi:{" "}
+            <span className="font-bold text-indigo-600">
+              {(
+                saleRequests
+                  .filter((item) => item.status === "approved")
+                  .reduce((acc, item) => acc + Number(item.bonusAmount || TEACHER_TEST_SALE_BONUS), 0)
+              ).toLocaleString("uz-UZ")}{" "}
+              so'm
+            </span>
+          </p>
+        </div>
+
         {/* Upload Section */}
         <div className={`premium-card ${usageBlocked ? "opacity-70" : ""}`}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
@@ -915,6 +1021,9 @@ export default function TeacherTests() {
             <p className="text-xs text-muted font-semibold leading-relaxed">
               Matematika uchun tavsiya: <code>x^2</code>, <code>x_1</code>, <code>\frac{"{a}"}{"{b}"}</code>, <code>\sqrt{"{16}"}</code> yoki <code>$...$</code> formatidan foydalaning.
             </p>
+            <p className="text-xs text-muted font-semibold leading-relaxed mt-2">
+              Rasmli savol/variant uchun Word (.docx/.docm) ichiga rasm joylang yoki matnda <code>[img:https://.../rasm.png]</code> formatidan foydalaning.
+            </p>
             {!isProPlan && (
               <p className="text-xs mt-2 text-amber-600 font-semibold">
                 Eslatma: Shablon yuklash va preview funksiyalari Pro tarifda ishlaydi.
@@ -975,13 +1084,13 @@ export default function TeacherTests() {
               {createMode !== "block" ? (
                 <>
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted ml-2">
-                    {createMode === "file" ? "Fayl (.docx/.txt/.csv)" : "Matnni shu yerga joylashtiring"}
+                    {createMode === "file" ? "Fayl (.docx/.docm/.txt/.csv)" : "Matnni shu yerga joylashtiring"}
                   </label>
                   {createMode === "file" ? (
                     <input
                       required
                       type="file"
-                      accept=".docx,.txt,.csv,text/plain,text/csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      accept=".docx,.docm,.txt,.csv,text/plain,text/csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                       className="w-full p-3.5 rounded-2xl bg-secondary border border-primary focus:border-indigo-500 transition-all outline-none font-bold text-primary shadow-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-indigo-500/10 file:text-indigo-500 hover:file:bg-indigo-500/20"
                       onChange={(e) => setNewTest({ ...newTest, file: e.target.files[0] })}
                     />
@@ -1061,7 +1170,7 @@ export default function TeacherTests() {
                       {block.sourceType === "file" ? (
                         <input
                           type="file"
-                          accept=".docx,.txt,.csv,text/plain,text/csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                          accept=".docx,.docm,.txt,.csv,text/plain,text/csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                           className="w-full p-3 rounded-xl bg-secondary border border-primary outline-none focus:border-indigo-500 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-indigo-500/10 file:text-indigo-500"
                           onChange={(e) =>
                             updateBlockItem(block.id, { file: e.target.files?.[0] || null })
@@ -1192,25 +1301,33 @@ export default function TeacherTests() {
               )}
               
               <div className="space-y-6 max-h-[400px] overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-indigo-500/20">
-                {previewData.questions.map((q, idx) => (
+                {previewData.questions.map((q, idx) => {
+                  const questionText = q.imageUrl
+                    ? `${q.text || ""}${q.text ? "\n" : ""}[img:${q.imageUrl}]`
+                    : q.text;
+                  return (
                   <div key={idx} className="p-6 bg-secondary/50 border border-primary/50 rounded-2xl">
                     <div className="text-sm font-bold text-primary mb-4 flex gap-3">
                       <span className="text-indigo-500">#{idx + 1}</span>
-                      <RichTextMath text={q.text} as="p" className="flex-1" />
+                      <RichTextMath text={questionText} as="p" className="flex-1" />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {q.options.map((opt, oIdx) => (
+                      {q.options.map((opt, oIdx) => {
+                        const optionText = opt.imageUrl
+                          ? `${opt.text || ""}${opt.text ? "\n" : ""}[img:${opt.imageUrl}]`
+                          : opt.text;
+                        return (
                         <div key={oIdx} className={`px-4 py-2 rounded-xl text-[10px] font-bold flex items-center justify-between ${opt.isCorrect ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-primary/20 text-muted border border-primary/20'}`}>
                           <span className="flex-1">
                             {String.fromCharCode(65 + oIdx)}){" "}
-                            <RichTextMath text={opt.text} as="span" preserveLines={false} />
+                            <RichTextMath text={optionText} as="span" preserveLines={false} />
                           </span>
                           {opt.isCorrect && <FaCheckCircle size={10} />}
                         </div>
-                      ))}
+                      )})}
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             </div>
           )}
@@ -1236,6 +1353,9 @@ export default function TeacherTests() {
             {activeTests.length > 0 ? (
               activeTests.map((t) => {
                 const assignedStudentsCount = getAssignedStudentsByTest(t._id).length;
+                const blockMeta = getBlockExamMeta(t);
+                const previewDescription = stripBlockExamMetaFromDescription(t.description);
+                const saleStatus = saleStatusByTestId[t._id] || "none";
                 return (
                 <div key={t._id} className="group relative p-5 md:p-6 rounded-[2rem] bg-solid-secondary border border-primary hover:border-indigo-500/50 transition-all flex flex-col h-full shadow-sm">
                   <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
@@ -1267,7 +1387,20 @@ export default function TeacherTests() {
                               Biriktirilgan: {assignedStudentsCount}
                             </span>
                           )}
+                          {blockMeta.isBlockExam && (
+                            <span className="px-2 py-1 bg-indigo-500/10 rounded-lg text-indigo-600 text-[9px] font-black uppercase tracking-widest border border-indigo-500/20">
+                              Blok imtihon: {blockMeta.subjects.length} fan
+                            </span>
+                          )}
                         </div>
+                        {blockMeta.isBlockExam && (
+                          <p className="text-[11px] text-secondary mt-2 break-words">
+                            Fanlar: <span className="font-bold text-primary">{blockMeta.subjects.join(", ")}</span>
+                          </p>
+                        )}
+                        {previewDescription && (
+                          <p className="text-[11px] text-muted mt-1 line-clamp-2">{previewDescription}</p>
+                        )}
                       </div>
                     </div>
                     
@@ -1407,6 +1540,29 @@ export default function TeacherTests() {
                         }`}
                       >
                         <FaFilePdf /> PDF
+                      </button>
+                      <button
+                        onClick={() => handleSubmitTestForSale(t)}
+                        disabled={!isProPlan || saleStatus === "pending" || sellingTestId === t._id}
+                        className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 ${
+                          !isProPlan
+                            ? "bg-primary/50 border-primary text-muted cursor-not-allowed"
+                            : saleStatus === "approved"
+                              ? "bg-green-500/10 border-green-500/20 text-green-600"
+                              : saleStatus === "pending"
+                                ? "bg-amber-500/10 border-amber-500/20 text-amber-600 cursor-not-allowed"
+                                : "bg-primary border-primary hover:border-indigo-500 hover:text-indigo-600"
+                        }`}
+                        title="Test sotuvga yuborish"
+                      >
+                        <FaDownload />
+                        {sellingTestId === t._id
+                          ? "Yuborilmoqda"
+                          : saleStatus === "approved"
+                            ? "Tasdiqlangan"
+                            : saleStatus === "pending"
+                              ? "Pending"
+                              : "Sotuvga yuborish"}
                       </button>
                       <button
                         onClick={() => toggleArchive(t._id)}

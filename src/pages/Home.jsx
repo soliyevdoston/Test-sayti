@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
+  Brain,
   BarChart3,
   BookOpen,
   CheckCircle2,
@@ -11,12 +12,14 @@ import {
   Phone,
   Send,
   ShieldCheck,
+  Smartphone,
   Sparkles,
   Star,
   Users,
 } from "lucide-react";
-import logo from "../assets/logo.svg";
 import SiteFooter from "../components/SiteFooter";
+import PublicHeader from "../components/PublicHeader";
+import { applySeoMeta } from "../utils/seoTools";
 
 const STATS = [
   { value: "3", label: "Rolga mos oqim" },
@@ -52,9 +55,19 @@ const FEATURES = [
     desc: "O'quvchilar bilan aloqani platforma ichida yuriting, savol-javoblarni yo'qotmang.",
   },
   {
+    icon: Brain,
+    title: "Savollar banki + smart generator",
+    desc: "Pro o'qituvchi uchun AI-uslubidagi savol generatori va qayta ishlatiladigan savollar banki.",
+  },
+  {
     icon: ShieldCheck,
     title: "To'lov va obuna nazorati",
     desc: "Chek qabul qilish, pending so'rovlar, admin tasdiqlash va obuna aktivatsiyasi bir joyda.",
+  },
+  {
+    icon: Smartphone,
+    title: "PWA ilova rejimi",
+    desc: "Saytni ilova sifatida o'rnatish, tez ochish va asosiy ekran orqali ishlash imkoniyati.",
   },
 ];
 
@@ -99,19 +112,31 @@ const AUDIENCE = [
     title: "O'qituvchi",
     focus: "Test + guruh + chat + eksport",
     path: "/teacher/login",
-    points: ["Yangi testlar oqimi", "Guruh bo'yicha nazorat", "Natijalarni tez tahlil"],
+    points: [
+      "Yangi testlar oqimi",
+      "Guruh bo'yicha nazorat",
+      "Natijalarni tez tahlil",
+    ],
   },
   {
     title: "O'quvchi",
     focus: "Shaxsiy kabinet yoki guruh kirishi",
     path: "/student/login",
-    points: ["Testlar ro'yxati", "Yechilganlar tarixi", "Qayta yechish so'rovi"],
+    points: [
+      "Testlar ro'yxati",
+      "Yechilganlar tarixi",
+      "Qayta yechish so'rovi",
+    ],
   },
   {
     title: "Admin",
     focus: "Tizim va to'lov boshqaruvi",
     path: "/admin/login",
-    points: ["O'qituvchilar nazorati", "Obuna monitoringi", "Platforma statistikasi"],
+    points: [
+      "O'qituvchilar nazorati",
+      "Obuna monitoringi",
+      "Platforma statistikasi",
+    ],
   },
 ];
 
@@ -126,6 +151,20 @@ const PRICING = [
       "50 ta umumiy yechish limiti",
       "Blok imtihon yopiq",
       "Guruh, chat, natija, eksport: yopiq",
+    ],
+  },
+  {
+    name: "O'quvchi Pro",
+    price: "39 000 so'm / oy",
+    tag: "Student",
+    list: [
+      "Shaxsiy kabinetda cheksiz test",
+      "Obuna ichida test paket tanlovi: 20 ta yoki 50 ta",
+      "Yo'nalish bo'yicha keng baza",
+      "Natijalar tarixi va tahlil",
+      "Shaxsiy roadmap va progress reja",
+      "Qayta yechish so'rovi",
+      "Mustaqil to'lov yuborish",
     ],
   },
   {
@@ -145,7 +184,11 @@ const PRICING = [
     name: "Maktab",
     price: "1 499 000 so'm / oy",
     tag: "Scale",
-    list: ["Barcha o'qituvchilar", "Markazlashgan nazorat", "Maktab darajasida monitoring"],
+    list: [
+      "Barcha o'qituvchilar",
+      "Markazlashgan nazorat",
+      "Maktab darajasida monitoring",
+    ],
   },
 ];
 
@@ -156,7 +199,7 @@ const SUBSCRIPTION_FLOW = [
   },
   {
     title: "To'lov yuboriladi",
-    desc: "Karta raqami va summa bo'yicha to'lov qilinib chek jo'natiladi.",
+    desc: "O'qituvchi yoki o'quvchi o'zi kirib obuna yoki test paketini sotib olib chek jo'natadi.",
   },
   {
     title: "Admin tekshiradi",
@@ -170,6 +213,7 @@ const SUBSCRIPTION_FLOW = [
 
 const PLAN_GUIDE = [
   "Bepul: faqat test oqimini sinab ko'rish (10 test / 50 yechish).",
+  "O'quvchi: Student Pro yoki test paketi orqali mustaqil davom ettirish mumkin.",
   "Teacher Pro: kundalik ishlash uchun barcha teacher bo'limlari to'liq ochiq.",
   "Maktab: bir nechta o'qituvchi va markazlashgan monitoring uchun.",
 ];
@@ -183,8 +227,12 @@ const PRO_FEATURES_FULL = [
   "Natijalar va individual tahlil",
   "Teacher-Student chat",
   "Preview va parser tekshiruvi",
+  "Savollar banki va smart generator",
+  "Natija sertifikati generatori",
+  "Test sotuvga yuborish va bonus modeli",
   "TXT/CSV shablon yuklash",
   "JSON/TXT/CSV/WORD/PDF eksport",
+  "PWA ilova sifatida o'rnatish",
   "Arxiv va nusxalash",
   "Sozlamalar bo'limi va profil boshqaruvi",
 ];
@@ -195,12 +243,8 @@ const TESTIMONIALS = [
     author: "Madina T., Matematika o'qituvchisi",
   },
   {
-    text: "O'quvchilar uchun kirish ancha osonlashdi. Natijalarni ko'rish va qayta yechish oqimi aniq.",
-    author: "Azizbek R., O'quv markaz rahbari",
-  },
-  {
-    text: "Admin sifatida to'lov va obuna nazorati ancha tartibli bo'ldi. Hisobot berish tezlashdi.",
-    author: "Dilshod S., Platforma administratori",
+    text: "Shaxsiy kabinetdan kirib testlarimni tartibli yechayapman, tarix va yo'nalish bo'yicha topish juda qulay.",
+    author: "Sardor A., Shaxsiy kabinet o'quvchisi",
   },
 ];
 
@@ -255,8 +299,12 @@ const CONTACT_INFO = [
 
 const SectionTitle = ({ badge, title, subtitle }) => (
   <div className="max-w-3xl">
-    <p className="text-xs uppercase tracking-[0.2em] text-muted font-bold">{badge}</p>
-    <h2 className="text-3xl md:text-5xl font-extrabold mt-2 leading-tight">{title}</h2>
+    <p className="text-xs uppercase tracking-[0.2em] text-muted font-bold">
+      {badge}
+    </p>
+    <h2 className="text-3xl md:text-5xl font-extrabold mt-2 leading-tight">
+      {title}
+    </h2>
     {subtitle && <p className="text-secondary mt-3 text-base">{subtitle}</p>}
   </div>
 );
@@ -276,7 +324,7 @@ const ScreenSection = ({ id, className = "", delay = 0, children }) => {
           observer.unobserve(entry.target);
         }
       },
-      { threshold: 0.24 }
+      { threshold: 0.24 },
     );
 
     observer.observe(node);
@@ -298,15 +346,33 @@ const ScreenSection = ({ id, className = "", delay = 0, children }) => {
 export default function Home() {
   const navigate = useNavigate();
 
+  const scrollTo = (id) => {
+    const section = document.getElementById(id);
+    section?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   useEffect(() => {
     document.body.classList.add("home-scroll-snap");
     return () => document.body.classList.remove("home-scroll-snap");
   }, []);
 
-  const scrollTo = (id) => {
-    const section = document.getElementById(id);
-    section?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  useEffect(() => {
+    const target = String(sessionStorage.getItem("homeScrollTarget") || "").trim();
+    if (!target) return;
+    sessionStorage.removeItem("homeScrollTarget");
+    setTimeout(() => scrollTo(target), 80);
+  }, []);
+
+  useEffect(() => {
+    applySeoMeta({
+      title: "OsonTestOl | testonlinee.uz - Online test boshqaruv platformasi",
+      description:
+        "Online test, mavzulashtirilgan test, yo'nalish test, olimpiada test va blok imtihonlar uchun OsonTestOl platformasi.",
+      keywords:
+        "online test, test online test, mavzulashtirilgan test, yonalish test, olimpiada test, blok imtihon, attestat test, abituriyent test",
+      canonicalPath: "/",
+    });
+  }, []);
 
   return (
     <div className="min-h-screen bg-primary text-primary relative overflow-hidden">
@@ -314,73 +380,58 @@ export default function Home() {
       <div className="pointer-events-none absolute top-16 -right-20 w-[22rem] h-[22rem] rounded-full bg-cyan-500/10 blur-3xl animate-blob [animation-delay:1.5s]" />
       <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 w-[40rem] h-[20rem] rounded-full bg-indigo-500/10 blur-3xl" />
 
-      <header className="sticky top-0 z-40 border-b border-primary bg-secondary/85 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto h-16 px-4 md:px-6 flex items-center justify-between">
-          <button type="button" className="text-left" onClick={() => scrollTo("hero")}>
-            <div className="flex items-center gap-2">
-              <img src={logo} alt="OsonTestOl logo" className="w-7 h-7 rounded-lg" />
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.22em] text-muted font-bold">testonlinee.uz</p>
-                <p className="text-xl font-extrabold">OsonTestOl</p>
-              </div>
-            </div>
-          </button>
+      <PublicHeader onNavigateSection={scrollTo} />
 
-          <div className="hidden md:flex items-center gap-5 text-xs font-bold uppercase tracking-[0.14em] text-muted">
-            <button type="button" onClick={() => scrollTo("features")} className="hover:text-primary transition-colors">
-              Imkoniyatlar
-            </button>
-            <button type="button" onClick={() => scrollTo("workflow")} className="hover:text-primary transition-colors">
-              Jarayon
-            </button>
-            <button type="button" onClick={() => scrollTo("pricing")} className="hover:text-primary transition-colors">
-              Tariflar
-            </button>
-            <button type="button" onClick={() => scrollTo("contact")} className="hover:text-primary transition-colors">
-              Bog'lanish
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button type="button" className="btn-secondary" onClick={() => navigate("/guide")}>
-              Qo'llanma
-            </button>
-            <button type="button" className="btn-primary" onClick={() => navigate("/teacher/register")}>
-              Boshlash
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="relative z-10 max-w-7xl mx-auto px-4 md:px-6 pt-10 md:pt-14 pb-16 md:pb-20">
-        <ScreenSection id="hero" className="grid lg:grid-cols-[1.05fr_0.95fr] gap-8 xl:gap-10 items-center">
+      <main className="relative z-10 max-w-7xl mx-auto px-4 md:px-4 pt-0 md:pt-0 pb-16 md:pb-20">
+        <ScreenSection
+          id="hero"
+          className="grid lg:grid-cols-[1.05fr_0.95fr] gap-8 xl:gap-10 items-center"
+        >
           <div>
             <p className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] uppercase tracking-[0.2em] font-bold border border-blue-500/20 bg-blue-500/10 text-blue-700">
               <Sparkles size={12} /> Zamonaviy online test ekotizimi
             </p>
             <h1 className="text-4xl md:text-6xl font-extrabold leading-tight mt-4">
               Test jarayonini
-              <span className="block text-gradient">pro darajaga olib chiqing</span>
+              <span className="block text-gradient">
+                pro darajaga olib chiqing
+              </span>
             </h1>
             <p className="text-secondary mt-5 max-w-2xl text-base md:text-lg">
-              O'qituvchi, o'quvchi va admin uchun yagona platforma: test yaratish, guruh boshqarish, chat, tahlil,
-              to'lov va obuna nazorati bitta joyda.
+              O'qituvchi, o'quvchi va admin uchun yagona platforma: test
+              yaratish, guruh boshqarish, chat, tahlil, to'lov va obuna nazorati
+              bitta joyda.
             </p>
 
             <div className="flex flex-wrap gap-3 mt-7">
-              <button type="button" className="btn-primary" onClick={() => navigate("/teacher/register")}>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => navigate("/teacher/register")}
+              >
                 Bepul boshlash <ArrowRight size={14} />
               </button>
-              <button type="button" className="btn-secondary" onClick={() => navigate("/student/login")}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => navigate("/student/login")}
+              >
                 Student kirishi
               </button>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8">
               {STATS.map((item) => (
-                <div key={item.label} className="rounded-xl border border-primary bg-secondary/80 p-3">
-                  <p className="text-lg font-extrabold text-primary">{item.value}</p>
-                  <p className="text-[11px] text-secondary mt-0.5">{item.label}</p>
+                <div
+                  key={item.label}
+                  className="rounded-xl border border-primary bg-secondary/80 p-3"
+                >
+                  <p className="text-lg font-extrabold text-primary">
+                    {item.value}
+                  </p>
+                  <p className="text-[11px] text-secondary mt-0.5">
+                    {item.label}
+                  </p>
                 </div>
               ))}
             </div>
@@ -388,7 +439,9 @@ export default function Home() {
 
           <div className="premium-card">
             <div className="flex items-center justify-between">
-              <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold">Live qiymat taklifi</p>
+              <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold">
+                Live qiymat taklifi
+              </p>
               <span className="px-2.5 py-1 rounded-full text-[10px] font-bold border border-green-500/20 bg-green-500/10 text-green-700">
                 Active
               </span>
@@ -396,31 +449,43 @@ export default function Home() {
 
             <div className="mt-4 space-y-3">
               <div className="rounded-xl border border-primary bg-accent p-4">
-                <p className="text-xs uppercase tracking-widest text-muted font-bold">Qanday foyda beradi?</p>
+                <p className="text-xs uppercase tracking-widest text-muted font-bold">
+                  Qanday foyda beradi?
+                </p>
                 <p className="text-sm text-secondary mt-2">
-                  Test tayyorlash va tekshirishga ketadigan vaqtni qisqartiradi, nazoratni markazlashtiradi.
+                  Test tayyorlash va tekshirishga ketadigan vaqtni qisqartiradi,
+                  nazoratni markazlashtiradi.
                 </p>
               </div>
               <div className="rounded-xl border border-primary bg-accent p-4">
-                <p className="text-xs uppercase tracking-widest text-muted font-bold">Kimlar uchun?</p>
+                <p className="text-xs uppercase tracking-widest text-muted font-bold">
+                  Kimlar uchun?
+                </p>
                 <p className="text-sm text-secondary mt-2">
-                  O'quv markaz, maktab, xususiy mentorlar va onlayn test sotish modeli uchun tayyor.
+                  O'quv markaz, maktab, xususiy mentorlar va onlayn test sotish
+                  modeli uchun tayyor.
                 </p>
               </div>
               <div className="rounded-xl border border-primary bg-accent p-4">
-                <p className="text-xs uppercase tracking-widest text-muted font-bold">Natija</p>
+                <p className="text-xs uppercase tracking-widest text-muted font-bold">
+                  Natija
+                </p>
                 <div className="grid grid-cols-2 gap-2 mt-2 text-[11px] font-semibold text-secondary">
                   <p className="inline-flex items-center gap-1.5">
-                    <CheckCircle2 size={13} className="text-blue-600" /> Tez ishga tushirish
+                    <CheckCircle2 size={13} className="text-blue-600" /> Tez
+                    ishga tushirish
                   </p>
                   <p className="inline-flex items-center gap-1.5">
-                    <CheckCircle2 size={13} className="text-blue-600" /> Nazorat kuchayadi
+                    <CheckCircle2 size={13} className="text-blue-600" /> Nazorat
+                    kuchayadi
                   </p>
                   <p className="inline-flex items-center gap-1.5">
-                    <CheckCircle2 size={13} className="text-blue-600" /> Vaqt tejaladi
+                    <CheckCircle2 size={13} className="text-blue-600" /> Vaqt
+                    tejaladi
                   </p>
                   <p className="inline-flex items-center gap-1.5">
-                    <CheckCircle2 size={13} className="text-blue-600" /> Ishonch ortadi
+                    <CheckCircle2 size={13} className="text-blue-600" /> Ishonch
+                    ortadi
                   </p>
                 </div>
               </div>
@@ -455,8 +520,13 @@ export default function Home() {
           />
           <div className="grid md:grid-cols-3 gap-4 items-stretch">
             {WORKFLOW.map((item) => (
-              <article key={item.step} className="premium-card h-full flex flex-col">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-600">{item.step}</p>
+              <article
+                key={item.step}
+                className="premium-card h-full flex flex-col"
+              >
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-600">
+                  {item.step}
+                </p>
                 <h3 className="text-xl font-extrabold mt-2">{item.title}</h3>
                 <p className="text-sm text-secondary mt-2">{item.desc}</p>
               </article>
@@ -466,8 +536,12 @@ export default function Home() {
           <div className="grid md:grid-cols-3 gap-4 items-stretch">
             {WORKFLOW_META.map((item) => (
               <article key={item.title} className="premium-card h-full">
-                <p className="text-xs uppercase tracking-[0.14em] text-muted font-bold">{item.title}</p>
-                <p className="text-2xl font-extrabold mt-2 text-blue-600">{item.value}</p>
+                <p className="text-xs uppercase tracking-[0.14em] text-muted font-bold">
+                  {item.title}
+                </p>
+                <p className="text-2xl font-extrabold mt-2 text-blue-600">
+                  {item.value}
+                </p>
                 <p className="text-sm text-secondary mt-1.5">{item.desc}</p>
               </article>
             ))}
@@ -482,18 +556,33 @@ export default function Home() {
           />
           <div className="grid md:grid-cols-3 gap-4 items-stretch">
             {AUDIENCE.map((item) => (
-              <article key={item.title} className="premium-card h-full flex flex-col">
+              <article
+                key={item.title}
+                className="premium-card h-full flex flex-col"
+              >
                 <h3 className="text-xl font-extrabold">{item.title}</h3>
-                <p className="text-xs uppercase tracking-[0.16em] text-blue-600 font-bold mt-1">{item.focus}</p>
+                <p className="text-xs uppercase tracking-[0.16em] text-blue-600 font-bold mt-1">
+                  {item.focus}
+                </p>
                 <div className="space-y-2 mt-4 flex-1">
                   {item.points.map((point) => (
-                    <p key={point} className="text-sm text-secondary flex items-start gap-2">
-                      <CheckCircle2 size={14} className="mt-0.5 text-blue-600 shrink-0" />
+                    <p
+                      key={point}
+                      className="text-sm text-secondary flex items-start gap-2"
+                    >
+                      <CheckCircle2
+                        size={14}
+                        className="mt-0.5 text-blue-600 shrink-0"
+                      />
                       {point}
                     </p>
                   ))}
                 </div>
-                <button type="button" className="btn-secondary mt-5" onClick={() => navigate(item.path)}>
+                <button
+                  type="button"
+                  className="btn-secondary mt-5"
+                  onClick={() => navigate(item.path)}
+                >
                   Kirish <ArrowRight size={14} />
                 </button>
               </article>
@@ -505,9 +594,9 @@ export default function Home() {
           <SectionTitle
             badge="Tariflar"
             title="Aniq narx, tushunarli limit"
-            subtitle="Bepul rejimda faqat test oqimi ishlaydi. Guruh, chat, natija va eksport funksiyalari Pro tarifda to'liq ochiladi."
+            subtitle="Bepul rejimdan keyin o'qituvchi Pro tarifga, o'quvchi esa Student Pro yoki test paketga o'tib mustaqil davom etishi mumkin."
           />
-          <div className="grid md:grid-cols-3 gap-4 items-stretch">
+          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
             {PRICING.map((plan) => (
               <article key={plan.name} className="premium-card h-full">
                 <div className="flex items-center justify-between gap-2">
@@ -516,11 +605,19 @@ export default function Home() {
                     {plan.tag}
                   </span>
                 </div>
-                <p className="text-2xl font-extrabold mt-2 text-blue-600">{plan.price}</p>
+                <p className="text-2xl font-extrabold mt-2 text-blue-600">
+                  {plan.price}
+                </p>
                 <div className="space-y-2 mt-4">
                   {plan.list.map((point) => (
-                    <p key={point} className="text-sm text-secondary flex items-start gap-2">
-                      <CheckCircle2 size={14} className="mt-0.5 text-blue-600 shrink-0" />
+                    <p
+                      key={point}
+                      className="text-sm text-secondary flex items-start gap-2"
+                    >
+                      <CheckCircle2
+                        size={14}
+                        className="mt-0.5 text-blue-600 shrink-0"
+                      />
                       {point}
                     </p>
                   ))}
@@ -531,12 +628,21 @@ export default function Home() {
 
           <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-4 items-stretch">
             <article className="premium-card h-full">
-              <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold">Obuna jarayoni</p>
-              <h3 className="text-2xl font-extrabold mt-2">4 qadamli aniq tartib</h3>
+              <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold">
+                Obuna jarayoni
+              </p>
+              <h3 className="text-2xl font-extrabold mt-2">
+                4 qadamli aniq tartib
+              </h3>
               <div className="grid sm:grid-cols-2 gap-3 mt-4">
                 {SUBSCRIPTION_FLOW.map((step) => (
-                  <div key={step.title} className="rounded-xl border border-primary bg-accent p-3">
-                    <p className="text-sm font-bold text-primary">{step.title}</p>
+                  <div
+                    key={step.title}
+                    className="rounded-xl border border-primary bg-accent p-3"
+                  >
+                    <p className="text-sm font-bold text-primary">
+                      {step.title}
+                    </p>
                     <p className="text-xs text-secondary mt-1">{step.desc}</p>
                   </div>
                 ))}
@@ -544,20 +650,36 @@ export default function Home() {
             </article>
 
             <article className="premium-card h-full flex flex-col">
-              <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold">Qaysi tarif sizga mos?</p>
+              <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold">
+                Qaysi tarif sizga mos?
+              </p>
               <div className="space-y-2 mt-3 flex-1">
                 {PLAN_GUIDE.map((item) => (
-                  <p key={item} className="text-sm text-secondary flex items-start gap-2">
-                    <CheckCircle2 size={14} className="mt-0.5 text-blue-600 shrink-0" />
+                  <p
+                    key={item}
+                    className="text-sm text-secondary flex items-start gap-2"
+                  >
+                    <CheckCircle2
+                      size={14}
+                      className="mt-0.5 text-blue-600 shrink-0"
+                    />
                     {item}
                   </p>
                 ))}
               </div>
               <div className="grid sm:grid-cols-2 gap-2 mt-4">
-                <button type="button" className="btn-primary" onClick={() => navigate("/teacher/register")}>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => navigate("/teacher/register")}
+                >
                   Bepul boshlash
                 </button>
-                <button type="button" className="btn-secondary" onClick={() => navigate("/guide")}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => navigate("/guide")}
+                >
                   Qo'llanma ochish
                 </button>
               </div>
@@ -565,12 +687,22 @@ export default function Home() {
           </div>
 
           <article className="premium-card">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold">Teacher Pro funksiyalari</p>
-            <h3 className="text-2xl font-extrabold mt-2">Birma-bir to'liq ro'yxat</h3>
+            <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold">
+              Teacher Pro funksiyalari
+            </p>
+            <h3 className="text-2xl font-extrabold mt-2">
+              Birma-bir to'liq ro'yxat
+            </h3>
             <div className="grid md:grid-cols-2 gap-2 mt-4">
               {PRO_FEATURES_FULL.map((item, index) => (
-                <p key={item} className="text-sm text-secondary flex items-start gap-2">
-                  <CheckCircle2 size={14} className="mt-0.5 text-blue-600 shrink-0" />
+                <p
+                  key={item}
+                  className="text-sm text-secondary flex items-start gap-2"
+                >
+                  <CheckCircle2
+                    size={14}
+                    className="mt-0.5 text-blue-600 shrink-0"
+                  />
                   {index + 1}. {item}
                 </p>
               ))}
@@ -597,7 +729,9 @@ export default function Home() {
                     <Star size={14} fill="currentColor" />
                   </div>
                   <p className="text-sm text-secondary mt-3">"{item.text}"</p>
-                  <p className="text-xs font-bold text-primary mt-3 uppercase tracking-[0.12em]">{item.author}</p>
+                  <p className="text-xs font-bold text-primary mt-3 uppercase tracking-[0.12em]">
+                    {item.author}
+                  </p>
                 </article>
               ))}
             </div>
@@ -605,10 +739,15 @@ export default function Home() {
             <div className="premium-card h-fit">
               <div className="space-y-2">
                 {FAQS.map((item) => (
-                  <details key={item.q} className="group rounded-xl border border-primary bg-accent px-4 py-3">
+                  <details
+                    key={item.q}
+                    className="group rounded-xl border border-primary bg-accent px-4 py-3"
+                  >
                     <summary className="cursor-pointer list-none text-sm font-bold flex items-center justify-between gap-3">
                       {item.q}
-                      <span className="text-blue-600 group-open:rotate-90 transition-transform">›</span>
+                      <span className="text-blue-600 group-open:rotate-90 transition-transform">
+                        ›
+                      </span>
                     </summary>
                     <p className="text-sm text-secondary mt-2">{item.a}</p>
                   </details>
@@ -630,13 +769,19 @@ export default function Home() {
                 key={item.channel}
                 href={item.href}
                 target={item.href.startsWith("http") ? "_blank" : undefined}
-                rel={item.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                rel={
+                  item.href.startsWith("http")
+                    ? "noopener noreferrer"
+                    : undefined
+                }
                 className="premium-card h-full group"
               >
                 <div className="w-11 h-11 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
                   <item.icon size={19} />
                 </div>
-                <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold mt-4">{item.channel}</p>
+                <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold mt-4">
+                  {item.channel}
+                </p>
                 <p className="text-xl font-extrabold mt-1">{item.value}</p>
                 <p className="text-sm text-secondary mt-2">{item.note}</p>
               </a>
@@ -645,12 +790,22 @@ export default function Home() {
 
           <div className="grid lg:grid-cols-[1fr_1fr] gap-4 items-stretch">
             <article className="premium-card h-full">
-              <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold">Aloqa tartibi</p>
-              <h3 className="text-xl font-extrabold mt-2">Javob vaqti va qo'llab-quvvatlash</h3>
+              <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold">
+                Aloqa tartibi
+              </p>
+              <h3 className="text-xl font-extrabold mt-2">
+                Javob vaqti va qo'llab-quvvatlash
+              </h3>
               <div className="space-y-2 mt-4">
                 {CONTACT_INFO.map((item) => (
-                  <p key={item} className="text-sm text-secondary flex items-start gap-2">
-                    <CheckCircle2 size={14} className="mt-0.5 text-blue-600 shrink-0" />
+                  <p
+                    key={item}
+                    className="text-sm text-secondary flex items-start gap-2"
+                  >
+                    <CheckCircle2
+                      size={14}
+                      className="mt-0.5 text-blue-600 shrink-0"
+                    />
                     {item}
                   </p>
                 ))}
@@ -658,24 +813,40 @@ export default function Home() {
             </article>
 
             <article className="premium-card h-full">
-              <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold">Platforma yo'nalishlari</p>
-              <h3 className="text-xl font-extrabold mt-2">Qaysi mavzuda yozishingiz mumkin?</h3>
+              <p className="text-xs uppercase tracking-[0.16em] text-muted font-bold">
+                Platforma yo'nalishlari
+              </p>
+              <h3 className="text-xl font-extrabold mt-2">
+                Qaysi mavzuda yozishingiz mumkin?
+              </h3>
               <div className="grid sm:grid-cols-2 gap-2 mt-4">
                 <div className="rounded-xl border border-primary bg-accent p-3">
-                  <p className="text-sm font-bold text-primary">Texnik yordam</p>
-                  <p className="text-xs text-secondary mt-1">Kirish, test, eksport va obuna oqimi bo'yicha yordam.</p>
+                  <p className="text-sm font-bold text-primary">
+                    Texnik yordam
+                  </p>
+                  <p className="text-xs text-secondary mt-1">
+                    Kirish, test, eksport va obuna oqimi bo'yicha yordam.
+                  </p>
                 </div>
                 <div className="rounded-xl border border-primary bg-accent p-3">
                   <p className="text-sm font-bold text-primary">Hamkorlik</p>
-                  <p className="text-xs text-secondary mt-1">O'quv markaz va maktablar uchun hamkorlik takliflari.</p>
+                  <p className="text-xs text-secondary mt-1">
+                    O'quv markaz va maktablar uchun hamkorlik takliflari.
+                  </p>
                 </div>
                 <div className="rounded-xl border border-primary bg-accent p-3">
                   <p className="text-sm font-bold text-primary">Integratsiya</p>
-                  <p className="text-xs text-secondary mt-1">Katta jamoalar uchun moslash va ishga tushirish rejasi.</p>
+                  <p className="text-xs text-secondary mt-1">
+                    Katta jamoalar uchun moslash va ishga tushirish rejasi.
+                  </p>
                 </div>
                 <div className="rounded-xl border border-primary bg-accent p-3">
-                  <p className="text-sm font-bold text-primary">Konsultatsiya</p>
-                  <p className="text-xs text-secondary mt-1">Qaysi tarif va qaysi oqim sizga mosligi bo'yicha maslahat.</p>
+                  <p className="text-sm font-bold text-primary">
+                    Konsultatsiya
+                  </p>
+                  <p className="text-xs text-secondary mt-1">
+                    Qaysi tarif va qaysi oqim sizga mosligi bo'yicha maslahat.
+                  </p>
                 </div>
               </div>
             </article>

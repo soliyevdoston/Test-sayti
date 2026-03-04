@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="uz">
+<html lang="uz" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -66,6 +66,7 @@
     <meta name="twitter:image" content="https://testonlinee.uz/favicon.png" />
 
     <!-- Favicon -->
+    <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
 
@@ -136,21 +137,24 @@
     <script>
       (function applyInitialTheme() {
         try {
+          var initKey = "themePreferenceInitialized";
+          var initialized = localStorage.getItem(initKey) === "1";
           var saved = localStorage.getItem("theme");
-          var theme =
-            saved === "light" || saved === "dark" || saved === "system"
-              ? saved
-              : "dark";
+          var hasSupportedTheme =
+            saved === "light" || saved === "dark" || saved === "system";
+          var theme = hasSupportedTheme ? saved : "dark";
           var root = document.documentElement;
-          root.classList.remove("light", "dark");
-          if (theme === "system") {
-            root.classList.add(
-              window.matchMedia("(prefers-color-scheme: dark)").matches
-                ? "dark"
-                : "light",
-            );
-            return;
+
+          if (!initialized) {
+            localStorage.setItem("theme", "dark");
+            localStorage.setItem(initKey, "1");
+            theme = "dark";
+          } else if (!hasSupportedTheme || theme === "system") {
+            localStorage.setItem("theme", "dark");
+            theme = "dark";
           }
+
+          root.classList.remove("light", "dark");
           root.classList.add(theme);
         } catch (e) {
           document.documentElement.classList.add("dark");

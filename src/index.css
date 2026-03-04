@@ -6,6 +6,7 @@
 @tailwind utilities;
 
 :root {
+  color-scheme: dark;
   --bg-primary: #f6f8fc;
   --bg-secondary: #ffffff;
   --bg-accent: #eef2ff;
@@ -23,7 +24,12 @@
   --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--accent-color) 18%, transparent);
 }
 
+.light {
+  color-scheme: light;
+}
+
 .dark {
+  color-scheme: dark;
   --bg-primary: #0b1220;
   --bg-secondary: #121b2e;
   --bg-accent: #16233f;
@@ -488,4 +494,15 @@ textarea:-webkit-autofill:focus {
 
 .math-sqrt {
   font-style: italic;
+}
+
+.rich-inline-image {
+  display: block;
+  max-width: min(100%, 420px);
+  max-height: 260px;
+  object-fit: contain;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-primary);
+  margin: 0.4rem 0;
+  background: color-mix(in srgb, var(--bg-secondary) 90%, transparent);
 }

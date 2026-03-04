@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import DashboardLayout from "../components/DashboardLayout";
-import { getChatListApi, getChatHistoryApi, sendMessageApi, BASE_URL } from "../api/api";
+import { getChatListApi, getChatHistoryApi, sendMessageApi, BASE_URL, buildChatRoomId } from "../api/api";
 import { toast } from "react-toastify";
 import { MessageSquare, Send, User, Search } from "lucide-react";
 import { io } from "socket.io-client";
@@ -65,7 +65,7 @@ const TeacherChats = () => {
   useEffect(() => {
     if (selectedChat && socketRef.current) {
       loadMessages(selectedChat.student._id);
-      const roomId = `${teacherId}-${selectedChat.student._id}`;
+      const roomId = buildChatRoomId(teacherId, selectedChat.student._id);
       socketRef.current.emit("join-chat", roomId);
     }
   }, [selectedChat, loadMessages, teacherId]);
@@ -73,8 +73,11 @@ const TeacherChats = () => {
   useEffect(() => {
     if (!socketRef.current) return undefined;
     socketRef.current.on("receive-message", (msg) => {
-      if (selectedChat && (msg.senderId === selectedChat.student._id || msg.studentId === selectedChat.student._id)) {
-        setMessages((prev) => [...prev, msg]);
+      if (selectedChat && String(msg?.studentId || "") === String(selectedChat.student?._id || "")) {
+        setMessages((prev) => {
+          const exists = prev.some((row) => String(row?._id || "") === String(msg?._id || ""));
+          return exists ? prev : [...prev, msg];
+        });
       }
       loadChats(); // Refresh list to show new message preview
     });
@@ -93,19 +96,13 @@ const TeacherChats = () => {
     const msgData = {
       teacherId,
       studentId: selectedChat.student._id,
-      senderId: teacherId,
-      senderName: teacherName,
+      sender: "teacher",
       text: newMessage,
-      createdAt: new Date(),
     };
 
     try {
-      await sendMessageApi(msgData);
-      socketRef.current.emit("send-message", {
-        roomId: `${teacherId}-${selectedChat.student._id}`,
-        message: msgData,
-      });
-      setMessages((prev) => [...prev, msgData]);
+      const { data: savedMessage } = await sendMessageApi(msgData);
+      setMessages((prev) => [...prev, savedMessage]);
       setNewMessage("");
       loadChats();
     } catch {
@@ -188,7 +185,7 @@ const TeacherChats = () => {
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
                   {messages.map((msg, idx) => {
-                    const isMe = msg.senderId === teacherId;
+                    const isMe = msg.sender === "teacher";
                     return (
                       <div key={idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-[70%] p-4 rounded-2xl ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-secondary border border-primary text-primary rounded-tl-none'}`}>

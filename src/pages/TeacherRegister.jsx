@@ -11,8 +11,12 @@ import {
   Sparkles,
   User,
 } from "lucide-react";
-import { createTeacher } from "../api/api";
+import { checkLoginAvailabilityApi, createTeacher } from "../api/api";
 import { registerOauthUser } from "../utils/billingTools";
+import {
+  checkLoginAvailability,
+  isLoginConflictMessage,
+} from "../utils/authIdentityTools";
 import logo from "../assets/logo.svg";
 import SiteFooter from "../components/SiteFooter";
 
@@ -34,6 +38,22 @@ export default function TeacherRegister() {
     confirmPassword: "",
   });
 
+  const ensureTeacherLoginAvailable = async (email) => {
+    const localCheck = checkLoginAvailability(email);
+    if (!localCheck.ok) return localCheck.reason;
+
+    try {
+      const { data } = await checkLoginAvailabilityApi(email);
+      if (data?.available === false) {
+        return "Bu login band. Boshqa login kiriting.";
+      }
+    } catch {
+      // Server tekshiruvi ishlamasa backend create endpointga tayangan holda davom etadi.
+    }
+
+    return "";
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.fullName.trim() || !form.email.trim() || !form.password.trim()) {
@@ -46,17 +66,25 @@ export default function TeacherRegister() {
       return toast.warning("Parollar mos emas");
     }
 
+    const normalizedEmail = form.email.trim().toLowerCase();
+
     try {
       setLoading(true);
+      const loginReason = await ensureTeacherLoginAvailable(normalizedEmail);
+      if (loginReason) {
+        toast.error(loginReason);
+        return;
+      }
       await createTeacher({
         fullName: form.fullName.trim(),
-        username: form.email.trim().toLowerCase(),
+        username: normalizedEmail,
         password: form.password,
       });
       toast.success("Ro'yxatdan o'tdingiz. Endi email/parol bilan kiring.");
       navigate("/teacher/login");
     } catch (err) {
-      toast.error(err.response?.data?.msg || "Ro'yxatdan o'tishda xatolik");
+      const backendMessage = err.response?.data?.msg || err.message || "";
+      toast.error(isLoginConflictMessage(backendMessage) ? "Bu login band. Boshqa login kiriting." : (backendMessage || "Ro'yxatdan o'tishda xatolik"));
     } finally {
       setLoading(false);
     }
@@ -75,6 +103,11 @@ export default function TeacherRegister() {
 
     try {
       setLoading(true);
+      const loginReason = await ensureTeacherLoginAvailable(normalizedEmail);
+      if (loginReason) {
+        toast.error(loginReason);
+        return;
+      }
       await createTeacher({
         fullName: (fullName || normalizedEmail.split("@")[0] || "Teacher").trim(),
         username: normalizedEmail,
@@ -89,7 +122,12 @@ export default function TeacherRegister() {
       toast.success("Google orqali ro'yxatdan o'tdingiz. Endi login qiling.");
       navigate("/teacher/login");
     } catch (err) {
-      toast.error(err.response?.data?.msg || "Google ro'yxatdan o'tishda xatolik");
+      const backendMessage = err.response?.data?.msg || err.message || "";
+      toast.error(
+        isLoginConflictMessage(backendMessage)
+          ? "Bu login band. Boshqa login kiriting."
+          : (backendMessage || "Google ro'yxatdan o'tishda xatolik")
+      );
     } finally {
       setLoading(false);
     }

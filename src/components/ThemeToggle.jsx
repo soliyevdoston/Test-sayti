@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Moon, Monitor, Palette, Sun } from "lucide-react";
+import { Moon, Palette, Sun } from "lucide-react";
 import { useTheme } from "../context/useTheme";
 
 export default function ThemeToggle() {
@@ -9,7 +9,6 @@ export default function ThemeToggle() {
   const options = [
     { id: "light", label: "Light", icon: Sun },
     { id: "dark", label: "Dark", icon: Moon },
-    { id: "system", label: "System", icon: Monitor },
   ];
 
   return (

@@ -5,6 +5,8 @@ import logo from "../assets/logo.svg";
 
 const QUICK_LINKS = [
   { label: "Asosiy", to: "/" },
+  { label: "Online test", to: "/online-test-platforma" },
+  { label: "Olimpiada test", to: "/olimpiada-testlar" },
   { label: "Qo'llanma", to: "/guide" },
   { label: "O'qituvchi kirish", to: "/teacher/login" },
   { label: "O'quvchi kirish", to: "/student/login" },

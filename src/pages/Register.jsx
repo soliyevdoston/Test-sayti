@@ -2,7 +2,9 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { ArrowLeft, ArrowRight, CheckCircle2, Mail, Phone, ShieldCheck, Sparkles } from "lucide-react";
+import { checkLoginAvailabilityApi, registerPersonalStudentApi } from "../api/api";
 import { registerOauthUser } from "../utils/billingTools";
+import { checkLoginAvailability } from "../utils/authIdentityTools";
 import logo from "../assets/logo.svg";
 import SiteFooter from "../components/SiteFooter";
 
@@ -14,6 +16,7 @@ const STUDENT_BENEFITS = [
 
 export default function Register() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     phone: "998",
@@ -22,9 +25,25 @@ export default function Register() {
     confirmPassword: "",
   });
 
-  const handleRegister = (e) => {
+  const ensureStudentLoginAvailable = async (email) => {
+    const localCheck = checkLoginAvailability(email);
+    if (!localCheck.ok) return localCheck.reason;
+
+    try {
+      const { data } = await checkLoginAvailabilityApi(email);
+      if (data?.available === false) {
+        return "Bu login band. Boshqa login kiriting.";
+      }
+    } catch {
+      // Server tekshiruvi ishlamasa local tekshiruv bilan davom etamiz.
+    }
+
+    return "";
+  };
+
+  const handleRegister = async (e) => {
     e.preventDefault();
-    if (!formData.fullName.trim() || !formData.phone.trim() || !formData.password.trim()) {
+    if (!formData.fullName.trim() || !formData.phone.trim() || !formData.email.trim() || !formData.password.trim()) {
       return toast.warning("Majburiy maydonlarni to'ldiring");
     }
     if (formData.password !== formData.confirmPassword) {
@@ -32,19 +51,38 @@ export default function Register() {
     }
 
     const normalizedEmail = String(formData.email || "").trim().toLowerCase();
-    if (normalizedEmail && !normalizedEmail.endsWith("@gmail.com")) {
+    if (!normalizedEmail.endsWith("@gmail.com")) {
       return toast.warning("Shaxsiy kabinet uchun gmail.com email kiriting");
     }
 
-    if (normalizedEmail) {
-      registerOauthUser({
-        provider: "google",
-        role: "student",
+    try {
+      setLoading(true);
+      const loginReason = await ensureStudentLoginAvailable(normalizedEmail);
+      if (loginReason) {
+        toast.error(loginReason);
+        return;
+      }
+
+      await registerPersonalStudentApi({
         fullName: formData.fullName.trim(),
+        phone: formData.phone.trim(),
         email: normalizedEmail,
+        password: formData.password,
       });
-      localStorage.setItem("studentEmail", normalizedEmail);
+    } catch (err) {
+      toast.error(err.message || "Ro'yxatdan o'tishda xatolik");
+      return;
+    } finally {
+      setLoading(false);
     }
+
+    registerOauthUser({
+      provider: "google",
+      role: "student",
+      fullName: formData.fullName.trim(),
+      email: normalizedEmail,
+    });
+    localStorage.setItem("studentEmail", normalizedEmail);
 
     toast.success("Ro'yxatdan o'tdingiz. Endi login sahifasidan kiring.");
     navigate("/student/login");
@@ -152,7 +190,7 @@ export default function Register() {
 
               <div>
                 <label className="text-xs font-bold uppercase tracking-[0.12em] text-muted block mb-2">
-                  Gmail (tavsiya)
+                  Gmail
                 </label>
                 <div className="input-icon-wrap">
                   <Mail size={16} />
@@ -162,6 +200,7 @@ export default function Register() {
                     value={formData.email}
                     onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
                     placeholder="example@gmail.com"
+                    required
                   />
                 </div>
                 <button type="button" className="text-xs text-blue-600 font-semibold mt-2" onClick={handleGoogleRegister}>
@@ -198,8 +237,8 @@ export default function Register() {
               </div>
             </div>
 
-            <button type="submit" className="btn-primary w-full mt-6">
-              Ro'yxatdan o'tish <ArrowRight size={14} />
+            <button type="submit" className="btn-primary w-full mt-6" disabled={loading}>
+              {loading ? "Tekshirilmoqda..." : "Ro'yxatdan o'tish"} <ArrowRight size={14} />
             </button>
 
             <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">

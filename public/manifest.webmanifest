@@ -1,0 +1,25 @@
+{
+  "name": "OsonTestOl",
+  "short_name": "OsonTestOl",
+  "description": "OsonTestOl - online test, blok imtihon, olimpiada test va yo'nalish test platformasi.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#0f172a",
+  "lang": "uz",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ]
+}

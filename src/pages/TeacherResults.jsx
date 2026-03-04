@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   FaChartBar,
+  FaCertificate,
   FaFileExport,
   FaTimes,
   FaEye,
@@ -14,6 +15,8 @@ import { io } from "socket.io-client"; // ✅
 import DashboardLayout from "../components/DashboardLayout";
 import RichTextMath from "../components/RichTextMath";
 import { exportResultsByFormat } from "../utils/academicTools";
+import { getBlockExamMeta } from "../utils/blockExamTools";
+import { printStudentCertificate } from "../utils/certificateTools";
 import { 
   getTeacherTests, 
   getResultsApi, 
@@ -36,6 +39,8 @@ export default function TeacherResults() {
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [teacherName, setTeacherName] = useState("");
   const [retakeRequests, setRetakeRequests] = useState([]);
+  const [blockInsights, setBlockInsights] = useState(null);
+  const [loadingBlockInsights, setLoadingBlockInsights] = useState(false);
 
   useEffect(() => {
     const name = localStorage.getItem("teacherName");
@@ -77,6 +82,7 @@ export default function TeacherResults() {
   const analyzeTest = async (testId) => {
     if (analyzedTestId === testId) {
       setAnalyzedTestId(null);
+      setBlockInsights(null);
       return;
     }
     try {
@@ -84,9 +90,73 @@ export default function TeacherResults() {
       setResultsData(Array.isArray(data) ? data : []);
       if (Array.isArray(data) && data.length === 0) toast.warning("Hozircha natijalar yo'q");
       setAnalyzedTestId(testId);
+      const selectedTest = (tests || []).find((item) => String(item._id) === String(testId));
+      const blockMeta = getBlockExamMeta(selectedTest || {});
+      if (blockMeta.isBlockExam && Array.isArray(data) && data.length) {
+        setLoadingBlockInsights(true);
+        try {
+          const subjectStats = blockMeta.subjects.reduce((acc, subject) => {
+            acc[subject] = {
+              subject,
+              correct: 0,
+              wrong: 0,
+              total: 0,
+            };
+            return acc;
+          }, {});
+
+          const extractSubject = (questionText = "") => {
+            const text = String(questionText || "");
+            const bracketMatch = text.match(/^\s*\[([^\]]+)\]/);
+            if (bracketMatch?.[1]) {
+              const bracketSubject = String(bracketMatch[1]).trim();
+              if (subjectStats[bracketSubject]) return bracketSubject;
+            }
+            return blockMeta.subjects.find((subject) => text.toLowerCase().includes(String(subject).toLowerCase())) || "";
+          };
+
+          const analysisRows = await Promise.all(
+            data.map(async (row) => {
+              try {
+                const analysisRes = await getAnalysisApi(row._id);
+                return analysisRes.data;
+              } catch {
+                return null;
+              }
+            })
+          );
+
+          analysisRows.filter(Boolean).forEach((analysis) => {
+            (analysis.studentAnswers || []).forEach((answer) => {
+              const subject = extractSubject(answer.questionText);
+              if (!subject || !subjectStats[subject]) return;
+              subjectStats[subject].total += 1;
+              if (answer.isCorrect) subjectStats[subject].correct += 1;
+              else subjectStats[subject].wrong += 1;
+            });
+          });
+
+          const rows = Object.values(subjectStats).map((item) => ({
+            ...item,
+            accuracy: item.total ? Math.round((item.correct / item.total) * 100) : 0,
+          }));
+
+          rows.sort((a, b) => b.accuracy - a.accuracy);
+          setBlockInsights({
+            subjects: blockMeta.subjects,
+            studentsAnalyzed: analysisRows.filter(Boolean).length,
+            rows,
+          });
+        } finally {
+          setLoadingBlockInsights(false);
+        }
+      } else {
+        setBlockInsights(null);
+      }
     } catch {
       toast.error("Natijalarni olishda xatolik");
       setResultsData([]);
+      setBlockInsights(null);
     }
   };
 
@@ -144,6 +214,22 @@ export default function TeacherResults() {
       );
     } catch (err) {
       toast.error(err.message || "Eksportda xatolik");
+    }
+  };
+
+  const handlePrintCertificate = (test, resultRow) => {
+    try {
+      printStudentCertificate({
+        studentName: resultRow?.studentName || "O'quvchi",
+        testTitle: test?.title || "Online test",
+        totalScore: Number(resultRow?.totalScore || 0),
+        correctCount: Number(resultRow?.correctAnswersCount || 0),
+        wrongCount: Number(resultRow?.wrongAnswersCount || 0),
+        issuedBy: teacherName || "Teacher",
+        issuedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      toast.error(err.message || "Sertifikatni ochishda xatolik");
     }
   };
 
@@ -270,6 +356,35 @@ export default function TeacherResults() {
 
                 {analyzedTestId === test._id && (
                   <div className="px-5 pb-5 md:px-10 md:pb-10 pt-4 animate-in fade-in slide-in-from-top-4 duration-700">
+                    {loadingBlockInsights && (
+                      <div className="mb-4 rounded-2xl border border-indigo-500/20 bg-indigo-500/10 p-4">
+                        <p className="text-xs font-semibold text-indigo-600">Blok imtihon fan analitikasi tayyorlanmoqda...</p>
+                      </div>
+                    )}
+                    {!loadingBlockInsights && blockInsights?.rows?.length > 0 && (
+                      <div className="mb-4 rounded-2xl border border-indigo-500/20 bg-indigo-500/10 p-4">
+                        <p className="text-xs uppercase tracking-[0.16em] font-bold text-indigo-600">
+                          Blok imtihon analitikasi
+                        </p>
+                        <p className="text-xs text-secondary mt-1">
+                          Fanlar: {blockInsights.subjects.join(", ")} | Tahlil qilingan o'quvchi: {blockInsights.studentsAnalyzed}
+                        </p>
+                        <div className="grid md:grid-cols-3 gap-2 mt-3">
+                          {blockInsights.rows.map((row) => (
+                            <div key={row.subject} className="rounded-xl border border-primary bg-secondary/70 p-3">
+                              <p className="text-sm font-semibold text-primary">{row.subject}</p>
+                              <p className="text-xs text-secondary mt-1">
+                                To'g'ri: {row.correct} | Xato: {row.wrong}
+                              </p>
+                              <div className="mt-2 h-2 rounded-full bg-accent overflow-hidden">
+                                <div className="h-full bg-gradient-to-r from-indigo-500 to-blue-500" style={{ width: `${row.accuracy}%` }} />
+                              </div>
+                              <p className="text-[11px] text-indigo-600 font-bold mt-1">Aniqlik: {row.accuracy}%</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="bg-primary/50 border border-primary rounded-[2rem] overflow-hidden shadow-inner">
                       <div className="overflow-x-auto">
                         <table className="w-full text-left">
@@ -280,6 +395,7 @@ export default function TeacherResults() {
                               <th className="py-6 px-8">Ball / Ko'rsatkich</th>
                               <th className="py-6 px-8 text-center">T/X</th>
                               <th className="py-6 px-8 text-center">Individual Tahlil</th>
+                              <th className="py-6 px-8 text-center">Sertifikat</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-primary/10">
@@ -314,10 +430,19 @@ export default function TeacherResults() {
                                       <FaEye size={18} />
                                     </button>
                                   </td>
+                                  <td className="py-6 px-8 text-center">
+                                    <button
+                                      onClick={() => handlePrintCertificate(test, res)}
+                                      className="w-12 h-12 bg-primary border border-primary text-primary rounded-2xl flex items-center justify-center hover:bg-green-600 hover:text-white hover:border-green-600 transition-all mx-auto shadow-sm"
+                                      title="Sertifikat"
+                                    >
+                                      <FaCertificate size={16} />
+                                    </button>
+                                  </td>
                                 </tr>
                               ))
                             ) : (
-                              <tr><td colSpan="5" className="py-20 text-center text-muted font-bold italic uppercase tracking-widest opacity-30">Natijalar hozircha mavjud emas</td></tr>
+                              <tr><td colSpan="6" className="py-20 text-center text-muted font-bold italic uppercase tracking-widest opacity-30">Natijalar hozircha mavjud emas</td></tr>
                             )}
                           </tbody>
                         </table>

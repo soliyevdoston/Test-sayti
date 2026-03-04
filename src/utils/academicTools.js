@@ -50,6 +50,21 @@ export const escapeHtml = (input = "") =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
+const isSafeMediaSrc = (value = "") => {
+  const src = String(value || "").trim();
+  if (!src) return false;
+  if (/^https?:\/\//i.test(src)) return true;
+  if (/^data:image\//i.test(src)) return true;
+  if (/^\/uploads\//i.test(src)) return true;
+  if (/^uploads\//i.test(src)) return true;
+  return false;
+};
+
+const buildImageHtml = (src = "", alt = "test image") => {
+  if (!isSafeMediaSrc(src)) return "";
+  return `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt || "test image")}" class="rich-inline-image" loading="lazy" />`;
+};
+
 const formatMathTokens = (escapedText) => {
   let output = escapedText;
 
@@ -116,19 +131,34 @@ export const renderRichMathText = (text = "", options = {}) => {
   const { preserveLines = true } = options;
   if (!text) return "";
 
-  const escaped = escapeHtml(toPlainText(text));
-  const parts = escaped.split(/(\$\$[^$]+\$\$|\$[^$]+\$)/g);
+  const raw = toPlainText(text).replace(
+    /!\[([^\]]*)\]\(([^)\s]+(?:\s+"[^"]*")?)\)/g,
+    (_, altText, rawSrc) => {
+      const srcPart = String(rawSrc || "").trim().replace(/\s+"[^"]*"$/, "");
+      const altPart = String(altText || "").trim();
+      return `[img:${srcPart}${altPart ? `|${altPart}` : ""}]`;
+    }
+  );
+
+  const parts = raw.split(/(\$\$[^$]+\$\$|\$[^$]+\$|\[img:[^\]]+\])/g);
 
   const html = parts
     .map((part) => {
       if (!part) return "";
+      if (part.startsWith("[img:") && part.endsWith("]")) {
+        const payload = part.slice(5, -1).trim();
+        const [src, ...altRest] = payload.split("|");
+        const imageHtml = buildImageHtml(src, altRest.join("|") || "test image");
+        return imageHtml || escapeHtml(part);
+      }
+      const escaped = escapeHtml(part);
       if (part.startsWith("$$") && part.endsWith("$$")) {
-        return `<span class="math-inline math-block">${formatMathTokens(part.slice(2, -2))}</span>`;
+        return `<span class="math-inline math-block">${formatMathTokens(escapeHtml(part.slice(2, -2)))}</span>`;
       }
       if (part.startsWith("$") && part.endsWith("$")) {
-        return `<span class="math-inline">${formatMathTokens(part.slice(1, -1))}</span>`;
+        return `<span class="math-inline">${formatMathTokens(escapeHtml(part.slice(1, -1)))}</span>`;
       }
-      return formatMathTokens(part);
+      return formatMathTokens(escaped);
     })
     .join("");
 

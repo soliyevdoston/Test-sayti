@@ -1,11 +1,14 @@
 import axios from "axios";
 import { logUserActivity } from "../utils/activityLog";
+import { getTeacherApiAccessState } from "../utils/teacherAccessTools";
 
 const normalizeBaseUrl = (value) => String(value || "").trim().replace(/\/+$/, "");
 const FALLBACK_BASE_URL = "https://online-test-backend-2.onrender.com";
 
 export const BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL) || FALLBACK_BASE_URL;
 const API_URL = `${BASE_URL}/api`;
+export const buildChatRoomId = (teacherId = "", studentId = "") =>
+  `chat_${String(teacherId || "").trim()}_${String(studentId || "").trim()}`;
 
 const api = axios.create({
   baseURL: API_URL,
@@ -23,11 +26,73 @@ const shouldTrackApiActivity = (method = "", url = "") => {
   return normalizedUrl.includes("/login");
 };
 
-api.interceptors.request.use((config) => {
-  const next = config;
-  next.metadata = { startedAt: Date.now() };
-  return next;
-});
+const buildTeacherPlanError = (message) => {
+  const error = new Error(message || "Bu amal faqat Pro tarifda ishlaydi.");
+  error.name = "TeacherPlanAccessError";
+  error.code = "TEACHER_PLAN_BLOCKED";
+  error.isAccessDenied = true;
+  return error;
+};
+
+const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const shouldRetryUploadRequest = (error) => {
+  const status = Number(error?.response?.status || 0);
+  if (!status) return true; // network/cors/timeout
+  if (status >= 500) return true;
+  return false;
+};
+
+const postMultipartWithRetry = async (url, formData, retries = 1) => {
+  let lastError = null;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await api.post(url, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+    } catch (error) {
+      lastError = error;
+      if (attempt >= retries || !shouldRetryUploadRequest(error)) {
+        throw error;
+      }
+      await wait(550);
+    }
+  }
+  throw lastError || new Error("Upload xatoligi");
+};
+
+api.interceptors.request.use(
+  (config) => {
+    const next = config;
+    next.metadata = { startedAt: Date.now() };
+
+    const role = String(localStorage.getItem("userRole") || "").toLowerCase();
+    if (role === "teacher") {
+      const teacherId = localStorage.getItem("teacherId");
+      const accessState = getTeacherApiAccessState(teacherId, next?.method, next?.url);
+      if (!accessState.allowed) {
+        logUserActivity({
+          action: `PLAN_BLOCK ${String(accessState.method || "").toUpperCase()} ${accessState.path || ""}`,
+          area: "subscription",
+          status: "failed",
+          message: accessState.reason,
+          targetRole: "teacher",
+          targetId: String(teacherId || ""),
+          meta: {
+            path: accessState.path,
+            method: accessState.method,
+          },
+        });
+        return Promise.reject(buildTeacherPlanError(accessState.reason));
+      }
+    }
+
+    return next;
+  },
+  (error) => Promise.reject(error)
+);
 
 api.interceptors.response.use(
   (response) => {
@@ -149,26 +214,22 @@ export const updateTeacher = (id, data) =>
   api.put(`/admin/update-teacher/${id}`, data);
 export const updateAdminApi = (id, data) =>
   api.put(`/school/update/${id}`, data);
+export const checkLoginAvailabilityApi = (principal) =>
+  api.get("/auth/login-availability", {
+    params: {
+      principal: String(principal || "").trim().toLowerCase(),
+    },
+  });
 
 /* ===================== TEACHER API ===================== */
 
 // Fayl yuklash (Multipart Form Data)
-export const teacherUploadTest = (formData) =>
-  api.post("/teacher/upload", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
+export const teacherUploadTest = (formData) => postMultipartWithRetry("/teacher/upload", formData, 1);
 
 export const parseTextApi = (data) => api.post("/teacher/parse-text", data);
 export const parsePreviewApi = (data) =>
   api.post("/teacher/parse-preview", data);
-export const uploadPreviewApi = (formData) =>
-  api.post("/teacher/upload-preview", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
+export const uploadPreviewApi = (formData) => postMultipartWithRetry("/teacher/upload-preview", formData, 1);
 
 export const getTeacherTests = (teacherId) =>
   api.get(`/teacher/tests/${teacherId}`);
@@ -243,6 +304,7 @@ export const sendMessageApi = (data) => api.post("/chat/send", data);
 export const submitTestApi = (data) => api.post("/student/submit", data);
 
 export const studentIndividualLogin = (data) => api.post("/auth/student-login", data);
+export const registerPersonalStudentApi = (data) => api.post("/auth/personal-student-register", data);
 
 export const getAvailableTests = (teacherId, studentGroupId) => {
   const url = studentGroupId

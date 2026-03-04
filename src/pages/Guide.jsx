@@ -72,9 +72,10 @@ const SECTIONS = [
     title: "5. Test yuklash va formulalar",
     intro: "Formula va matnli testlar xatosiz ishlashi uchun shu tartibdan foydalaning.",
     items: [
-      "Word fayl: `.docx` tavsiya etiladi.",
+      "Word fayl: `.docx` yoki `.docm` tavsiya etiladi (`.doc` qo'llanmaydi).",
       "TXT/CSV fayl ham yuklash mumkin, tizim avtomatik text parserdan o'tkazadi.",
       "Formula misollari: `x^2`, `x_1`, `\\frac{a}{b}`, `\\sqrt{16}`, `$...$`.",
+      "Rasmli savol uchun Wordga rasm joylang yoki `[img:https://.../image.png]` formatidan foydalaning.",
       "Saqlashdan oldin preview qiling va topilgan savollar sonini tekshiring.",
       "Format xatosi chiqsa shablon fayldan foydalaning.",
     ],
