@@ -30,6 +30,7 @@ export default function LoginTemplate({
   const [username, setUsername] = useState(initialUsername);
   const [password, setPassword] = useState(initialPassword);
   const [studentMode, setStudentMode] = useState("personal"); // personal | test | group
+  const [testStudentName, setTestStudentName] = useState("");
   const [loading, setLoading] = useState(false);
 
   const roleTips =
@@ -121,8 +122,21 @@ export default function LoginTemplate({
         role === "Student" && studentMode === "test"
           ? localStorage.getItem("studentId")
           : "";
+      const quickStudentNameRaw =
+        role === "Student" && studentMode === "test" ? testStudentName.trim() : "";
       const quickStudentName =
-        role === "Student" && studentMode === "test" ? username.trim() || "O'quvchi" : "";
+        role === "Student" && studentMode === "test"
+          ? quickStudentNameRaw.replace(/\s+/g, " ").trim()
+          : quickStudentNameRaw;
+
+      if (role === "Student" && studentMode === "test") {
+        const nameParts = quickStudentName.split(" ").filter(Boolean);
+        if (nameParts.length < 2) {
+          toast.warning("Umumiy test uchun ism va familiya kiriting");
+          setLoading(false);
+          return;
+        }
+      }
 
       if (role === "Teacher" || role === "Admin") {
         const roleKey = role.toLowerCase();
@@ -402,6 +416,21 @@ export default function LoginTemplate({
             )}
 
             <div className="space-y-4">
+              {role === "Student" && studentMode === "test" && (
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-[0.12em] text-muted block mb-2">
+                    Ism familiya
+                  </label>
+                  <input
+                    type="text"
+                    className="input-clean"
+                    value={testStudentName}
+                    onChange={(e) => setTestStudentName(e.target.value)}
+                    placeholder="Masalan: Ali Valiyev"
+                    autoComplete="name"
+                  />
+                </div>
+              )}
               <div>
                 <label className="text-xs font-bold uppercase tracking-[0.12em] text-muted block mb-2">
                   {role === "Student"
