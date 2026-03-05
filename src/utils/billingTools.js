@@ -6,6 +6,9 @@ const normalizeBaseUrl = (value) => String(value || "").trim().replace(/\/+$/, "
 const FALLBACK_BASE_URL = "https://online-test-backend-2.onrender.com";
 const BILLING_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL) || FALLBACK_BASE_URL;
 const BILLING_API_URL = `${BILLING_BASE_URL}/api`;
+const DISABLE_DEVICE_LOCK = ["1", "true", "yes", "on"].includes(
+  String(import.meta.env.VITE_DISABLE_DEVICE_LOCK || "").trim().toLowerCase()
+);
 
 const PAYMENT_REQUESTS_KEY = "billing_payment_requests_v1";
 const USER_SUBSCRIPTIONS_KEY = "billing_user_subscriptions_v1";
@@ -834,6 +837,7 @@ const getRoleLocksByFingerprint = (locks, fingerprint, roleForMigration) => {
 };
 
 export const canUseDeviceForPrincipal = (role, principalId) => {
+  if (DISABLE_DEVICE_LOCK) return true;
   const normalizedRole = normalizeDeviceRole(role);
   const principal = String(principalId || "").trim().toLowerCase();
   if (!principal || !SUPPORTED_DEVICE_ROLES.has(normalizedRole)) return false;
@@ -860,6 +864,7 @@ export const canUseDeviceForPrincipal = (role, principalId) => {
 };
 
 export const lockDeviceForPrincipal = (role, principalId) => {
+  if (DISABLE_DEVICE_LOCK) return;
   const normalizedRole = normalizeDeviceRole(role);
   const principal = String(principalId || "").trim().toLowerCase();
   if (!principal || !SUPPORTED_DEVICE_ROLES.has(normalizedRole)) return;

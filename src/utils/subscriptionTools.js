@@ -1,6 +1,9 @@
 import { hasActiveSchoolSubscription, hasActiveTeacherSubscription } from "./billingTools";
 
 const STORAGE_KEY = "teacher_subscription_limits_v1";
+const DISABLE_PLAN_LIMITS = ["1", "true", "yes", "on"].includes(
+  String(import.meta.env.VITE_DISABLE_PLAN_LIMITS || "").trim().toLowerCase()
+);
 
 export const SUBSCRIPTION_PLANS = [
   {
@@ -50,6 +53,18 @@ export const saveTeacherSubscriptionMap = (map) => {
 };
 
 export const getTeacherSubscription = (teacherId) => {
+  if (DISABLE_PLAN_LIMITS) {
+    const monthlyPlan = getPlanById("teacher_monthly");
+    return {
+      teacherId,
+      planId: monthlyPlan.id,
+      label: monthlyPlan.label,
+      maxTests: monthlyPlan.maxTests,
+      maxSolved: monthlyPlan.maxSolved,
+      maxStudents: monthlyPlan.maxStudents,
+      updatedAt: new Date().toISOString(),
+    };
+  }
   if (hasActiveSchoolSubscription()) {
     const schoolPlan = getPlanById("school");
     return {

@@ -1,6 +1,9 @@
 import { getTeacherSubscription } from "./subscriptionTools";
 
 const FREE_PLAN_ID = "free";
+const DISABLE_PLAN_LIMITS = ["1", "true", "yes", "on"].includes(
+  String(import.meta.env.VITE_DISABLE_PLAN_LIMITS || "").trim().toLowerCase()
+);
 const FREE_ALLOWED_PATHS = new Set([
   "/teacher/dashboard",
   "/teacher/tests",
@@ -142,7 +145,7 @@ export const getTeacherPlanId = (teacherId) =>
 
 export const isTeacherFreePlan = (teacherId) => getTeacherPlanId(teacherId) === FREE_PLAN_ID;
 
-export const isTeacherProActive = (teacherId) => !isTeacherFreePlan(teacherId);
+export const isTeacherProActive = (teacherId) => DISABLE_PLAN_LIMITS || !isTeacherFreePlan(teacherId);
 
 export const canTeacherUseFeature = (teacherId, feature) => {
   if (isTeacherProActive(teacherId)) return true;
