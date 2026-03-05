@@ -6,7 +6,7 @@ const normalizeBaseUrl = (value) => String(value || "").trim().replace(/\/+$/, "
 const FALLBACK_BASE_URL = "https://online-test-backend-2.onrender.com";
 const BILLING_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL) || FALLBACK_BASE_URL;
 const BILLING_API_URL = `${BILLING_BASE_URL}/api`;
-const DISABLE_DEVICE_LOCK = ["1", "true", "yes", "on"].includes(
+const DISABLE_DEVICE_LOCK = !["0", "false", "no", "off"].includes(
   String(import.meta.env.VITE_DISABLE_DEVICE_LOCK || "").trim().toLowerCase()
 );
 

@@ -1,7 +1,7 @@
 import { getTeacherSubscription } from "./subscriptionTools";
 
 const FREE_PLAN_ID = "free";
-const DISABLE_PLAN_LIMITS = ["1", "true", "yes", "on"].includes(
+const DISABLE_PLAN_LIMITS = !["0", "false", "no", "off"].includes(
   String(import.meta.env.VITE_DISABLE_PLAN_LIMITS || "").trim().toLowerCase()
 );
 const FREE_ALLOWED_PATHS = new Set([

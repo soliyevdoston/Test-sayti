@@ -1,7 +1,7 @@
 import { hasActiveSchoolSubscription, hasActiveTeacherSubscription } from "./billingTools";
 
 const STORAGE_KEY = "teacher_subscription_limits_v1";
-const DISABLE_PLAN_LIMITS = ["1", "true", "yes", "on"].includes(
+const DISABLE_PLAN_LIMITS = !["0", "false", "no", "off"].includes(
   String(import.meta.env.VITE_DISABLE_PLAN_LIMITS || "").trim().toLowerCase()
 );
 
