@@ -33,7 +33,9 @@ import {
   markNotificationAsRead,
   subscribeNotifications,
 } from "../utils/notificationTools";
-import { releaseDeviceSession } from "../api/api";
+import { releaseDeviceSession, BASE_URL } from "../api/api";
+import { activateSubscription } from "../utils/billingTools";
+import { io } from "socket.io-client";
 
 const ItemButton = ({ icon, label, active, onClick }) => (
   <button
@@ -66,7 +68,39 @@ export default function DashboardLayout({
   const [unreadCount, setUnreadCount] = useState(0);
   const notificationsRef = useRef(null);
   const teacherId = localStorage.getItem("teacherId");
-  const teacherProActive = role === "teacher" ? isTeacherProActive(teacherId) : false;
+  const [teacherProActive, setTeacherProActive] = useState(() =>
+    role === "teacher" ? isTeacherProActive(teacherId) : false
+  );
+
+  useEffect(() => {
+    if (role !== "teacher") return;
+    setTeacherProActive(isTeacherProActive(teacherId));
+  }, [role, teacherId]);
+
+  useEffect(() => {
+    if (role !== "teacher") return undefined;
+    if (!teacherId) return undefined;
+
+    const socket = io(BASE_URL, { transports: ["websocket", "polling"] });
+    socket.on("subscription-activated", (payload) => {
+      if (!payload) return;
+      const userType = String(payload.userType || "").toLowerCase();
+      const userId = String(payload.userId || "").trim();
+      if (userType !== "teacher") return;
+      if (String(teacherId || "").trim() !== userId) return;
+
+      activateSubscription({
+        userType: "teacher",
+        userId: teacherId,
+        planId: payload.planId || "teacher_monthly",
+        activatedBy: "admin_realtime",
+      });
+      setTeacherProActive(true);
+    });
+
+    return () => socket.disconnect();
+  }, [role, teacherId]);
+
   const profilePath = role === "teacher" && !teacherProActive ? "/teacher/subscription" : `/${role}/settings`;
   const teacherBottomNavPath = teacherProActive ? "/teacher/results" : "/teacher/subscription";
   const teacherBottomNavLabel = teacherProActive ? "Natija" : "Obuna";

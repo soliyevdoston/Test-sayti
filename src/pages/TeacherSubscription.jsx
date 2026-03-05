@@ -46,6 +46,7 @@ export default function TeacherSubscription() {
   const teacherId = localStorage.getItem("teacherId");
   const teacherName = localStorage.getItem("teacherName") || "O'qituvchi";
   const teacherEmail = localStorage.getItem("teacherEmail") || "";
+  const teacherLogin = localStorage.getItem("teacherLogin") || "";
 
   const [loading, setLoading] = useState(true);
   const [testsCount, setTestsCount] = useState(0);
@@ -153,7 +154,7 @@ export default function TeacherSubscription() {
         promoCode: pricing.promo.valid ? pricing.promo.code : "",
         referralCode: pricing.referral.valid ? pricing.referral.code : "",
         fullName: teacherName,
-        email: teacherEmail,
+        email: teacherEmail || teacherLogin,
         receipt: receipt.trim(),
         receiptFile: receiptImage,
       });

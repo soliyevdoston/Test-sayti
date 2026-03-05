@@ -147,7 +147,7 @@ export default function StudentSubscription() {
         promoCode: pricing.promo.valid ? pricing.promo.code : "",
         referralCode: pricing.referral.valid ? pricing.referral.code : "",
         fullName: studentName,
-        email: studentEmail,
+        email: studentEmail || localStorage.getItem("studentLogin") || "",
         receipt: receipt.trim(),
         receiptFile: receiptImage,
       });

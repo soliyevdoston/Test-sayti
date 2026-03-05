@@ -1,7 +1,7 @@
 import axios from "axios";
 import { logUserActivity } from "../utils/activityLog";
 import { getTeacherApiAccessState } from "../utils/teacherAccessTools";
-import { getDeviceFingerprint } from "../utils/billingTools";
+import { getDeviceFingerprint, upsertSubscriptionFromServer } from "../utils/billingTools";
 
 const normalizeBaseUrl = (value) => String(value || "").trim().replace(/\/+$/, "");
 const FALLBACK_BASE_URL = "https://online-test-backend-2.onrender.com";
@@ -224,7 +224,23 @@ export const loginUser = async (
     localStorage.setItem("teacherId", res.data.teacherId);
     localStorage.setItem("teacherName", res.data.fullName);
     localStorage.setItem("fullName", res.data.fullName);
+    localStorage.setItem("teacherLogin", String(username || "").trim());
     localStorage.setItem("userRole", "teacher");
+
+    try {
+      const sub = res.data?.subscription;
+      if (sub?.active) {
+        upsertSubscriptionFromServer({
+          userType: "teacher",
+          userId: String(res.data.teacherId || "").trim(),
+          planId: String(sub.planId || "teacher_monthly"),
+          expiresAt: sub.expiresAt,
+          activatedBy: "server_login",
+        });
+      }
+    } catch {
+      // no-op
+    }
 
     return {
       ...res.data,
@@ -246,6 +262,7 @@ export const loginUser = async (
     localStorage.setItem("studentTestId", res.data.testId);
     localStorage.setItem("studentName", resolvedStudentName);
     localStorage.setItem("fullName", resolvedStudentName);
+    localStorage.setItem("studentLogin", String(username || "").trim());
     localStorage.setItem("userRole", "student");
 
     return {

@@ -375,7 +375,7 @@ export default function TeacherTests() {
         planId: "teacher_monthly",
         amount: PAYMENT_CONFIG.teacherMonthlyAmount,
         fullName: teacherName,
-        email: localStorage.getItem("teacherEmail") || "",
+        email: localStorage.getItem("teacherEmail") || localStorage.getItem("teacherLogin") || "",
         receipt: paymentReceipt.trim(),
         receiptFile: paymentReceiptImage,
       });

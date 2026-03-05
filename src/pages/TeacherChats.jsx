@@ -58,7 +58,7 @@ const TeacherChats = () => {
     socketRef.current = io(BASE_URL);
     
     return () => {
-      socketRef.current.disconnect();
+      socketRef.current?.disconnect();
     };
   }, [loadChats, navigate, teacherId]);
 

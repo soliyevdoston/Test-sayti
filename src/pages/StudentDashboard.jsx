@@ -548,7 +548,7 @@ export default function StudentDashboard() {
         planId: "student_monthly",
         amount: PAYMENT_CONFIG.studentMonthlyAmount,
         fullName: studentName,
-        email: localStorage.getItem("studentEmail") || "",
+        email: localStorage.getItem("studentEmail") || localStorage.getItem("studentLogin") || "",
         receipt: studentPaymentReceipt.trim(),
         receiptFile: studentPaymentImage,
       });

@@ -2,6 +2,11 @@ import { logUserActivity } from "./activityLog";
 import { pushNotification } from "./notificationTools";
 import { resolvePaymentPricing, trackMarketingUsage } from "./marketingTools";
 
+const normalizeBaseUrl = (value) => String(value || "").trim().replace(/\/+$/, "");
+const FALLBACK_BASE_URL = "https://online-test-backend-2.onrender.com";
+const BILLING_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL) || FALLBACK_BASE_URL;
+const BILLING_API_URL = `${BILLING_BASE_URL}/api`;
+
 const PAYMENT_REQUESTS_KEY = "billing_payment_requests_v1";
 const USER_SUBSCRIPTIONS_KEY = "billing_user_subscriptions_v1";
 const STUDENT_TEST_PACKS_KEY = "billing_student_test_packs_v1";
@@ -9,6 +14,7 @@ const OAUTH_USERS_KEY = "billing_oauth_users_v1";
 const DEVICE_LOCKS_KEY = "billing_device_locks_v1";
 const SUPPORTED_DEVICE_ROLES = new Set(["admin", "teacher", "student"]);
 const TELEGRAM_CONFIG_KEY = "billing_telegram_config_v1";
+const TELEGRAM_SYNC_KEY = "billing_telegram_sync_v1";
 
 export const PAYMENT_CONFIG = {
   cardNumber: "5614 6819 0341 1746",
@@ -24,6 +30,59 @@ export const PAYMENT_CONFIG = {
   supportPhone: "+998 91 660 56 06",
   telegramBotToken: "8542512239:AAGU79I8KkdinR1V7xIAi2jmd-12-TEkUVg",
   telegramChatId: "8389397224",
+};
+
+const normalizePaymentStatus = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "approved" || normalized === "paid" || normalized === "success") return "approved";
+  if (normalized === "rejected" || normalized === "failed" || normalized === "cancelled" || normalized === "canceled")
+    return "rejected";
+  if (normalized === "pending" || normalized === "waiting") return "pending";
+  return "";
+};
+
+const buildTelegramPaymentMessageText = ({
+  requestId,
+  userId,
+  fullName,
+  email,
+  userType,
+  amount,
+  receipt,
+  planId = "",
+  promoCode = "",
+  referralCode = "",
+  discountPercent = 0,
+  discountAmount = 0,
+  baseAmount = 0,
+  status = "pending",
+  adminNote = "",
+  createdAt = null,
+} = {}) => {
+  const statusLine = String(status || "pending").toUpperCase();
+  const noteLine = adminNote ? `📝 Admin izoh: ${adminNote}\n` : "";
+  const timestamp = createdAt ? new Date(createdAt).toLocaleString("uz-UZ") : new Date().toLocaleString("uz-UZ");
+
+  return (
+    `💳 Obuna to'lov so'rovi\n\n` +
+    `🆔 ID: ${requestId}\n` +
+    `🔑 User ID: ${userId || "-"}\n` +
+    `👤 Ism: ${fullName || "-"}\n` +
+    `📧 Email/Login: ${email || "-"}\n` +
+    `🧩 Rol: ${userType}\n` +
+    `🗂 Tarif: ${planId || "-"}\n` +
+    `🏷 Promo: ${promoCode || "-"}\n` +
+    `🔗 Referral: ${referralCode || "-"}\n` +
+    `📉 Chegirma: ${Number(discountPercent || 0)}% (${Number(discountAmount || 0).toLocaleString("uz-UZ")} ${
+      PAYMENT_CONFIG.currency
+    })\n` +
+    `💵 Asl summa: ${Number(baseAmount || amount || 0).toLocaleString("uz-UZ")} ${PAYMENT_CONFIG.currency}\n` +
+    `💰 Summa: ${Number(amount || 0).toLocaleString("uz-UZ")} ${PAYMENT_CONFIG.currency}\n` +
+    `🧾 Izoh: ${receipt || "-"}\n` +
+    `📌 Holat: ${statusLine}\n` +
+    noteLine +
+    `🕒 ${timestamp}`
+  );
 };
 
 const safeJsonParse = (value, fallback) => {
@@ -240,11 +299,59 @@ export const submitPaymentRequest = async ({
     promoCode,
     referralCode,
   });
+
+  try {
+    const serverRow = await createPaymentRequestOnServer({
+      userType,
+      userId,
+      planId,
+      amount: pricing.finalAmount,
+      fullName,
+      email,
+      receipt,
+      receiptFile,
+    });
+
+    if (serverRow?.requestId) {
+      createPaymentRequest({
+        requestId: serverRow.requestId,
+        userType,
+        userId,
+        planId,
+        amount: pricing.finalAmount,
+        baseAmount: pricing.baseAmount,
+        discountAmount: pricing.discountAmount,
+        discountPercent: pricing.discountPercent,
+        promoCode: pricing.promo.valid ? pricing.promo.code : "",
+        referralCode: pricing.referral.valid ? pricing.referral.code : "",
+        fullName,
+        email,
+        receipt,
+        receiptFileName: serverRow.receiptFileName || receiptFile?.name || "",
+        botDelivered: Boolean(serverRow.botMessageId),
+        botMessageId: serverRow.botMessageId ?? null,
+        botPhotoMessageId: serverRow.botPhotoMessageId ?? null,
+      });
+      return serverRow.requestId;
+    }
+  } catch (error) {
+    // fallback below
+    logUserActivity({
+      action: "payment_request_server_failed",
+      area: "billing",
+      status: "failed",
+      message: error?.message || "Server billing xatoligi",
+      targetRole: String(userType || ""),
+      targetId: String(userId || ""),
+    });
+  }
+
   const requestId = generateUniquePaymentId();
   const telegramInfo = await sendPaymentRequestToTelegram({
     requestId,
     fullName,
     email,
+    userId,
     userType,
     amount: pricing.finalAmount,
     receipt,
@@ -294,6 +401,43 @@ export const updatePaymentRequestStatus = (requestId, status, adminNote = "") =>
   });
   writeArray(PAYMENT_REQUESTS_KEY, next);
   const updated = next.find((request) => request.requestId === requestId);
+
+  if (updated?.botMessageId) {
+    try {
+      const { botToken, chatId } = getTelegramBotConfig();
+      const text = buildTelegramPaymentMessageText({
+        requestId: updated.requestId,
+        userId: updated.userId,
+        fullName: updated.fullName,
+        email: updated.email,
+        userType: updated.userType,
+        amount: updated.amount,
+        receipt: updated.receipt,
+        planId: updated.planId,
+        promoCode: updated.promoCode,
+        referralCode: updated.referralCode,
+        discountPercent: updated.discountPercent,
+        discountAmount: updated.discountAmount,
+        baseAmount: updated.baseAmount,
+        status: nextStatus,
+        adminNote,
+        createdAt: updated.createdAt,
+      });
+
+      fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          message_id: updated.botMessageId,
+          text,
+        }),
+      }).catch(() => {});
+    } catch {
+      // no-op: telegram edit optional
+    }
+  }
+
   logUserActivity({
     action: "payment_request_status_updated",
     area: "billing",
@@ -326,6 +470,26 @@ export const updatePaymentRequestStatus = (requestId, status, adminNote = "") =>
   if (approved) {
     activateSubscriptionFromPayment(approved);
   }
+};
+
+export const patchPaymentRequest = (requestId, patch = {}) => {
+  const id = String(requestId || "").trim();
+  if (!id) return false;
+  const updates = patch && typeof patch === "object" ? patch : {};
+
+  const requests = getAllPaymentRequests();
+  let changed = false;
+  const next = requests.map((request) => {
+    if (request?.requestId !== id) return request;
+    changed = true;
+    return {
+      ...request,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+  });
+  if (changed) writeArray(PAYMENT_REQUESTS_KEY, next);
+  return changed;
 };
 
 const getAllSubscriptions = () => readObject(USER_SUBSCRIPTIONS_KEY);
@@ -378,6 +542,27 @@ export const activateSubscription = ({ userType, userId, planId, activatedBy = "
       expiresAt,
     },
   });
+};
+
+export const upsertSubscriptionFromServer = ({ userType, userId, planId, expiresAt, activatedBy = "server" }) => {
+  if (!userType || !userId) return;
+  const key = toKey(userType, userId);
+  const subscriptions = getAllSubscriptions();
+  const now = new Date().toISOString();
+  const resolvedPlanId = String(planId || "").trim() || "free";
+  const normalizedExpiresAt = expiresAt ? new Date(expiresAt).toISOString() : null;
+
+  subscriptions[key] = {
+    userType,
+    userId,
+    planId: resolvedPlanId,
+    status: resolvedPlanId === "free" || !normalizedExpiresAt ? "inactive" : "active",
+    startedAt: normalizedExpiresAt ? (subscriptions[key]?.startedAt || now) : null,
+    expiresAt: normalizedExpiresAt,
+    activatedBy: String(activatedBy || "server"),
+    updatedAt: now,
+  };
+  saveAllSubscriptions(subscriptions);
 };
 
 export const rejectSubscription = ({ userType, userId, planId = "" }) => {
@@ -598,6 +783,21 @@ export const saveTelegramBotConfig = ({ botToken = "", chatId = "" }) => {
   });
 };
 
+const getTelegramSyncState = () => {
+  const saved = readObject(TELEGRAM_SYNC_KEY);
+  return {
+    lastUpdateId: Number(saved.lastUpdateId || 0),
+    syncedAt: String(saved.syncedAt || ""),
+  };
+};
+
+const saveTelegramSyncState = ({ lastUpdateId = 0 } = {}) => {
+  writeObject(TELEGRAM_SYNC_KEY, {
+    lastUpdateId: Number(lastUpdateId || 0),
+    syncedAt: new Date().toISOString(),
+  });
+};
+
 export const getDeviceFingerprint = () => {
   const parts = [
     navigator.userAgent || "",
@@ -740,6 +940,7 @@ export const sendPaymentRequestToTelegram = async ({
   requestId,
   fullName,
   email,
+  userId,
   userType,
   amount,
   receipt,
@@ -756,20 +957,22 @@ export const sendPaymentRequestToTelegram = async ({
     throw new Error("Bot sozlanmagan. Admin panelda bot token va chat ID kiriting.");
   }
 
-  const text =
-    `💳 Obuna to'lov so'rovi\n\n` +
-    `🆔 ID: ${requestId}\n` +
-    `👤 Ism: ${fullName || "-"}\n` +
-    `📧 Email/Login: ${email || "-"}\n` +
-    `🧩 Rol: ${userType}\n` +
-    `🗂 Tarif: ${planId || "-"}\n` +
-    `🏷 Promo: ${promoCode || "-"}\n` +
-    `🔗 Referral: ${referralCode || "-"}\n` +
-    `📉 Chegirma: ${Number(discountPercent || 0)}% (${Number(discountAmount || 0).toLocaleString("uz-UZ")} ${PAYMENT_CONFIG.currency})\n` +
-    `💵 Asl summa: ${Number(baseAmount || amount || 0).toLocaleString("uz-UZ")} ${PAYMENT_CONFIG.currency}\n` +
-    `💰 Summa: ${amount.toLocaleString("uz-UZ")} ${PAYMENT_CONFIG.currency}\n` +
-    `🧾 Izoh: ${receipt || "-"}\n` +
-    `🕒 ${new Date().toLocaleString("uz-UZ")}`;
+  const text = buildTelegramPaymentMessageText({
+    requestId,
+    userId,
+    fullName,
+    email,
+    userType,
+    amount,
+    receipt,
+    planId,
+    promoCode,
+    referralCode,
+    discountPercent,
+    discountAmount,
+    baseAmount,
+    status: "pending",
+  });
 
   const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
@@ -807,4 +1010,391 @@ export const sendPaymentRequestToTelegram = async ({
     messageId: msgData?.result?.message_id ?? null,
     photoMessageId,
   };
+};
+
+const buildServerHeaders = () => ({
+  Accept: "application/json",
+});
+
+export const syncPaymentRequestsFromServer = async ({ status = "" } = {}) => {
+  const q = status ? `?status=${encodeURIComponent(status)}` : "";
+  const res = await fetch(`${BILLING_API_URL}/billing/payment-requests${q}`, {
+    method: "GET",
+    headers: buildServerHeaders(),
+  });
+  if (!res.ok) throw new Error("Serverdan to'lov so'rovlarini olib bo'lmadi");
+  const rows = await res.json().catch(() => []);
+  const list = Array.isArray(rows) ? rows : [];
+
+  const mapped = list
+    .map((row) => ({
+      requestId: String(row.requestId || ""),
+      userType: String(row.userType || ""),
+      userId: String(row.userId || ""),
+      planId: String(row.planId || ""),
+      amount: Number(row.amount || 0),
+      baseAmount: Number(row.baseAmount || row.amount || 0),
+      discountAmount: Number(row.discountAmount || 0),
+      discountPercent: Number(row.discountPercent || 0),
+      promoCode: String(row.promoCode || ""),
+      referralCode: String(row.referralCode || ""),
+      fullName: String(row.fullName || ""),
+      email: String(row.email || ""),
+      receipt: String(row.receipt || ""),
+      receiptFileName: String(row.receiptFileName || ""),
+      receiptUrl: String(row.receiptUrl || ""),
+      botDelivered: Boolean(row.botMessageId),
+      botMessageId: row.botMessageId ?? null,
+      botPhotoMessageId: row.botPhotoMessageId ?? null,
+      channel: "server",
+      status: String(row.status || "pending").toLowerCase(),
+      adminNote: String(row.adminNote || ""),
+      createdAt: row.createdAt || new Date().toISOString(),
+      updatedAt: row.updatedAt || row.createdAt || new Date().toISOString(),
+      importedFromServer: true,
+    }))
+    .filter((item) => item.requestId);
+
+  const existing = getAllPaymentRequests();
+  const byId = new Map(existing.map((item) => [item?.requestId, item]).filter(([id]) => id));
+  mapped.forEach((row) => {
+    byId.set(row.requestId, { ...(byId.get(row.requestId) || {}), ...row });
+  });
+  const next = Array.from(byId.values()).sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  writeArray(PAYMENT_REQUESTS_KEY, next);
+  return { count: mapped.length };
+};
+
+export const createPaymentRequestOnServer = async ({
+  userType,
+  userId,
+  planId,
+  amount,
+  fullName = "",
+  email = "",
+  receipt = "",
+  receiptFile = null,
+} = {}) => {
+  const form = new FormData();
+  form.append("userType", String(userType || ""));
+  form.append("userId", String(userId || ""));
+  form.append("planId", String(planId || ""));
+  form.append("amount", String(Number(amount || 0)));
+  form.append("fullName", String(fullName || ""));
+  form.append("email", String(email || ""));
+  form.append("receipt", String(receipt || ""));
+  if (receiptFile) form.append("receipt", receiptFile);
+
+  const res = await fetch(`${BILLING_API_URL}/billing/payment-requests`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data?.msg || "Serverga so'rov yuborib bo'lmadi");
+  }
+  const data = await res.json().catch(() => ({}));
+  return data?.request || null;
+};
+
+export const updatePaymentRequestStatusOnServer = async (requestId, status, adminNote = "") => {
+  const res = await fetch(`${BILLING_API_URL}/billing/payment-requests/${encodeURIComponent(String(requestId || ""))}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...buildServerHeaders() },
+    body: JSON.stringify({ status, adminNote }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data?.msg || "Serverda statusni yangilab bo'lmadi");
+  }
+  return true;
+};
+
+export const activateSubscriptionOnServer = async ({ userType, userId, planId, days = 30 } = {}) => {
+  const res = await fetch(`${BILLING_API_URL}/billing/subscriptions/activate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...buildServerHeaders() },
+    body: JSON.stringify({ userType, userId, planId, days }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data?.msg || "Serverda obunani yoqib bo'lmadi");
+  }
+  const data = await res.json().catch(() => ({}));
+  return data?.subscription || null;
+};
+
+const parseTelegramMoney = (value) => {
+  const cleaned = String(value || "").replace(/[^\d]/g, "");
+  const parsed = Number(cleaned || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const parseTelegramPaymentText = (text = "") => {
+  const payload = {
+    requestId: "",
+    userId: "",
+    fullName: "",
+    email: "",
+    userType: "",
+    planId: "",
+    promoCode: "",
+    referralCode: "",
+    discountPercent: 0,
+    discountAmount: 0,
+    baseAmount: 0,
+    amount: 0,
+    receipt: "",
+    status: "",
+  };
+
+  const raw = String(text || "");
+  const matchId = raw.match(/\bPAY-[A-Z0-9-]+\b/i);
+  if (matchId) payload.requestId = matchId[0].toUpperCase();
+
+  const lines = raw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  lines.forEach((line) => {
+    const normalized = line.replace(/^[^\w]*\s*/u, "");
+    const idx = normalized.indexOf(":");
+    if (idx === -1) return;
+    const label = normalized.slice(0, idx).trim().toLowerCase();
+    const value = normalized.slice(idx + 1).trim();
+
+    if (label === "id") payload.requestId = value.split(/\s+/)[0].toUpperCase();
+    else if (label === "user id" || label === "userid" || label === "user_id") payload.userId = value;
+    else if (label === "ism") payload.fullName = value;
+    else if (
+      label === "email/login" ||
+      label === "email" ||
+      label === "login" ||
+      label === "username" ||
+      label === "user" ||
+      label === "foydalanuvchi"
+    ) payload.email = value;
+    else if (label === "rol") payload.userType = value;
+    else if (label === "role") payload.userType = value;
+    else if (label === "tarif") payload.planId = value;
+    else if (label === "plan") payload.planId = value;
+    else if (label === "promo") payload.promoCode = value === "-" ? "" : value;
+    else if (label === "referral") payload.referralCode = value === "-" ? "" : value;
+    else if (label === "izoh") payload.receipt = value === "-" ? "" : value;
+    else if (label === "chegirma") {
+      const percentMatch = value.match(/(\d+(?:[.,]\d+)?)\s*%/);
+      payload.discountPercent = Number(String(percentMatch?.[1] || "0").replace(",", ".")) || 0;
+      payload.discountAmount = parseTelegramMoney(value);
+    } else if (label === "asl summa") payload.baseAmount = parseTelegramMoney(value);
+    else if (label === "summa") payload.amount = parseTelegramMoney(value);
+    else if (label === "holat" || label === "status") payload.status = normalizePaymentStatus(value);
+  });
+
+  return payload;
+};
+
+const parseTelegramRequestIdFromCaption = (caption = "") => {
+  const match = String(caption || "").match(/\bPAY-[A-Z0-9-]+\b/i);
+  return match ? match[0].toUpperCase() : "";
+};
+
+const buildTelegramRequestRecord = ({
+  requestId,
+  messageId,
+  photoMessageId = null,
+  photoFileId = null,
+  messageDateIso = "",
+  parsed = null,
+}) => {
+  const safeParsed = parsed && typeof parsed === "object" ? parsed : {};
+  const createdAt = messageDateIso || new Date().toISOString();
+  const status = normalizePaymentStatus(safeParsed.status) || "pending";
+  return {
+    requestId,
+    userType: safeParsed.userType || "other",
+    userId: safeParsed.userId || "",
+    planId: safeParsed.planId || "",
+    amount: Number(safeParsed.amount || 0),
+    baseAmount: Number(safeParsed.baseAmount || 0),
+    discountAmount: Number(safeParsed.discountAmount || 0),
+    discountPercent: Number(safeParsed.discountPercent || 0),
+    promoCode: safeParsed.promoCode || "",
+    referralCode: safeParsed.referralCode || "",
+    fullName: safeParsed.fullName || "",
+    email: safeParsed.email || "",
+    receipt: safeParsed.receipt || "",
+    receiptFileName: "",
+    botDelivered: true,
+    botMessageId: messageId ?? null,
+    botPhotoMessageId: photoMessageId ?? null,
+    telegramPhotoFileId: photoFileId ?? null,
+    channel: "telegram_bot",
+    status,
+    createdAt,
+    updatedAt: createdAt,
+    importedFromTelegram: true,
+  };
+};
+
+const upsertPaymentRequestRecord = (record) => {
+  if (!record?.requestId) return { imported: 0, updated: 0, record: null };
+  const requests = getAllPaymentRequests();
+  const idx = requests.findIndex((item) => item?.requestId === record.requestId);
+
+  if (idx === -1) {
+    writeArray(PAYMENT_REQUESTS_KEY, [record, ...requests]);
+    return { imported: 1, updated: 0, record };
+  }
+
+  const current = requests[idx] || {};
+  const incomingStatus = normalizePaymentStatus(record.status) || "pending";
+  const currentStatus = normalizePaymentStatus(current.status) || "pending";
+  const mergedStatus =
+    currentStatus !== "pending"
+      ? currentStatus
+      : incomingStatus !== "pending"
+        ? incomingStatus
+        : currentStatus;
+  const merged = {
+    ...current,
+    ...record,
+    status: mergedStatus,
+    adminNote: current.adminNote || "",
+    createdAt: current.createdAt || record.createdAt,
+    updatedAt: new Date().toISOString(),
+  };
+  const next = [...requests];
+  next[idx] = merged;
+  writeArray(PAYMENT_REQUESTS_KEY, next);
+  return { imported: 0, updated: 1, record: merged };
+};
+
+export const syncPaymentRequestsFromTelegram = async ({ maxPages = 8, pageSize = 100 } = {}) => {
+  const { botToken, chatId } = getTelegramBotConfig();
+  if (!botToken || !chatId) {
+    throw new Error("Bot sozlanmagan. Admin panelda bot token va chat ID kiriting.");
+  }
+
+  const syncState = getTelegramSyncState();
+  let offset = syncState.lastUpdateId ? syncState.lastUpdateId + 1 : 0;
+  let lastSeenUpdateId = syncState.lastUpdateId || 0;
+  let imported = 0;
+  let updated = 0;
+  let scanned = 0;
+
+  for (let page = 0; page < maxPages; page += 1) {
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/getUpdates`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        offset: offset || undefined,
+        limit: pageSize,
+        allowed_updates: ["message", "edited_message"],
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error("Telegramdan so'rovlarni olib bo'lmadi");
+    }
+
+    const data = await res.json().catch(() => ({}));
+    const updates = Array.isArray(data?.result) ? data.result : [];
+    if (!updates.length) break;
+
+    updates.forEach((update) => {
+      const updateId = Number(update?.update_id || 0);
+      if (updateId) lastSeenUpdateId = Math.max(lastSeenUpdateId, updateId);
+
+      const message = update?.message || update?.edited_message;
+      if (!message?.chat?.id) return;
+      if (String(message.chat.id) !== String(chatId)) return;
+
+      scanned += 1;
+      const messageId = message.message_id ?? null;
+      const messageDateIso = message.date ? new Date(message.date * 1000).toISOString() : new Date().toISOString();
+
+      if (message.text) {
+        const parsed = parseTelegramPaymentText(message.text);
+        const requestId = String(parsed.requestId || "").trim();
+        if (!requestId) return;
+        const record = buildTelegramRequestRecord({
+          requestId,
+          messageId,
+          messageDateIso,
+          parsed,
+        });
+        const result = upsertPaymentRequestRecord(record);
+        imported += result.imported;
+        updated += result.updated;
+        if (String(result.record?.status || "").toLowerCase() === "approved") {
+          activateSubscriptionFromPayment(result.record);
+        }
+        return;
+      }
+
+      if (message.photo?.length) {
+        const captionText = String(message.caption || "").trim();
+        const captionParsed = captionText ? parseTelegramPaymentText(captionText) : null;
+        const captionRequestId = captionParsed?.requestId || parseTelegramRequestIdFromCaption(captionText);
+        const fallbackRequestId = `TG-${String(message.date || Date.now())}-${String(messageId || Math.random()).replace(/\D/g, "")}`;
+        const requestId = captionRequestId || fallbackRequestId;
+        const bestPhoto = message.photo[message.photo.length - 1];
+        const photoFileId = bestPhoto?.file_id || null;
+        const parsed = captionParsed || (captionText ? { receipt: captionText, userType: "other" } : null);
+        const record = buildTelegramRequestRecord({
+          requestId,
+          messageId,
+          photoMessageId: messageId,
+          photoFileId,
+          messageDateIso,
+          parsed,
+        });
+        const result = upsertPaymentRequestRecord(record);
+        imported += result.imported;
+        updated += result.updated;
+        if (String(result.record?.status || "").toLowerCase() === "approved") {
+          activateSubscriptionFromPayment(result.record);
+        }
+      }
+    });
+
+    if (!lastSeenUpdateId) break;
+    offset = lastSeenUpdateId + 1;
+  }
+
+  if (lastSeenUpdateId && lastSeenUpdateId !== syncState.lastUpdateId) {
+    saveTelegramSyncState({ lastUpdateId: lastSeenUpdateId });
+  }
+
+  logUserActivity({
+    action: "telegram_payments_synced",
+    area: "billing",
+    status: "success",
+    message: "Telegramdan to'lov so'rovlari sinxron qilindi",
+    targetRole: "admin",
+    meta: { imported, updated, scanned, lastUpdateId: lastSeenUpdateId },
+  });
+
+  return { imported, updated, scanned, lastUpdateId: lastSeenUpdateId, syncedAt: new Date().toISOString() };
+};
+
+export const resolveTelegramFileUrl = async (fileId) => {
+  const resolvedId = String(fileId || "").trim();
+  if (!resolvedId) return "";
+  const { botToken } = getTelegramBotConfig();
+  if (!botToken) throw new Error("Bot token topilmadi");
+
+  const res = await fetch(`https://api.telegram.org/bot${botToken}/getFile`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file_id: resolvedId }),
+  });
+  if (!res.ok) {
+    throw new Error("Telegram faylini topib bo'lmadi");
+  }
+  const data = await res.json().catch(() => ({}));
+  const path = data?.result?.file_path;
+  if (!path) return "";
+  return `https://api.telegram.org/file/bot${botToken}/${path}`;
 };

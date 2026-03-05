@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import {
   BookOpen,
@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import {
   addStudentApi,
+  BASE_URL,
   deleteTeacher,
   getMyResults,
   getResultsApi,
@@ -33,6 +34,7 @@ import {
   getTeacherTests,
   updateTeacher,
 } from "../api/api";
+import { io } from "socket.io-client";
 import DashboardLayout from "../components/DashboardLayout";
 import ConfirmationModal from "../components/ConfirmationModal";
 import { buildCredentialsText, prepareStudentRecord } from "../utils/academicTools";
@@ -48,6 +50,7 @@ import {
 import { getTeacherTestUsage } from "../utils/testUsageTools";
 import {
   activateSubscription,
+  activateSubscriptionOnServer,
   getAllPaymentRequests,
   getBillingSummary,
   getOauthUsers,
@@ -56,9 +59,12 @@ import {
   getDeviceLocksReport,
   isSubscriptionActive,
   PAYMENT_CONFIG,
+  patchPaymentRequest,
   saveTelegramBotConfig,
   unlockDevicePrincipal,
+  syncPaymentRequestsFromServer,
   updatePaymentRequestStatus,
+  updatePaymentRequestStatusOnServer,
 } from "../utils/billingTools";
 import { clearActivityLogs, getActivityLogs, getActivityStats } from "../utils/activityLog";
 import { getAssignedCatalogIds, setAssignedCatalogIds } from "../utils/personalAssignmentsTools";
@@ -132,6 +138,7 @@ const resolveAdminSection = (section) =>
 
 export default function AdminDashboard({ initialSection = "overview" }) {
   const activeSection = resolveAdminSection(initialSection);
+  const socketRef = useRef(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [teachers, setTeachers] = useState([]);
   const [teacherAnalytics, setTeacherAnalytics] = useState({});
@@ -167,6 +174,9 @@ export default function AdminDashboard({ initialSection = "overview" }) {
   const [paymentRequests, setPaymentRequests] = useState([]);
   const [oauthUsers, setOauthUsers] = useState([]);
   const [botConfig, setBotConfig] = useState({ botToken: "", chatId: "" });
+  const [billingSyncing, setBillingSyncing] = useState(false);
+  const [openingReceipt, setOpeningReceipt] = useState("");
+  const telegramSyncingRef = useRef(false);
   const [catalogEntries, setCatalogEntries] = useState([]);
   const [catalogTeacherId, setCatalogTeacherId] = useState("");
   const [catalogTeacherTests, setCatalogTeacherTests] = useState([]);
@@ -292,34 +302,39 @@ export default function AdminDashboard({ initialSection = "overview" }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const refreshCatalogData = () => {
-    setCatalogEntries(getStudentCatalogTests());
-  };
+  useEffect(() => {
+    socketRef.current = io(BASE_URL, { transports: ["websocket", "polling"] });
+    return () => socketRef.current?.disconnect();
+  }, []);
 
-  const refreshBillingData = () => {
+  const refreshCatalogData = useCallback(() => {
+    setCatalogEntries(getStudentCatalogTests());
+  }, []);
+
+  const refreshBillingData = useCallback(() => {
     const requests = getAllPaymentRequests();
     const users = getOauthUsers();
     setPaymentRequests(requests);
     setOauthUsers(users);
     setBotConfig(getTelegramBotConfig());
     setDeviceLocks(getDeviceLocksReport());
-  };
+  }, []);
 
-  const refreshActivityData = () => {
+  const refreshActivityData = useCallback(() => {
     setActivityLogs(getActivityLogs());
-  };
+  }, []);
 
-  const refreshAdminManagementData = () => {
+  const refreshAdminManagementData = useCallback(() => {
     setSubAdmins(listSubAdmins());
     setCurrentAdminPrincipal(getCurrentAdminPrincipal());
     setOwnerAccess(canCurrentAdminManageAdmins());
-  };
+  }, []);
 
-  const refreshMarketData = () => {
+  const refreshMarketData = useCallback(() => {
     setTeacherSaleRequests(getTeacherTestSaleRequests());
     setMarketTests(getTeacherMarketTests());
     setTeacherBonusMap(getTeacherBonusMap());
-  };
+  }, []);
 
   useEffect(() => {
     refreshCatalogData();
@@ -327,7 +342,22 @@ export default function AdminDashboard({ initialSection = "overview" }) {
     refreshActivityData();
     refreshAdminManagementData();
     refreshMarketData();
-  }, []);
+  }, [refreshActivityData, refreshAdminManagementData, refreshBillingData, refreshCatalogData, refreshMarketData]);
+
+  useEffect(() => {
+    const handler = (event) => {
+      if (!event?.key) return;
+      if (event.key === "billing_payment_requests_v1" || event.key === "billing_telegram_config_v1") {
+        refreshBillingData();
+        return;
+      }
+      if (event.key === "activity_logs_v1") {
+        refreshActivityData();
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, [refreshActivityData, refreshBillingData]);
 
   useEffect(() => {
     if (activeSection === "access") {
@@ -342,7 +372,7 @@ export default function AdminDashboard({ initialSection = "overview" }) {
     if (activeSection === "market") {
       refreshMarketData();
     }
-  }, [activeSection]);
+  }, [activeSection, refreshActivityData, refreshAdminManagementData, refreshBillingData, refreshMarketData]);
 
   const loadTeacherManagementData = async (teacherId) => {
     if (!teacherId) {
@@ -977,18 +1007,53 @@ export default function AdminDashboard({ initialSection = "overview" }) {
       return;
     }
     const actionText = status === "approved" ? "tasdiqlash" : "rad etish";
+    const eligible =
+      status === "approved"
+        ? pending.filter((request) => {
+            const role = String(request?.userType || "").toLowerCase();
+            if (!["teacher", "student", "school"].includes(role)) return false;
+            return Boolean(String(request?.userId || "").trim());
+          })
+        : pending;
+
+    if (status === "approved") {
+      const blockedCount = pending.length - eligible.length;
+      if (!eligible.length) {
+        toast.warning("Paid qilish uchun userId topilmadi (pendinglar ichida mos user yo'q).");
+        return;
+      }
+      if (blockedCount) {
+        toast.warning(`Paid qilinmaydiganlar: ${blockedCount} ta (userId yo'q yoki rol noma'lum).`);
+      }
+    }
     showConfirm(
-      `${pending.length} ta pending so'rovni biryo'la ${actionText}ni xohlaysizmi?`,
-      () => {
-        pending.forEach((request) => {
-          updatePaymentRequestStatus(
-            request.requestId,
-            status,
-            status === "approved" ? "Admin bulk tasdiqladi" : "Admin bulk rad etdi"
+      `${eligible.length} ta pending so'rovni biryo'la ${actionText}ni xohlaysizmi?`,
+      async () => {
+        try {
+          await Promise.all(
+            eligible.map((request) =>
+              updatePaymentRequestStatusOnServer(
+                request.requestId,
+                status,
+                status === "approved" ? "Admin bulk tasdiqladi" : "Admin bulk rad etdi"
+              )
+            )
           );
-        });
-        refreshBillingData();
-        toast.success(`${pending.length} ta so'rov ${actionText} qilindi`);
+          await syncPaymentsFromServerOnce();
+          refreshActivityData();
+          toast.success(`${eligible.length} ta so'rov ${actionText} qilindi`);
+        } catch (err) {
+          eligible.forEach((request) => {
+            updatePaymentRequestStatus(
+              request.requestId,
+              status,
+              status === "approved" ? "Admin bulk tasdiqladi (local)" : "Admin bulk rad etdi (local)"
+            );
+          });
+          refreshBillingData();
+          refreshActivityData();
+          toast.warning(err?.message || "Server ishlamadi, local yangilandi");
+        }
       },
       status === "approved" ? "info" : "danger",
       "Bulk to'lov nazorati"
@@ -1127,11 +1192,35 @@ export default function AdminDashboard({ initialSection = "overview" }) {
     }
   };
 
-  const handlePaymentDecision = (requestId, status) => {
-    updatePaymentRequestStatus(requestId, status, status === "approved" ? "Admin tasdiqladi" : "Admin rad etdi");
-    refreshBillingData();
-    refreshActivityData();
-    toast.success(status === "approved" ? "To'lov tasdiqlandi" : "To'lov rad etildi");
+  const handlePaymentDecision = async (requestId, status) => {
+    const request = paymentRequests.find((item) => item?.requestId === requestId);
+    if (status === "approved") {
+      const role = String(request?.userType || "").toLowerCase();
+      const userId = String(request?.userId || "").trim();
+      if (!["teacher", "student", "school"].includes(role)) {
+        toast.warning("Bu so'rovda rol aniqlanmagan. Avval Telegram captioniga rol/login yozing yoki platformadan yuboring.");
+        return;
+      }
+      if (!userId) {
+        toast.warning("Paid qilish uchun user topilmadi (userId yo'q). Telegram captioniga login/username yozing yoki platformadan yuboring.");
+        return;
+      }
+    }
+    try {
+      await updatePaymentRequestStatusOnServer(
+        requestId,
+        status,
+        status === "approved" ? "Admin tasdiqladi" : "Admin rad etdi"
+      );
+      await syncPaymentsFromServerOnce();
+      refreshActivityData();
+      toast.success(status === "approved" ? "Paid qilindi" : "Rad etildi");
+    } catch (err) {
+      updatePaymentRequestStatus(requestId, status, status === "approved" ? "Admin tasdiqladi (local)" : "Admin rad etdi (local)");
+      refreshBillingData();
+      refreshActivityData();
+      toast.warning(err?.message || "Serverga ulanib bo'lmadi, local yangilandi");
+    }
   };
 
   const handleSaleDecision = (requestId, status) => {
@@ -1162,6 +1251,64 @@ export default function AdminDashboard({ initialSection = "overview" }) {
     refreshActivityData();
     toast.success("Bot sozlamalari saqlandi");
   };
+
+  const syncPaymentsFromServerOnce = useCallback(async () => {
+    if (telegramSyncingRef.current) return;
+    try {
+      telegramSyncingRef.current = true;
+      setBillingSyncing(true);
+      const result = await syncPaymentRequestsFromServer();
+
+      const normalize = (value) => String(value || "").trim().toLowerCase();
+      const escapeRegExp = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      let resolvedUserIds = 0;
+      if (teachers.length) {
+        getAllPaymentRequests().forEach((request) => {
+          if (String(request?.userType || "").toLowerCase() !== "teacher") return;
+          if (String(request?.userId || "").trim()) return;
+          const queryLogin = normalize(request?.email);
+          const queryName = normalize(request?.fullName);
+          const queryReceipt = normalize(request?.receipt);
+          if (!queryLogin && !queryName) return;
+
+          const matches = teachers.filter((teacher) => {
+            const teacherLogin = normalize(teacher?.username);
+            const teacherName = normalize(teacher?.fullName);
+            if (queryLogin && teacherLogin && teacherLogin === queryLogin) return true;
+            if (queryName && teacherName && teacherName === queryName) return true;
+            if (queryReceipt && teacherLogin && new RegExp(`\\b${escapeRegExp(teacherLogin)}\\b`, "i").test(queryReceipt)) return true;
+            return false;
+          });
+
+          if (matches.length !== 1) return;
+          const teacherId = matches[0]?._id;
+          if (!teacherId) return;
+          const patched = patchPaymentRequest(request.requestId, { userId: teacherId });
+          if (patched) resolvedUserIds += 1;
+        });
+      }
+
+      refreshBillingData();
+      refreshActivityData();
+      toast.success(
+        `Serverdan yangilandi: ${result.count || 0}${resolvedUserIds ? ` / userId: ${resolvedUserIds}` : ""}`
+      );
+    } catch (err) {
+      toast.error(err?.message || "Serverdan sinxronlashda xatolik");
+    } finally {
+      setBillingSyncing(false);
+      telegramSyncingRef.current = false;
+    }
+  }, [refreshActivityData, refreshBillingData, teachers]);
+
+  useEffect(() => {
+    if (activeSection !== "billing") return undefined;
+    syncPaymentsFromServerOnce();
+    const intervalId = window.setInterval(() => {
+      syncPaymentsFromServerOnce();
+    }, 10000);
+    return () => window.clearInterval(intervalId);
+  }, [activeSection, syncPaymentsFromServerOnce]);
 
   const handleAddCatalogTest = () => {
     if (!catalogTeacherId) return toast.warning("Avval o'qituvchini tanlang");
@@ -1218,14 +1365,33 @@ export default function AdminDashboard({ initialSection = "overview" }) {
   const handleGrantSubscription = () => {
     if (manualGrantType === "teacher") {
       if (!manualTeacherTargetId) return toast.warning("O'qituvchi tanlang");
-      activateSubscription({
+      activateSubscriptionOnServer({
         userType: "teacher",
         userId: manualTeacherTargetId,
         planId: "teacher_monthly",
-        activatedBy: "admin_manual",
-      });
-      refreshActivityData();
-      toast.success("O'qituvchiga obuna ulab berildi");
+        days: 30,
+      })
+        .then(() => {
+          syncPaymentsFromServerOnce();
+          refreshActivityData();
+          toast.success("O'qituvchiga Pro obuna yoqildi");
+        })
+        .catch((err) => {
+          activateSubscription({
+            userType: "teacher",
+            userId: manualTeacherTargetId,
+            planId: "teacher_monthly",
+            activatedBy: "admin_manual_local",
+          });
+          socketRef.current?.emit("subscription-activated", {
+            userType: "teacher",
+            userId: String(manualTeacherTargetId || "").trim(),
+            planId: "teacher_monthly",
+            requestId: "manual_grant",
+          });
+          refreshActivityData();
+          toast.warning(err?.message || "Server ishlamadi, local yoqildi");
+        });
       return;
     }
 
@@ -1235,6 +1401,12 @@ export default function AdminDashboard({ initialSection = "overview" }) {
       userId: manualStudentTargetId,
       planId: "student_monthly",
       activatedBy: "admin_manual",
+    });
+    socketRef.current?.emit("subscription-activated", {
+      userType: "student",
+      userId: String(manualStudentTargetId || "").trim(),
+      planId: "student_monthly",
+      requestId: "manual_grant",
     });
     refreshActivityData();
     toast.success("O'quvchiga obuna ulab berildi");
@@ -2063,7 +2235,7 @@ export default function AdminDashboard({ initialSection = "overview" }) {
                             className="px-3 py-1 rounded-md bg-green-500/10 text-green-600 text-xs font-semibold"
                             onClick={() => handlePaymentDecision(request.requestId, "approved")}
                           >
-                            Tasdiqlash
+                            Paid
                           </button>
                           <button
                             type="button"
@@ -2084,6 +2256,14 @@ export default function AdminDashboard({ initialSection = "overview" }) {
                 <div className="flex gap-2">
                   <button type="button" className="btn-secondary" onClick={refreshBillingData}>
                     <RefreshCcw size={14} /> Yangilash
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={syncPaymentsFromServerOnce}
+                    disabled={billingSyncing}
+                  >
+                    <RefreshCcw size={14} /> {billingSyncing ? "Sync..." : "Server Sync"}
                   </button>
                   <button type="button" className="btn-secondary" onClick={handleExportPaymentsCsv}>
                     <Download size={14} /> CSV
@@ -2179,7 +2359,25 @@ export default function AdminDashboard({ initialSection = "overview" }) {
                             </p>
                           </td>
                           <td className="py-4 pr-2 min-w-[180px] text-xs text-secondary break-all">
-                            {request.receiptFileName ? `Rasm: ${request.receiptFileName}` : request.receipt || "-"}
+                            {request.receiptUrl ? (
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-2 text-blue-700 underline"
+                                onClick={() => {
+                                  setOpeningReceipt(request.requestId);
+                                  window.open(request.receiptUrl, "_blank", "noopener,noreferrer");
+                                  setTimeout(() => setOpeningReceipt(""), 600);
+                                }}
+                                disabled={openingReceipt === request.requestId}
+                              >
+                                <Eye size={14} />
+                                {openingReceipt === request.requestId ? "Ochilyapti..." : "Chekni ko'rish"}
+                              </button>
+                            ) : request.receiptFileName ? (
+                              `Rasm: ${request.receiptFileName}`
+                            ) : (
+                              request.receipt || "-"
+                            )}
                           </td>
                           <td className="py-4 pr-2 min-w-[100px]">
                             <span
@@ -2213,7 +2411,7 @@ export default function AdminDashboard({ initialSection = "overview" }) {
                                   className="px-3 py-1 rounded-md bg-green-500/10 text-green-600 text-xs font-semibold"
                                   onClick={() => handlePaymentDecision(request.requestId, "approved")}
                                 >
-                                  Tasdiqlash
+                                  Paid
                                 </button>
                                 <button
                                   type="button"
